@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { Hello, version } from './index'
+import * as td from './index'
 
-describe('td-core scaffold', () => {
+describe('td-core public surface', () => {
   it('exposes a version string', () => {
-    expect(version).toBe('0.0.0')
+    expect(typeof td.version).toBe('string')
   })
 
-  it('exports the Hello component', () => {
-    expect(typeof Hello).toBe('function')
+  it('exports the Phase 2 API', () => {
+    expect(typeof td.parse).toBe('function')
+    expect(td.PROTOCOL_VERSION).toBe(1)
+    expect(typeof td.createTDConnection).toBe('function')
+    expect(typeof td.createTDClient).toBe('function')
+    expect(typeof td.createTDSignal).toBe('function')
+    expect(typeof td.TextInput).toBe('function')
+    expect(typeof td.NumberInput).toBe('function')
+    expect(typeof td.RangeInput).toBe('function')
+    expect(typeof td.Value).toBe('function')
   })
 })

@@ -1,0 +1,65 @@
+import { describe, expect, it } from 'vitest'
+import { parse, PROTOCOL_VERSION } from './wire'
+
+describe('parse', () => {
+  it('parses each known message type', () => {
+    expect(parse('{"type":"hello","protocol":1}')).toEqual({ type: 'hello', protocol: 1 })
+    expect(parse('{"type":"snapshot-request"}')).toEqual({ type: 'snapshot-request' })
+    expect(parse('{"type":"welcome","protocol":1}')).toEqual({ type: 'welcome', protocol: 1 })
+    expect(parse('{"type":"welcome","protocol":1,"instance":"render"}')).toEqual({
+      type: 'welcome',
+      protocol: 1,
+      instance: 'render',
+    })
+    expect(parse('{"type":"snapshot","params":{"a":1}}')).toEqual({
+      type: 'snapshot',
+      params: { a: 1 },
+    })
+    expect(parse('{"type":"update","params":{"a":1}}')).toEqual({
+      type: 'update',
+      params: { a: 1 },
+    })
+  })
+
+  it('accepts every wire-legal value shape in a params map', () => {
+    const msg = parse(
+      '{"type":"update","params":{"n":1.5,"s":"hi","b":true,"arr":[1,0,0,1]}}',
+    )
+    expect(msg).toEqual({
+      type: 'update',
+      params: { n: 1.5, s: 'hi', b: true, arr: [1, 0, 0, 1] },
+    })
+  })
+
+  it('returns null for malformed JSON', () => {
+    expect(parse('{not json')).toBeNull()
+    expect(parse('')).toBeNull()
+  })
+
+  it('returns null for non-object payloads', () => {
+    expect(parse('42')).toBeNull()
+    expect(parse('"hello"')).toBeNull()
+    expect(parse('[1,2,3]')).toBeNull()
+    expect(parse('null')).toBeNull()
+  })
+
+  it('drops unknown message types', () => {
+    expect(parse('{"type":"pulse","name":"reset"}')).toBeNull()
+    expect(parse('{"type":"rtc-offer","sdp":"..."}')).toBeNull()
+    expect(parse('{"type":"totally-made-up"}')).toBeNull()
+    expect(parse('{"protocol":1}')).toBeNull()
+  })
+
+  it('rejects structurally invalid known types', () => {
+    expect(parse('{"type":"welcome"}')).toBeNull() // missing protocol
+    expect(parse('{"type":"hello","protocol":"1"}')).toBeNull() // wrong protocol type
+    expect(parse('{"type":"snapshot"}')).toBeNull() // missing params
+    expect(parse('{"type":"update","params":42}')).toBeNull() // params not a map
+    expect(parse('{"type":"update","params":{"bad":{"nested":1}}}')).toBeNull()
+    expect(parse('{"type":"update","params":{"arr":[1,"x"]}}')).toBeNull() // mixed array
+  })
+
+  it('exports the current protocol version', () => {
+    expect(PROTOCOL_VERSION).toBe(1)
+  })
+})

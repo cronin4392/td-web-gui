@@ -1,0 +1,48 @@
+/**
+ * `<RangeInput>` — range slider bound to a TD number parameter (Phase 2.4).
+ *
+ * Same optimistic local write + send-on-change + focus-driven echo suppression
+ * as `<TextInput>`. Unlike `<NumberInput>`, a slider's value is always a valid
+ * in-range number, so there's no empty/`NaN`/clamp handling — the browser keeps
+ * it within `min`/`max`. The control stays fully controlled (`value={…}`) since,
+ * unlike a text field, there's no cursor to fight while TD echoes flow in.
+ */
+
+import { splitProps, type JSX } from 'solid-js'
+import { createTDSignal } from '../context'
+import { callHandler } from './TextInput'
+
+export interface RangeInputProps
+  extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'name' | 'value' | 'type'> {
+  /** TD parameter name to bind. */
+  name: string
+  min?: number
+  max?: number
+  step?: number | string
+}
+
+export function RangeInput(props: RangeInputProps): JSX.Element {
+  const binding = createTDSignal<number>(props.name)
+  const [, rest] = splitProps(props, ['name', 'onInput', 'onFocus', 'onBlur'])
+
+  return (
+    <input
+      type="range"
+      class="td-range-input"
+      {...rest}
+      value={binding.value() ?? props.min ?? 0}
+      onInput={(event) => {
+        binding.setValue(Number(event.currentTarget.value))
+        callHandler(props.onInput, event)
+      }}
+      onFocus={(event) => {
+        binding.beginEdit()
+        callHandler(props.onFocus, event)
+      }}
+      onBlur={(event) => {
+        binding.endEdit()
+        callHandler(props.onBlur, event)
+      }}
+    />
+  )
+}
