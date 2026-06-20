@@ -16,13 +16,14 @@ Status legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Phase 1 — Project scaffolding (no business logic)
 
-- [ ] **1.1 — Init pnpm workspace.** Root `package.json`, `pnpm-workspace.yaml` (globs `packages/*`, `apps/*`), `.gitignore`, shared base `tsconfig.json`. No application code.
+- [x] **1.1 — Init pnpm workspace.** Root `package.json`, `pnpm-workspace.yaml` (globs `packages/*`, `apps/*`), `.gitignore`, shared base `tsconfig.json`. No application code.
   - *Done when:* `pnpm install` succeeds on the empty workspace.
-- [ ] **1.2 — Scaffold `packages/td-core` as a Solid library.** Vite lib mode + `vite-plugin-solid` (JSX-preserving, **not** pre-compiled DOM), `solid-js` as a `peerDependency`, `exports` map with type declarations, package `tsconfig`. Export one trivial symbol.
+- [x] **1.2 — Scaffold `packages/td-core` as a Solid library.** Vite lib mode + `vite-plugin-solid` (JSX-preserving, **not** pre-compiled DOM), `solid-js` as a `peerDependency`, `exports` map with type declarations, package `tsconfig`. Export one trivial symbol.
   - *Done when:* `pnpm --filter td-core build` emits JSX-preserving output + `.d.ts`.
-- [ ] **1.3 — Scaffold `apps/example` Solid app.** Vite + Solid, depends on `td-core` via `workspace:*`, renders the trivial `td-core` export.
+  - *Note:* the build uses `tsc` with `jsx: "preserve"` rather than Vite lib mode — `vite-plugin-solid` always pre-compiles JSX to DOM calls (which this task forbids) and Vite's rollup bundler can't emit JSX-preserved output, so `tsc` is what actually delivers JSX-preserving `.jsx` + `.d.ts` with `solid-js` external. `vite-plugin-solid` still powers the example app and Vitest.
+- [x] **1.3 — Scaffold `apps/example` Solid app.** Vite + Solid, depends on `td-core` via `workspace:*`, renders the trivial `td-core` export.
   - *Done when:* `pnpm --filter example dev` shows the symbol in-browser.
-- [ ] **1.4 — Vitest in `td-core`.** Config + one passing trivial test.
+- [x] **1.4 — Vitest in `td-core`.** Config + one passing trivial test.
   - *Done when:* `pnpm --filter td-core test` is green.
 
 ---
