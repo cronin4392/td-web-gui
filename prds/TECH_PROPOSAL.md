@@ -26,7 +26,7 @@ The web UI talks to **multiple TD instances running on the same machine** — ea
 
 WebRTC is a **core v1 feature**, not deferred. Its signaling (SDP offer/answer + ICE candidates) is **multiplexed over the same WebSocket** connection used for control data — one connection to manage, no extra TD components or second socket.
 
-v1 media scope is **video TD → Web only**. Audio, webcam/mic Web → TD, and WebRTC data channels are explicitly out of scope for v1 (the `<TDVideo />` / peer-connection design should not preclude them later).
+v1 media scope is **video TD → Web only**. Audio, webcam/mic Web → TD, and WebRTC data channels are explicitly out of scope for v1 (the `<Video />` / peer-connection design should not preclude them later).
 
 ### Architecture
 
@@ -36,10 +36,10 @@ v1 media scope is **video TD → Web only**. Audio, webcam/mic Web → TD, and W
 │                                     │       │ TD instance "a"     │
 │  ┌───────────────────────────────┐  │◄─WS──►│ :9980 Web Server DAT│
 │  │  td-core (reusable lib)       │  │◄WebRTC│       WebRTC DAT     │
-│  │                               │  │       └─────────────────────┘
-│  │  • createTDConnection()       │  │       ┌─────────────────────┐
-│  │  • createTDVideoStream()      │  │◄─WS──►│ TD instance "b"     │
-│  │  • <TDVideo /> component      │  │◄WebRTC│ :9981 Web Server DAT│
+│  │  • createTDClient<S>() factory│  │       └─────────────────────┘
+│  │     ↳ createTDConnection()    │  │       ┌─────────────────────┐
+│  │     ↳ createTDVideoStream()   │  │◄─WS──►│ TD instance "b"     │
+│  │     ↳ <Video />, controls     │  │◄WebRTC│ :9981 Web Server DAT│
 │  │                               │  │       │       WebRTC DAT     │
 │  └───────────────────────────────┘  │       └─────────────────────┘
 │                                     │       ┌─────────────────────┐
@@ -54,7 +54,9 @@ No backend server required — each TouchDesigner instance acts as its own serve
 
 ### Security & serving model
 
-This runs on a **single closed system** — the web UI, all TD instances, and the browser are on the same trusted machine. Decisions follow from that:
+This runs on a **single closed system** — the web UI, all TD instances, and the browser are on the same trusted machine, and the app is **never deployed remotely** (no hosting, no other machines). Decisions follow from that:
+
+- **Target browsers — desktop Firefox and Chrome only.** No mobile, no Safari/WebKit target, so WebRTC, autoplay, secure-context, and pointer-event behavior only need to hold on current desktop Gecko and Blink. This narrows the test matrix and means a few defensive attributes below (e.g. `<video playsinline>`) are belt-and-suspenders rather than load-bearing.
 
 - **App served over plain HTTP from `localhost`** (Vite dev server, or any static host on the box). Because the page is `http://localhost`, it can open `ws://localhost:<port>` connections with no mixed-content blocking — no TLS / `wss` needed.
 - **No authentication / authorization, enforced by a loopback bind.** The Web Server DAT (which also carries WebRTC signaling) is bound to **`127.0.0.1`**, not `0.0.0.0`, so it is reachable only from the local machine and there's no untrusted network surface to authenticate against. Auth is explicitly out of scope — but note the "closed system" guarantee is *enforced* by the loopback bind (and/or a host firewall), not merely assumed. TD's Web Server DAT can bind all interfaces by default, so this is a deliberate setting in the reference project, not a given. Exposing the app to other machines would mean revisiting both the bind address and auth.
@@ -95,30 +97,33 @@ This repo **owns a reference TD project** under `td/` so the web UI is testable 
 
 **`td-core`** — reusable Solid.js library, droppable into any Solid project
 
-- **Primitives** (reactive signals + connection logic):
-  - `createTDConnection(url)` — WebSocket connection manager; returns reactive connection **status** signal, `send()`, and `reconnect()`. Handles auto-reconnect with exponential backoff and re-syncs parameter state on reconnect.
-  - `createTDSignal(name)` — binds a Solid signal to a named TD parameter, syncs bidirectionally over WebSocket.
+- **Typed entry point** — `createTDClient<Schema>()` is the primary API: it returns a **schema-bound bundle** — a typed `Provider`, the control/display components (`TextInput`, `NumberInput`, `Range`, `Video`, …), and the signal helpers (`signal`, `store`, `videoStream`) — all generic over that instance's param map, so parameter `name`s autocomplete and typos are compile errors *inside JSX*. One factory per TD instance (schemas are heterogeneous, see *Type safety*). See [TECH_PROPOSAL.md:131-158](prds/TECH_PROPOSAL.md#L131-L158) for the rationale and shape.
+- **Primitives** (reactive signals + connection logic, the single implementation the factory wraps):
+  - `createTDConnection<Schema>(url)` — WebSocket connection manager; returns reactive connection **status** signal, typed `signal()` / `store()` / `videoStream()` methods, `send()`, and `reconnect()`. Handles auto-reconnect with exponential backoff and re-syncs parameter state on reconnect. Usable standalone with **zero context** (e.g. non-component code). `createTDClient` and `<Provider>` are thin layers over this — there's one connection implementation, not two.
+  - `createTDSignal(name)` — context sugar: binds a Solid signal to a named TD parameter on the **nearest provider's** connection (calls that connection's `.signal()` underneath). Used internally by the factory's components; available directly for custom components.
   - `createTDStore(paramMap)` — batch version for grouped parameters.
   - `createTDVideoStream(config)` — WebRTC setup (signaling multiplexed over the WS connection), returns a `MediaStream` signal. Supports **multiple video tracks per peer connection**, so one instance can expose several streams without opening extra peers. Streams are addressed by an explicit id rather than assuming one-video-per-instance.
-- **Components — Controls** (bidirectional, bound to TD parameters):
-  - `<TDTextInput name="par_name" />` — text input bound to a TD string parameter; sends on change, updates when TD pushes a new value.
-  - `<TDNumberInput name="par_name" />` — numeric input with optional `min`, `max`, `step`; bidirectional sync.
-  - `<TDRange name="par_name" />` — range slider with optional `min`, `max`, `step`; sends continuous values to TD (throttled by default), reflects TD-side changes.
-  - `<TDToggle name="par_name" />` — checkbox bound to a TD **bool** (Toggle) parameter; sends `true`/`false`, reflects TD-side changes.
-  - `<TDButton name="par_name" mode="pulse|hold|toggle" />` — a button with three modes:
+- **Components — Controls** (bidirectional, bound to TD parameters) — each is a member of the `createTDClient<Schema>()` bundle, used namespaced (e.g. `<Mixer.Range>`); listed here by bare member name:
+  - `<TextInput name="par_name" />` — text input bound to a TD string parameter; sends on change, updates when TD pushes a new value.
+  - `<NumberInput name="par_name" />` — numeric input with optional `min`, `max`, `step`; bidirectional sync.
+  - `<Range name="par_name" />` — range slider with optional `min`, `max`, `step`; sends continuous values to TD (throttled by default), reflects TD-side changes.
+  - `<Toggle name="par_name" />` — checkbox bound to a TD **bool** (Toggle) parameter; sends `true`/`false`, reflects TD-side changes.
+  - `<Button name="par_name" mode="pulse|hold|toggle" />` — a button with three modes:
     - **`mode="pulse"`** (default) — fires a TD **pulse** (momentary) parameter. Pulses are **fire-and-forget events, not values**: clicking sends a dedicated `pulse` message rather than an `update`, the component holds no synced state, and it is **web → TD only** (excluded from snapshot/echo logic). One pulse per activation.
-    - **`mode="hold"`** — momentary on/off bound to a TD **bool** parameter: sends `true` on press (pointerdown), `false` on release (pointerup / pointer-leave). This is a normal bool `update`, so it's stateful and bidirectional — the button reflects the param's live value (e.g. active styling) and an external TD-side change updates it.
-    - **`mode="toggle"`** — bound to a TD **bool** parameter; each click flips the value. Same wire path as `<TDToggle>` (bool `update`, bidirectional) but rendered as a button — this is the "TD has a toggle, shown as a button in the web UI" case.
+    - **`mode="hold"`** — momentary on/off bound to a TD **bool** parameter: sends `true` on press, `false` on release. This is a normal bool `update`, so it's stateful and bidirectional — the button reflects the param's live value (e.g. active styling) and an external TD-side change updates it. Two correctness details so the bool can't get stranded `true`:
+        - **Pointer capture for press/release.** On pointerdown the button calls `setPointerCapture`, so `pointerup` is delivered even if the cursor has dragged off the element by release. `pointercancel` and `lostpointercapture` (and a window `blur` while held) are all treated as release → send `false`, covering the "released outside the window / OS stole focus mid-press" cases that a bare `pointerleave` handler misses.
+        - **Keyboard accessibility.** Pointer events alone make hold keyboard-inaccessible, so it's also a real `<button>` that responds to Space/Enter keydown → `true` and keyup → `false` (with the browser's key-repeat suppressed so a held key doesn't re-fire `true`). It carries the appropriate pressed-state ARIA so assistive tech sees the momentary state.
+    - **`mode="toggle"`** — bound to a TD **bool** parameter; each click flips the value. Same wire path as `<Toggle>` (bool `update`, bidirectional) but rendered as a button — this is the "TD has a toggle, shown as a button in the web UI" case.
 
     Only `pulse` mode uses the `pulse` message; `hold` and `toggle` are ordinary bool updates, so they participate fully in snapshot/resync and reflect TD-side changes.
-  - `<TDSelect name="par_name" options={...} />` — dropdown bound to a TD **Menu** parameter. `options` is a list of `{ value, label }`; the wire value is the menu's string key. Reflects TD-side changes. Options are **authored on the web side**, not introspected from TD's menu — consistent with the no-introspection schema stance. If TD's menu keys change, the web `options` must be updated to match; keeping them in sync is the app's responsibility, exactly like the typed param schema.
-  - `<TDColor name="par_name" />` — color picker bound to a multi-component **array** parameter (`[r, g, b]` or `[r, g, b, a]`, 0–1 floats matching TD's color pars). Sends the array (throttled by default while dragging), reflects TD-side changes; an `alpha` prop toggles RGB vs RGBA.
-  - `<TDVector name="par_name" />` — a group of numeric inputs bound to a non-color multi-component **array** parameter (XYZ position, UV, size, etc.). A `length` (or `labels`) prop sets the component count; sends the whole array (throttled by default while dragging) and reflects TD-side changes. This is the generic case of the array wire shape — `<TDColor>` is its color-specialized sibling and `<TDNumberInput>` the single-component scalar case — so vector pars don't fall through the gap between scalar inputs and the color picker.
+  - `<Select name="par_name" options={...} />` — dropdown bound to a TD **Menu** parameter. `options` is a list of `{ value, label }`; the wire value is the menu's string key. Reflects TD-side changes. Options are **authored on the web side**, not introspected from TD's menu — consistent with the no-introspection schema stance. If TD's menu keys change, the web `options` must be updated to match; keeping them in sync is the app's responsibility, exactly like the typed param schema.
+  - `<Color name="par_name" />` — color picker bound to a multi-component **array** parameter (`[r, g, b]` or `[r, g, b, a]`, 0–1 floats matching TD's color pars). Sends the array (throttled by default while dragging), reflects TD-side changes; an `alpha` prop toggles RGB vs RGBA.
+  - `<Vector name="par_name" />` — a group of numeric inputs bound to a non-color multi-component **array** parameter (XYZ position, UV, size, etc.). A `length` (or `labels`) prop sets the component count; sends the whole array (throttled by default while dragging) and reflects TD-side changes. This is the generic case of the array wire shape — `<Color>` is its color-specialized sibling and `<NumberInput>` the single-component scalar case — so vector pars don't fall through the gap between scalar inputs and the color picker.
 - **Components — Display** (read-only, one-directional TD → Web):
-  - `<TDVideo stream="..." />` — renders a WebRTC video stream from the provider's instance, selected by stream id (defaults to the instance's primary stream when only one exists). The underlying `<video>` is rendered **`muted autoplay playsinline`**: browsers block un-muted autoplay, so without `muted` the stream silently never starts, and `playsinline` stops iOS Safari forcing fullscreen. v1 is video-only, so muting costs nothing; these attributes are overridable via passthrough props if an app adds audio later (which would then require a user-gesture unmute).
-  - `<TDValue name="par_name" />` — renders the current value of a TD parameter as text (a readout/meter). Subscribes to inbound updates only — never sends. Accepts an optional `format` function for display (e.g. fixed decimals, units). Works for scalars and arrays.
+  - `<Video stream="..." />` — renders a WebRTC video stream from the provider's instance, selected by stream id (defaults to the instance's primary stream when only one exists). The underlying `<video>` is rendered **`muted autoplay playsinline`**: browsers block un-muted autoplay, so without `muted` the stream silently never starts, and `playsinline` stops iOS Safari forcing fullscreen. v1 is video-only, so muting costs nothing; these attributes are overridable via passthrough props if an app adds audio later (which would then require a user-gesture unmute). **Several `<Video>` may bind the same stream id** — e.g. the same feed shown in a wall tile and a detail/preview pane. They share the one decoded `MediaStream` for that id (the same shared-resource model as multiple components on one param), so a duplicate tile attaches the existing stream rather than negotiating a second track or decoder.
+  - `<Value name="par_name" />` — renders the current value of a TD parameter as text (a readout/meter). Subscribes to inbound updates only — never sends. Accepts an optional `format` function for display (e.g. fixed decimals, units). Works for scalars and arrays.
 - **Components — Infrastructure**:
-  - `<TDProvider instance="a" url="...">` — context provider that owns **one instance's** connection and shares it with its subtree. Multiple providers (one per TD instance) can coexist; control/display components bind to the nearest provider via context.
+  - `<Provider instance="a" url="...">` (the `Provider` member of a `createTDClient<Schema>()` bundle) — context provider that owns **one instance's** connection and shares it with its subtree. Multiple providers (one per TD instance, each from its own factory) can coexist; that factory's control/display components bind to the nearest provider via context.
 
 All control components share a common pattern: they accept a `name` prop (the TD parameter name), use `createTDSignal` internally, and support standard HTML input props for styling/accessibility.
 
@@ -128,42 +133,49 @@ Components render bare HTML elements with predictable class hooks and pass throu
 
 ### Type safety — user-defined typed schema
 
-A consuming project declares a TypeScript map of parameter names → value types; the primitives are generic over that schema:
+A consuming project declares a TypeScript map of parameter names → value types and binds it once with `createTDClient<Schema>()`, which returns a **schema-bound bundle** — provider, components, and signal helpers all generic over that map:
 
 ```ts
-interface TDParams {
+interface MixerParams {
   text1: string
   opacity: number
   speed: number
 }
 
-const td = createTDConnection<TDParams>("ws://localhost:9980")
-td.signal("opacity")   // typed as number, autocompletes name, typos are compile errors
+const Mixer = createTDClient<MixerParams>()
+// Mixer.Provider, Mixer.TextInput, Mixer.Range, Mixer.Video, Mixer.signal(...) — all typed to MixerParams
 ```
 
-This gives autocomplete and compile-time name/type checking without requiring TD introspection or codegen. Because instances are **heterogeneous**, the schema is **per-instance** — each connection/provider is typed by its own param map. (Generation from a live TD network is a possible future enhancement, out of scope for v1.)
+This gives autocomplete and compile-time name/type checking **inside JSX**, without TD introspection or codegen. The factory exists because TypeScript can't flow a generic from a `<Provider<Schema>>` down into a free-floating `<TextInput>` child — a standalone component's prop types can't depend on which provider sits above it. Binding the schema once into a component bundle is what makes `name` checked where you actually write it.
+
+Because instances are **heterogeneous**, the schema is **per-instance** — one `createTDClient<Schema>()` per TD instance, each typed by its own param map. (Generation from a live TD network is a possible future enhancement, out of scope for v1.)
 
 ```tsx
-// Each TD instance gets its own scoped provider; components bind to the nearest one.
-<TDProvider<MixerParams>  instance="mixer"  url="ws://localhost:9980">
-  <TDTextInput name="text1" placeholder="Enter message" />
-  <TDRange name="speed" min={0} max={10} />
-  <TDVideo />
-</TDProvider>
+// One factory per instance; each factory's components bind to that factory's own provider.
+const Mixer  = createTDClient<MixerParams>()
+const Render = createTDClient<RenderParams>()
 
-<TDProvider<RenderParams> instance="render" url="ws://localhost:9981">
-  <TDNumberInput name="opacity" min={0} max={1} step={0.01} />
-  <TDVideo />
-</TDProvider>
+<Mixer.Provider  instance="mixer"  url="ws://localhost:9980">
+  <Mixer.TextInput name="text1" placeholder="Enter message" />   {/* name checked vs MixerParams */}
+  <Mixer.Range name="speed" min={0} max={10} />
+  <Mixer.Video />
+</Mixer.Provider>
+
+<Render.Provider instance="render" url="ws://localhost:9981">
+  <Render.NumberInput name="opacity" min={0} max={1} step={0.01} />
+  <Render.Video />
+</Render.Provider>
 ```
+
+The underlying `createTDConnection<Schema>(url)` / `createTDSignal(name)` remain public for non-component or advanced use, but the factory is the intended path for app UI.
 
 ## Multiple TD Instances
 
 The app connects to several TD instances on the same machine (distinguished by port). Design decisions:
 
 - **Static configuration at startup** — the app declares a known list of instances (`{ id, url }`) up front; connections are established on mount. No runtime discovery/add-remove in v1 (could be layered on later without changing the binding model). The list lives as a **typed config module in the consuming app** (e.g. `apps/example/src/td.config.ts` exporting `{ id, url }[]`), not in `td-core` — the library stays config-agnostic and just receives URLs. Host/port can be overridden via Vite `import.meta.env` for local tweaks, but it's resolved at build/startup, not discovered at runtime.
-- **Heterogeneous schemas** — each instance may run a different TD project with its own parameter set, so typing is **per-instance** (`createTDConnection<Schema>` / `TDProvider<Schema>`). Identical-schema rigs are just the trivial case of this.
-- **Scoped provider binding** — each instance is wrapped in its own `<TDProvider instance="..." />`. Control/display components bind implicitly to the nearest provider via Solid context and stay instance-agnostic — no per-component `instance` prop to thread through.
+- **Heterogeneous schemas** — each instance may run a different TD project with its own parameter set, so typing is **per-instance**: one `createTDClient<Schema>()` per instance (over `createTDConnection<Schema>` underneath). Identical-schema rigs are just the trivial case of this.
+- **Scoped provider binding** — each instance is wrapped in its own factory's `<Provider instance="..." />`. That factory's control/display components bind implicitly to the nearest provider via Solid context and stay instance-agnostic — no per-component `instance` prop to thread through.
 - **Independent connection lifecycles** — each instance has its own WebSocket, WebRTC peer, status signal, throttling, and reconnect/backoff state. One instance dropping or reconnecting does not affect the others.
 - **Config `id` is authoritative; `welcome` metadata is advisory** — the app's `{ id, url }` config is what identifies and keys a connection. The optional `id`/`label` in `welcome` is used only for display (e.g. a header label) and diagnostics; if it disagrees with the config `id`, the config wins and the mismatch is debug-logged. `welcome` is never used to re-key or re-route a connection, so a misconfigured TD project can't silently steal another instance's bindings.
 
@@ -171,7 +183,7 @@ The app connects to several TD instances on the same machine (distinguished by p
 
 The app renders **up to 8 video streams simultaneously, all visible at once** (a grid/wall, no hidden/switched views in the common case). Design implications:
 
-- **No fixed stream-to-instance mapping** — the number of streams is independent of the number of instances. Some instances may emit multiple video streams (carried as **multiple tracks on that instance's single peer connection**), others one or none. `<TDVideo stream="..." />` addresses a stream by id, never by "the instance's video."
+- **No fixed stream-to-instance mapping** — the number of streams is independent of the number of instances. Some instances may emit multiple video streams (carried as **multiple tracks on that instance's single peer connection**), others one or none. `<Video stream="..." />` addresses a stream by explicit id rather than by "the instance's video" — the single-stream default (`<Video>` with no `stream`, see [TECH_PROPOSAL.md:123](prds/TECH_PROPOSAL.md#L123)) is just a convenience for the one-stream case, not a 1:1 stream-to-instance assumption.
 - **Decode budget is comfortable at target quality** — streams target **≤720p / ≤30fps**, so 8 concurrent hardware-decoded streams are well within a typical machine's budget. Quality is treated as a tunable; this target is a stated performance variable, not a hard limit.
 - **Lazy-connect is *not* the primary lever here** — since all streams are visible continuously, every peer/track negotiates and decodes up front. (Lazy/pause-when-hidden remains available in `createTDVideoStream` for apps that *do* hide streams, but isn't the default assumption for this use case.)
 - **Reuse peers per instance** — opening one peer connection per instance and multiplexing its video tracks (rather than one peer per stream) keeps connection count and ICE overhead down when an instance serves several streams.
@@ -184,9 +196,11 @@ High-frequency controls (sliders mid-drag) **throttle outbound sends by default*
 
 **`pulse` bypasses the throttle and is sent immediately.** A pulse is a discrete event, not a sampled value, so buffering it in a rAF frame would add latency and risk coalescing or dropping distinct presses. Only the continuous `update` path is throttled; `pulse` always fires on the spot.
 
+**Backpressure-aware, not just rate-limited.** The rAF throttle bounds send *frequency*, but not the socket's send buffer. If TD stops draining the socket (a re-cooking DAT, a stalled `.toe`), `ws.bufferedAmount` can grow without bound while controls keep posting at 60fps — and across up to 8 instances that compounds. So the outbound path also **checks `bufferedAmount` against a high-water mark before sending**: while the buffer is above it, `update` sends are skipped (the next frame's coalesced value supersedes them anyway, so dropping is correct — only the latest value matters). A sustained high-water condition flips a per-connection `congested` flag on the status signal (so a UI can indicate it) and, past a longer threshold, is treated like a half-open socket and forces a reconnect. `pulse` is exempt from *coalescing* but still respects the buffer: a pulse fired into a congested socket is dropped and debug-logged rather than queued behind stale data (consistent with *Outbound sends while disconnected are dropped*).
+
 ### Invalid / empty numeric input
 
-Numeric controls (`<TDNumberInput>`, `<TDRange>`, `<TDVector>`, `<TDColor>`) **never send `NaN`**. While a field is empty or unparseable mid-edit, the component **holds the last valid value in the signal and sends nothing**, so TD keeps showing the last good value rather than receiving garbage. On blur, if the field is still empty/invalid, the input **snaps back** to the signal's current value (standard "revert to last valid"), so the displayed value and TD can't drift apart. When `min`/`max` are set, values are clamped to range before sending.
+Numeric controls (`<NumberInput>`, `<Range>`, `<Vector>`, `<Color>`) **never send `NaN`**. While a field is empty or unparseable mid-edit, the component **holds the last valid value in the signal and sends nothing**, so TD keeps showing the last good value rather than receiving garbage. On blur, if the field is still empty/invalid, the input **snaps back** to the signal's current value (standard "revert to last valid"), so the displayed value and TD can't drift apart. When `min`/`max` are set, values are clamped to range before sending.
 
 ### Inbound update handling
 
@@ -204,7 +218,7 @@ When the user is actively editing an input **and** TD pushes a new value for the
 
 ### Multiple components per parameter
 
-Binding several components to the same param name is a **supported feature**, not an accident — e.g. a `<TDRange>` slider beside a `<TDValue>` readout, a slider plus a `<TDNumberInput>` (drag *or* type), or the same control mirrored in a header and a detail panel. It falls out of the shared-signal model:
+Binding several components to the same param name is a **supported feature**, not an accident — e.g. a `<Range>` slider beside a `<Value>` readout, a slider plus a `<NumberInput>` (drag *or* type), or the same control mirrored in a header and a detail panel. It falls out of the shared-signal model:
 
 - **All binders share one signal** (per *Lazy signal allocation*), so a TD update fans out to every bound component and an optimistic local write from one is instantly visible in the others via Solid's reactivity — no extra wiring.
 - **Focus-suppression is an active-editor *count*, not a boolean.** The signal tracks how many bound components are actively editing (incremented on focus / drag-start, decremented on blur / drag-end); inbound TD updates are suppressed while the count is `> 0`. A browser focuses one element at a time, so in practice this is 0 or 1 — but the count is the correct generalization (it handles a slider drag overlapping a focused input without special-casing) and keeps everything on a single signal.
@@ -224,27 +238,29 @@ The status signal carries this progression — a `synced` flag flips true once t
 - **Pre-snapshot render** — before the snapshot lands, each bound signal is `undefined` (or a per-binding `default`/`placeholder`), and components render their natural empty/default state. Inputs are **not disabled by default** (on localhost the snapshot is effectively instant), but `synced` is exposed so an app *can* gate or skeleton its UI if it wants.
 - **No ordering race, by construction** — a single WebSocket delivers in FIFO order, so the `snapshot` (which TD generates *after* receiving `snapshot-request`) already reflects every update TD sent before it, and any update TD sends afterward arrives *after* the snapshot. The web therefore just **applies messages in arrival order** — snapshot as authoritative baseline, then live updates on top — with no buffering or reordering logic.
 - **Version handshake policy** — `protocol` is a single integer, bumped only on **breaking** wire changes. On mismatch the web does **not** hard-reject (web and TD reference project are versioned together in this repo, so a mismatch is a deploy mistake, and bricking the UI on a closed system helps no one). Instead it logs a prominent warning and sets a `protocolMismatch` flag on the status signal, then proceeds best-effort. *(Judgment call — easy to switch to hard-reject if a mismatch ever risks silent data corruption.)*
+- **Handshake watchdog** — the socket opening (`onopen`) is not the same as TD being ready to talk. If the TD-side callback throws or never replies, the connection can sit in `connecting`/un-`synced` forever — the `ping`/`pong` heartbeat only guards an *already-established* session, not the handshake before it. So a watchdog requires `welcome` **and** `snapshot` to arrive within a short window of `onopen` (default ~5s — effectively instant on localhost); if either is missing, the attempt is abandoned and routed into the normal reconnect/backoff path rather than wedging. The watchdog is cleared the moment `snapshot` is applied (`synced` flips true).
 
 ### Connection resilience
 
 On WebSocket drop: **auto-reconnect with exponential backoff**. Connection status is exposed as a signal so UIs can show indicators or disable inputs. On reconnect, **re-sync parameter state** so signals reflect current TD values rather than stale data.
 
 - **Outbound sends while disconnected are dropped, not queued** — if a control writes while the socket is `connecting`/`closed`, the `update`/`pulse` is discarded (debug-logged), not buffered for replay. Buffering would fight the snapshot resync that immediately follows reconnect: replaying a stale slider position only to have the snapshot overwrite it (or vice-versa) is just a race. The snapshot is the authoritative baseline, and a still-focused input re-sends its current value naturally on its next change/commit. (Pulses are momentary events — a pulse fired into a dead socket is simply lost, which is the correct semantics for a missed button press.)
-- **Timing constants are configurable with sane defaults** — backoff starts ~500ms and doubles to a ~10s ceiling with jitter; the `disconnected`-grace window before treating a WebRTC peer as dead is ~2s; the app-level `ping` fires ~every 5s and a missing `pong` within ~10s marks the socket half-open and forces a reconnect. These are per-connection options, not baked into the wire format, so a slower/remote deployment can loosen them without a protocol change.
+- **Timing constants are configurable with sane defaults** — backoff starts ~500ms and doubles to a ~10s ceiling with jitter; the `disconnected`-grace window before treating a WebRTC peer as dead is ~2s; the app-level `ping` fires ~every 5s and a missing `pong` within ~10s marks the socket half-open and forces a reconnect; the **handshake watchdog** gives `welcome`+`snapshot` ~5s after `onopen` before abandoning the attempt (see *Connection lifecycle & initial sync*). These are per-connection options, not baked into the wire format, so a slower/remote deployment can loosen them without a protocol change.
 
 ### WebRTC resilience & connectivity
 
 On localhost the failure modes aren't network glitches — they're **TD-side events** (a `.toe` reload, the WebRTC DAT re-cooking, an instance restart). So resilience here means *detect that a peer died and rebuild it cleanly*, more than riding out a flaky link.
 
 - **No STUN/TURN — host candidates only.** Browser and TD are on the same machine, so ICE only ever needs `127.0.0.1` host candidates (no NAT, no relay). `RTCPeerConnection` is configured with `iceServers: []`, which also makes ICE gathering near-instant when up to 8 peers come up at once. `iceServers` stays a config option so the same lib works if TD ever runs on a different box, but defaults empty.
-- **Failure detection via `connectionState`.** Monitor `pc.connectionState` (with `iceConnectionState` as a fallback for older behavior). Treat `failed` — and `disconnected` after a short grace period — as triggers. A **per-stream status signal** (mirroring the WS connection-status pattern) lets `<TDVideo>` show a "reconnecting" overlay instead of a frozen last frame.
+- **Failure detection via `connectionState`.** Monitor `pc.connectionState` (with `iceConnectionState` as a fallback for older behavior). Treat `failed` — and `disconnected` after a short grace period — as triggers. A **per-stream status signal** (mirroring the WS connection-status pattern) lets `<Video>` show a "reconnecting" overlay instead of a frozen last frame.
 - **Rebuild, don't ICE-restart.** On `failed`, tear down and rebuild the peer from scratch (new `RTCPeerConnection`, re-run signaling) rather than attempting `restartIce()`. The real failure mode is one end going away entirely, where ICE restart can't help anyway. ICE restart can be added later if a genuine transient-drop case appears.
-- **Renegotiation is a normal event, not just initial connect.** `createTDVideoStream` handles `onnegotiationneeded` throughout the peer's life: if a TD instance starts/stops a track at runtime, a new offer/answer is exchanged and the `streams` message is **re-sent on every (re)negotiation** so `<TDVideo stream="...">` rebinds to the correct track if `mid`s shift. This is the reason the explicit `id`→`mid` mapping exists rather than assuming a fixed track order.
+- **Renegotiation is a normal event, not just initial connect.** `createTDVideoStream` handles `onnegotiationneeded` throughout the peer's life: if a TD instance starts/stops a track at runtime, a new offer/answer is exchanged and the `streams` message is **re-sent on every (re)negotiation** so `<Video stream="...">` rebinds to the correct track if `mid`s shift. This is the reason the explicit `id`→`mid` mapping exists rather than assuming a fixed track order.
 - **WS-reconnect drives WebRTC recovery.** The WebSocket *is* the signaling channel, but media is its own transport — an established peer keeps flowing video through a brief WS blip. So video is **not** torn down when the WS hiccups. Instead, on WS reconnect, each peer's `connectionState` is checked and only the dead ones are rebuilt; healthy peers are left untouched. This reuses the existing reconnect hook that already re-syncs parameter state.
+- **Deferred renegotiation across a WS gap.** Renegotiation *needs* the signaling channel, so an `onnegotiationneeded` (or a TD-side track add/remove, or an inbound offer) that occurs while the WS is down can't complete. Each peer therefore keeps a **`negotiationPending` flag**: if negotiation is requested with no live socket, it's recorded rather than dropped, and the same WS-reconnect hook that rebuilds dead peers also **flushes pending negotiation on the still-alive ones** — re-running the offer/answer (and re-sending the `streams` map) so a track that appeared during the blip binds correctly. This closes the gap between "media survives a WS blip" and "tracks can change at any time."
 
 ### Provider teardown & resource cleanup
 
-A `<TDProvider>` owns disposable, non-GC-able resources, so unmounting one (the app navigating away, or a hot-reload in dev) must release them via Solid's `onCleanup` — otherwise sockets, timers, and video decoders leak, which compounds fast at up to 8 instances:
+A `<Provider>` owns disposable, non-GC-able resources, so unmounting one (the app navigating away, or a hot-reload in dev) must release them via Solid's `onCleanup` — otherwise sockets, timers, and video decoders leak, which compounds fast at up to 8 instances:
 
 - **Close the WebSocket** and cancel any pending reconnect/backoff timer **and** the `ping` interval, so a torn-down provider can never resurrect itself with a stray reconnect.
 - **Close the `RTCPeerConnection`** and call `stop()` on every received track / `MediaStream`, so the browser frees the hardware decoder rather than holding it on a detached `<video>`.
@@ -254,7 +270,7 @@ Each provider tears down only its own instance; sibling providers are untouched,
 
 ### Error & malformed-message handling
 
-- **`error` messages are surfaced, not fatal** — an inbound `error` (e.g. `unknown_param`) is routed to an errors signal / `onError` callback on the connection and **console-logged by default**. It does **not** auto-disable inputs or drop the connection (the cause is usually a single bad param, often transient). Apps can subscribe to show a toast/indicator.
+- **`error` messages are surfaced, not fatal** — an inbound `error` (e.g. `unknown_param`) is routed to an errors signal / `onError` callback on the connection and **console-logged by default**. It does **not** auto-disable inputs or drop the connection (the cause is usually a single bad param, often transient). Apps can subscribe to show a toast/indicator. `ref` is **optional**: a param-scoped error (`unknown_param`, `param_not_writable`) carries the `ref` so handlers can do per-param recovery (mark read-only, re-snapshot — see *Parameter modes*), while a connection-scoped error (no `ref`) is surfaced the same way but triggers **no per-param action** — there's nothing to revert. Recovery code keys on `ref` being present (`if (err.ref) { … }`), so a `ref`-less error is logged/surfaced and otherwise inert rather than misattributed to some param.
 - **Unknown message `type`s are ignored** — the web silently drops (debug-logs) any message whose `type` it doesn't recognize, so TD can add new message types without breaking older clients (forward-compat).
 - **Malformed JSON is caught, dropped, and logged** — a parse failure never tears down the socket; the connection stays up and processing continues with the next message.
 - **Unknown params in an `update` are ignored** — consistent with the broadcast-bus model, the web simply skips param names it isn't bound to (a routing-table miss), no error raised.
@@ -273,13 +289,13 @@ A **typed JSON discriminated-union envelope**: every message is a JSON object wi
 
 - **Readable keys** (`type`, `params`, `name`, `value`) over terse ones — payloads are small and ≤60fps; debuggability wins.
 - **One `update` message for single and batch** — it always carries a `params` map; a single change is a one-entry map. The outbound throttle coalesces multiple param changes in a frame into one message for free, and the shape is symmetric in both directions. Values may be scalar (number/string/bool) or an array (multi-component pars like color/XYZ). This covers toggles (bool), menus (string key), and color (array) without new message types — only the components differ.
-- **Pulses are a separate `pulse` message, not an `update`** — a momentary parameter has no persisted value to sync, so modeling it as an `update` would be wrong (nothing to put in a snapshot, nothing to echo). `{ "type": "pulse", "name": "reset" }` is an explicit **web → TD only** event: the TD side calls `.pulse()` on the mapped par. Pulses are excluded from snapshots and from the focus/echo rules since they carry no state. A button bound to a TD *toggle* is a different thing — it's a stateful **bool** that rides the normal `update` path bidirectionally (`<TDButton mode="hold|toggle">`), not a pulse.
+- **Pulses are a separate `pulse` message, not an `update`** — a momentary parameter has no persisted value to sync, so modeling it as an `update` would be wrong (nothing to put in a snapshot, nothing to echo). `{ "type": "pulse", "name": "reset" }` is an explicit **web → TD only** event: the TD side calls `.pulse()` on the mapped par. Pulses are excluded from snapshots and from the focus/echo rules since they carry no state. A button bound to a TD *toggle* is a different thing — it's a stateful **bool** that rides the normal `update` path bidirectionally (`<Button mode="hold|toggle">`), not a pulse.
 - **Friendly names on the wire, op/par mapping on the TD side** — the wire carries `opacity`, not `/project1/level1/opacity`. The reference TD project holds a registry mapping friendly name → **(operator, parameter-or-ParGroup, wire-type)**. This decouples the UI from TD's node layout (ops can move/rename without breaking the UI), matches the TypeScript schema names, and is the single place type coercion lives (see *Value types & TD-side coercion*).
 - **Params are a shared broadcast bus, not a web-private channel** — the web UI is *not* assumed to be the only consumer; TD instances may exchange the same params among themselves. So TD **broadcasts all exposed param updates to all connected clients**; there is no per-client subscription/filtering. The web simply ignores params it isn't bound to.
 - **Versioned handshake** — the web opens with `hello` (its `protocol` int); TD replies with `welcome` (its `protocol`, plus optional instance metadata). `protocol` bumps only on breaking changes; on mismatch the web warns and proceeds rather than rejecting (see *Connection lifecycle & initial sync*). The `welcome` also serves as a definitive "TD is alive and speaking" signal for the status flag.
 - **Resync via snapshot** — on connect/reconnect the web sends `snapshot-request`; TD replies with a `snapshot` of all currently-exposed param values, so signals aren't stale after a reconnect. Per-connection FIFO ordering makes the snapshot an authoritative baseline with no client-side reordering needed.
 - **No echo tagging needed** — because local edits win while an input is focused, TD echoing a value the web just set is harmless (the focused input ignores inbound updates). No per-message origin/timestamp fields.
-- **Stream announcement** — one peer per instance can carry several video tracks; a `streams` message maps each track (`mid`) to a stream `id` so `<TDVideo stream="x">` can select the right track.
+- **Stream announcement** — one peer per instance can carry several video tracks; a `streams` message maps each track (`mid`) to a stream `id` so `<Video stream="x">` can select the right track.
 - **ICE candidates carry their full descriptor** — `rtc-ice` sends `{ candidate, sdpMid, sdpMLineIndex }`, the exact fields `RTCPeerConnection.addIceCandidate()` needs, not just the bare candidate string (a string alone can't be applied without its m-line association). **End-of-candidates** is signaled by an `rtc-ice` whose `candidate` is `null` — the browser's end-of-gathering event — which the receiver forwards as `addIceCandidate(null)`. This keeps trickle-ICE symmetric in both directions and independent of which side offers (the open question below). With `iceServers: []` on localhost, gathering is a quick handful of host candidates, so this exchange is short.
 - **App-level `ping`/`pong`** — browser JS can't observe WS ping/pong frames, so an optional app-level heartbeat detects half-open sockets, paired with the status signal and reconnect/backoff.
 
@@ -298,8 +314,85 @@ Each registry entry declares a **wire-type**, and the DAT callback coerces in bo
 
 Two specifics this pins down:
 
-- **Menus carry the string key, not the index.** `par.eval()` on a Menu par returns the key (matching `<TDSelect>`'s `value`); keys survive menu reordering where indices wouldn't.
-- **Arrays map to a TD ParGroup**, not a single par. A color/XYZ value is several component pars (`colorr`/`colorg`/`colorb`, `tx`/`ty`/`tz`), so the registry entry for an array param references the ParGroup with a **fixed component order** — that order *is* the array order on the wire. This is what lets `<TDColor>` / `<TDVector>` treat the value as one `number[]`.
+- **Menus carry the string key, not the index.** `par.eval()` on a Menu par returns the key (matching `<Select>`'s `value`); keys survive menu reordering where indices wouldn't.
+- **Arrays map to a TD ParGroup**, not a single par. A color/XYZ value is several component pars (`colorr`/`colorg`/`colorb`, `tx`/`ty`/`tz`), so the registry entry for an array param references the ParGroup with a **fixed component order** — that order *is* the array order on the wire. This is what lets `<Color>` / `<Vector>` treat the value as one `number[]`.
+- **Int vs float is TD's job, not the wire's** — fits the existing "TD does all coercion" rule, no new mechanism. JSON has one numeric type, so `number` covers both; the registry already knows whether the backing par is int or float, and `par.val = v` lets TD round/truncate on write while `par.eval()` returns the par's native int/float on read. The web's TS schema stays `number` and never has to model the distinction — same stance as bool-as-0/1 in the row above.
+
+### Parameter modes (expression / export / bind)
+
+A TD parameter has a **mode** — `CONSTANT`, `EXPRESSION`, `EXPORT` (CHOP-driven), or `BIND` — and the mode determines whether a write actually takes. This matters because the wire format hides it: the web only ever sees clean JSON values, never the mode.
+
+- **Reads are mode-agnostic — no special handling.** `par.eval()` returns the evaluated result for *every* mode, so snapshots, `update` broadcasts, and read-only displays (`<Value>`, and the display side of any control) reflect the correct live value of an expression/exported/bound par with zero extra logic. The read column of the coercion table already covers this.
+- **Writes only take in `CONSTANT` mode.** `par.val = v` on an expression/export/bound par sets the underlying constant slot but **does not change what the par evaluates to** (the expression/export/bind keeps overriding it), and TD **raises no Python error**. Left unguarded, a control bound to such a par would: apply its optimistic local write, send an `update` that silently no-ops, then — because the focused input suppresses TD's echo (see *Bidirectional echo / edit conflict*) — appear to "stick" until blur, at which point it snaps back to the evaluated value. The user sees an edit revert for no visible reason. (`BIND` is the one nuance: a two-way bind *may* propagate a write to its master, so it isn't uniformly read-only the way `EXPRESSION`/`EXPORT` are — but it can't be assumed writable either.)
+
+Two complementary mechanisms keep this from being a silent failure — a **static** preventive layer and a **runtime** safety net:
+
+1. **Static read-only declaration on the web side (preventive).** The set of non-writable params is **authored in the web schema**, right alongside the typed param map — *not* sent over the wire. `createTDSignal` / `Provider` consult it so a control bound to a read-only name renders as a disabled control (or the app authors it as `<Value>` outright), and in dev a control bound to a read-only param warns. Because it's a web-side authoring decision, there is **no wire-format change** — `snapshot` and `update` stay flat `{name: value}` maps and keep their symmetry ([TECH_PROPOSAL.md:275](prds/TECH_PROPOSAL.md#L275)). This is the same "the web authors its schema, no TD introspection" stance already used for wire-types and `<Select>` menu options ([TECH_PROPOSAL.md:129-144](prds/TECH_PROPOSAL.md#L129-L144)); the cost is the same accepted duplication — the registry and the web schema must be kept in sync. The TD registry still carries a `writable` flag so the write callback (below) is self-contained, but that flag is **not** transmitted.
+
+   ```ts
+   // apps/example/src/td.config.ts — read-only set authored beside the schema
+   interface MixerParams { opacity: number; text1: string; fps: number }
+   const readonly = ["fps"] as const satisfies readonly (keyof MixerParams)[]  // fps is expression-driven in TD
+
+   const Mixer = createTDClient<MixerParams>()
+
+   <Mixer.Provider instance="mixer" url="ws://localhost:9980" readonly={readonly}>
+     <Mixer.Range name="opacity" min={0} max={1} />
+     <Mixer.Value name="fps" format={n => `${n.toFixed(1)} fps`} />   {/* authored as a readout */}
+   </Mixer.Provider>
+   ```
+
+2. **Runtime mode check on write, with an explicit error (safety net).** The static set can't see a par whose mode changes *after* startup (constant → expression at runtime), and an app may simply forget to list one. So the write callback *also* checks `par.mode` before assigning and, if it isn't `CONSTANT`, **skips the write and emits an `error`** (`code: "param_not_writable"`) over the existing error channel ([TECH_PROPOSAL.md:257](prds/TECH_PROPOSAL.md#L257)). The web's `onError` handler marks the param read-only reactively and reverts the optimistic local edit — turning a silent revert into a visible, self-correcting signal. For array/ParGroup params the check is per-component, so a partially-bound group (`tx` constant, `ty` expression) reports rather than half-applying.
+
+   ```ts
+   // web side — the error makes the runtime case self-correcting
+   onError(err => {
+     if (err.code === "param_not_writable" && err.ref) {
+       markReadonly(err.ref)   // disable the control from here on
+       resnapshot(err.ref)     // revert the optimistic edit to TD's real value
+     }
+   })
+   ```
+
+The static layer (1) makes the common, known case — an expression-driven readout authored as `<Value>` — never even produce an error; the runtime layer (2) catches what (1) can't see. If TD ever needs to drive *more* metadata to the web (`min`/`max`/`label`/units), the escape hatch is a dedicated one-time `schema` message after `welcome` — but that's a deliberate move toward introspection, out of scope here and explicitly not folded into `snapshot`.
+
+Registry entry shape (TD side, conceptual):
+
+```python
+# friendly name -> registry entry
+REGISTRY = {
+    "opacity":  { "op": "/project1/level1", "par": "opacity",  "type": "number",   "writable": True  },
+    "text1":    { "op": "/project1/text",   "par": "text",     "type": "string",   "writable": True  },
+    "fps":      { "op": "/project1/info",   "par": "fps",      "type": "number",   "writable": False }, # expression-driven readout
+    "color":    { "op": "/project1/ramp",   "par": "colorr",   "type": "number[]", "writable": True  }, # ParGroup: colorr/g/b/a
+}
+```
+
+DAT-side write, mode-guarded:
+
+```python
+def write_param(name, value):
+    entry = REGISTRY.get(name)
+    if entry is None:
+        send_error("unknown_param", "no param '%s'" % name, ref=name)
+        return
+
+    pars = op(entry["op"]).pars(entry["par"] + "*") if entry["type"] == "number[]" \
+        else [op(entry["op"]).par[entry["par"]]]
+
+    # refuse if author marked it read-only, or any backing par isn't a settable constant
+    if not entry.get("writable", True) or any(p.mode != ParMode.CONSTANT for p in pars):
+        send_error("param_not_writable", "param '%s' is not web-writable" % name, ref=name)
+        return
+
+    if entry["type"] == "number[]":
+        for p, v in zip(pars, value):   # fixed component order == wire array order
+            p.val = v
+    else:
+        pars[0].val = value
+```
+
+This adds **one error code** to the catalog (`param_not_writable`) and **no change to the wire format** — the read-only set is authored on the web side, and the registry's `writable` flag stays TD-internal. The error is forward-compatible with *Error & malformed-message handling* (errors are surfaced, not fatal).
 
 ### Message catalog (strawman)
 
@@ -323,6 +416,7 @@ Two specifics this pins down:
 { "type": "rtc-answer", "sdp": "..." }
 { "type": "rtc-ice",    "candidate": "candidate:...", "sdpMid": "0", "sdpMLineIndex": 0 }  // candidate:null = end-of-candidates
 { "type": "error", "code": "unknown_param", "message": "no param 'foo'", "ref": "foo" }
+{ "type": "error", "code": "param_not_writable", "message": "param 'fps' is not web-writable", "ref": "fps" }  // expression/export/bind par, or registry writable:false
 { "type": "pong" }
 ```
 
