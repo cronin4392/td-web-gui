@@ -25,8 +25,10 @@ INSTANCE = 'example'
 # friendly wire name -> backing parameter.
 #   type: 'bool' | 'number' | 'string' | 'number[]'
 REGISTRY = {
-	'message':   {'op': 'params', 'par': 'Message',   'type': 'string'},
-	'intensity': {'op': 'params', 'par': 'Intensity', 'type': 'number'},
+	'message':   {'op': 'params',      'par': 'Message',   'type': 'string'},
+	'intensity': {'op': 'params',      'par': 'Intensity', 'type': 'number'},
+	'text1':     {'op': 'TextSelector', 'par': 'Text1',     'type': 'string'},
+	'text2':     {'op': 'TextSelector', 'par': 'Text2',     'type': 'string'},
 }
 
 # Open WebSocket client connections, used for broadcast.
@@ -167,11 +169,16 @@ def onServerStop(dat: webserverDAT):
 # ─────────────────────────────────────────────────────────────────────────────
 # TD -> web: add a Parameter Execute DAT to push TD-side edits to the browser.
 #
-# 1. Create a `params` Base COMP with custom pars `Message` (String) and
-#    `Intensity` (Float, 0-1) — the operators REGISTRY points at.
-# 2. Add a Parameter Execute DAT, set its OP to `params`, enable Value Change
-#    and Custom, and use this body (replace 'webserver_callbacks' with the
-#    actual name of THIS callbacks DAT — TD op names can't contain hyphens):
+# 1. Create the operators REGISTRY points at:
+#      - a `params` Base COMP with custom pars `Message` (String) and
+#        `Intensity` (Float, 0-1)
+#      - a `TextSelector` operator with custom pars `Text1` (String) and
+#        `Text2` (String)
+# 2. Add a Parameter Execute DAT, set its OPs to `params TextSelector` (space-
+#    separated OP pattern — Parameter Execute DATs can watch several operators
+#    at once), enable Value Change and Custom, and use this body (replace
+#    'webserver_callbacks' with the actual name of THIS callbacks DAT — TD op
+#    names can't contain hyphens):
 #
 #        def onValueChange(par, prev):
 #            op('webserver_callbacks').module.broadcast_param_change(par)
