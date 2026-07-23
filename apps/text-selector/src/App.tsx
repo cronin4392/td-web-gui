@@ -16,14 +16,12 @@ export function App(): JSX.Element {
 
   return (
     <main class="mx-auto max-w-2xl p-6">
-      <h1 class="text-xl font-semibold">td-web-gui · text selector</h1>
-      <p class="mt-1 text-sm text-gray-500">
-        Bound to instance <code>{textSelector.id}</code> at <code>{textSelector.url}</code>
-      </p>
-
       <TDClient.Provider url={textSelector.url} instance={textSelector.id}>
         <TextSelectorBody store={store} />
       </TDClient.Provider>
+      <p class="mt-8 text-sm text-gray-700">
+        Bound to instance <code>{textSelector.id}</code> at <code>{textSelector.url}</code>
+      </p>
     </main>
   )
 }
