@@ -28,6 +28,7 @@ interface SetupOptions {
   commitOn?: 'input' | 'enter'
   wrapInForm?: boolean
   multiline?: boolean
+  rows?: number
   onCommit?: (v: string) => void
 }
 
@@ -42,6 +43,7 @@ async function setup(snapshot: Record<string, unknown>, opts: SetupOptions = {})
       name="text1"
       commitOn={opts.commitOn ?? 'enter'}
       multiline={opts.multiline}
+      rows={opts.rows}
       data-testid="txt"
       onCommit={opts.onCommit}
     />
@@ -201,6 +203,17 @@ describe('TextInput multiline', () => {
     input.blur()
 
     expect(updatesSent(td)).toEqual([{ type: 'update', params: { text1: 'a\\nb' } }])
+  })
+
+  it('applies `rows` to the textarea', async () => {
+    const { input } = await setup({ text1: '' }, { multiline: true, rows: 3 })
+    expect(input.getAttribute('rows')).toBe('3')
+  })
+
+  it('drops `rows` rather than putting it on a single-line input', async () => {
+    const { input } = await setup({ text1: '' }, { rows: 3 })
+    expect(input.tagName).toBe('INPUT')
+    expect(input.hasAttribute('rows')).toBe(false)
   })
 
   it('a commit differing only in escaping is still a no-op', async () => {
