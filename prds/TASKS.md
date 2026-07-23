@@ -71,6 +71,7 @@ Each control accepts a `name` prop, uses `createTDSignal`, passes through HTML p
 - [ ] **4.8 — `Color`.** Color-specialized sibling of `Vector` bound to a `[r,g,b]`/`[r,g,b,a]` array (0–1 floats); `alpha` prop toggles RGB vs RGBA; throttled while dragging.
 - [ ] **4.9 — Multiple components per parameter.** Verify the shared-signal model: all binders of a name share one signal, optimistic writes fan out, focus-suppression count handles overlapping editors. Likely already satisfied by 2.5 — add explicit tests (slider + readout, slider + number input).
 - [ ] **4.10 — Read-only / parameter modes.** Web-side `readonly` set authored beside the schema → bound control renders disabled + dev warn. Handle inbound `param_not_writable` error → `markReadonly(ref)` + re-snapshot to revert the optimistic edit. No wire-format change.
+- [x] **4.11 — `TextInput` `commitOn`.** `commitOn` (`'input' | 'enter'`) + `onCommit` props; form-submit and Enter-fallback commit paths; blur commits; Escape reverts; no-op on unchanged value; `commitOn="input"` unregressed. Built for `apps/text-selector` (see [TEXT_SELECTOR.md](TEXT_SELECTOR.md)).
 
 ---
 
