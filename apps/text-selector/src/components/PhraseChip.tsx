@@ -2,8 +2,8 @@
  * A single phrase button, shared by the recent row and the phrase list
  * (TEXT_SELECTOR.md §2-3): click commits to Text 1, drag carries the app's
  * custom-mime payload so it can be dropped on either text input or (list
- * source only) reordered within its tab. `onDelete` is omitted for recent
- * entries — that list is derived history, not an editable collection.
+ * source only) reordered within its tab. `onDelete` is optional so callers
+ * without a delete affordance can simply omit it.
  */
 
 import type { JSX } from 'solid-js'

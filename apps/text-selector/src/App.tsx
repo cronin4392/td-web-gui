@@ -50,6 +50,9 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
     const scene = activeScene()
     if (scene) applyPhrase(sceneTextParam(scene, 1), phrase)
   }
+  function clearText(name: SceneTextParamName) {
+    applyPhrase(name, '')
+  }
 
   const activeTab = createMemo(
     () => props.store.state.tabs.find((t) => t.id === props.store.state.activeTabId) ?? props.store.state.tabs[0],
@@ -77,19 +80,21 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
               label="Text 1"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
+              onClear={clearText}
             />
             <TextField
               name={sceneTextParam(scene, 2)}
               label="Text 2"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
+              onClear={clearText}
             />
           </section>
         )}
       </Show>
 
       <section class="mt-4 border-t pt-3">
-        <RecentRow recent={props.store.state.recent} onApply={applyToText1} />
+        <RecentRow recent={props.store.state.recent} onApply={applyToText1} onDelete={props.store.deleteRecent} />
       </section>
 
       <section class="mt-4 border-t pt-3">

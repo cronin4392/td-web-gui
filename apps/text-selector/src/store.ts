@@ -113,6 +113,8 @@ export interface TextSelectorStore {
 
   /** Feed a committed phrase (from either text input) into the recent list. */
   commitRecent: (phrase: string) => void
+  /** Remove a phrase from the recent list. */
+  deleteRecent: (phrase: string) => void
 
   /** Append a new `List N` tab and activate it; returns its id. */
   addTab: () => string
@@ -174,6 +176,11 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     const trimmed = phrase.trim()
     if (!trimmed) return
     setState('recent', (recent) => moveToFront(recent, trimmed, RECENT_LIMIT))
+    scheduleSave()
+  }
+
+  function deleteRecent(phrase: string): void {
+    setState('recent', (recent) => recent.filter((p) => p !== phrase))
     scheduleSave()
   }
 
@@ -278,6 +285,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
   return {
     state,
     commitRecent,
+    deleteRecent,
     addTab,
     renameTab,
     deleteTab,
