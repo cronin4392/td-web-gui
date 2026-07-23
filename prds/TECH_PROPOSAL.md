@@ -210,6 +210,13 @@ The params bus is a **broadcast** (every client receives all exposed param updat
 - **Batched application** — each `update` message's whole `params` map is applied inside Solid's `batch()`, so one message causes at most one reactive flush regardless of how many params it carries.
 - **No inbound throttle in v1** — fine-grained reactivity means only *changed, bound* signals touch the DOM, and per-instance sockets spread the parse work. If profiling ever shows inbound parse/dispatch as a cost, a coalesce-per-frame step can be added without changing the wire format. (Noted so the "no inbound throttle" choice is deliberate.)
 
+### Text commit modes
+
+`<TextInput>` supports a `commitOn` prop (`'input' | 'enter'`, default `'input'`) controlling when a keystroke reaches the bound signal and the wire.
+
+- **`commitOn="input"`** is the existing send-on-every-keystroke behavior and stays the default, so `apps/example` and prior tests are unregressed.
+- **`commitOn="enter"`** (added for `apps/text-selector`, see [TEXT_SELECTOR.md §6](TEXT_SELECTOR.md#6-td-core-changes)) holds keystrokes in a local draft; nothing is sent until commit. Commit fires on the ancestor `<form>`'s native `submit` (`preventDefault()`'d), or an Enter `keydown` fallback when there's no ancestor form (guarded on `event.isComposing` so an IME confirmation doesn't commit), and always on blur. **Escape reverts the draft** to the last committed value and sends nothing; because a commit whose draft equals the last committed value is a no-op, a blur immediately following Escape can't re-send. This relies on focus-based echo suppression (below) — a draft can only exist while focused, so `binding.value()` doubles as "last committed" with no extra signal.
+
 ### Bidirectional echo / edit conflict
 
 When the user is actively editing an input **and** TD pushes a new value for the same parameter, the **local edit wins while the input is focused / being dragged**. Inbound TD updates for that parameter are ignored until blur, then sync resumes. This prevents the value or cursor from jumping out from under the user.
