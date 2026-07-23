@@ -1,14 +1,15 @@
 """
 Parameter Execute DAT — TD -> web bridge.
 
-Watches the backing operators (the `params` COMP) and pushes each changed,
-registered parameter to all connected browsers via the Web Server DAT's
-callbacks module. Edits that arrive from the web flow through here too, because
-onWebSocketReceiveText sets par.val — so this is the single broadcast path for
-both web- and TD-originated changes.
+Watches the backing operators and pushes each changed, registered parameter to
+all connected browsers via the Web Server DAT's callbacks module. Edits that
+arrive from the web flow through here too, because onWebSocketReceiveText sets
+par.val — so this is the single broadcast path for both web- and TD-originated
+changes.
 
-Setup: set this DAT's OP parameter to the backing COMP (`params`) and enable the
-"Value Change" toggle.
+Setup: set this DAT's OPs parameter to `/GUI/ExternalScenes/Scene* /GUI/GUI`
+(every operator REGISTRY references) and enable the "Value Change" and "Custom"
+toggles.
 """
 
 from typing import Any, List
@@ -18,7 +19,8 @@ from typing import Any, List
 CALLBACKS = 'webserver1_callbacks'
 
 def _callbacks():
-	dat = op(CALLBACKS)
+	# dat = op(CALLBACKS)
+	dat = op.WebGui.op('webserver1_callbacks')
 	return dat.module if dat is not None else None
 
 

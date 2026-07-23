@@ -10,3 +10,4 @@ import type { TextSelectorParams } from './td.config'
 export const TDClient = createTDClient<TextSelectorParams>()
 
 export type TextSelectorParamName = keyof TextSelectorParams & string
+export type { SceneId, SceneTextParamName } from './td.config'

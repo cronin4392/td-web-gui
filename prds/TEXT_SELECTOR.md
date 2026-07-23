@@ -1,7 +1,12 @@
 # PRD: `apps/text-selector`
 
-A Solid app for driving two TouchDesigner string parameters (`text1`, `text2`) from a curated,
+A Solid app for driving two TouchDesigner string parameters (Text 1, Text 2) from a curated,
 persistent library of phrases. Built on `td-core` per [TECH_PROPOSAL.md](TECH_PROPOSAL.md).
+
+Those two fields belong to whichever of the eight external scene loaders TD's `selectedLoader`
+points at: each loader exposes its own `scene<A-H>Text1` / `scene<A-H>Text2` pair, and the app binds
+the fields to the selected one (see `td.config.ts` and `td/webserver-callbacks.py`). Everywhere below
+that says "Text 1"/"Text 2" means the selected loader's pair.
 
 ## Problem
 
