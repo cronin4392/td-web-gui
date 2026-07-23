@@ -1,6 +1,6 @@
 import { createMemo, onCleanup, Show, type JSX } from 'solid-js'
-import { instances } from './td.config'
-import { TDClient, type TextSelectorParamName } from './td'
+import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
+import { TDClient, type SceneTextParamName } from './td'
 import { createTextSelectorStore } from './store'
 import { TextField } from './components/TextField'
 import { RecentRow } from './components/RecentRow'
@@ -28,13 +28,24 @@ export function App(): JSX.Element {
 }
 
 function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorStore> }): JSX.Element {
+  // Resolved here, at render time: the phrase-apply path below runs from event
+  // handlers, where there is no reactive owner for the context lookup.
+  const connection = TDClient.useConnection()
+  const selectedLoader = TDClient.signal('selectedLoader')
+
+  /** Which loader's text params the fields are bound to, per TD's `selectedLoader`. */
+  const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()))
+
   // The one place that owns "commit a phrase to a TD text field" — shared by
   // TextField's own drop target and RecentRow/PhraseList (always Text 1).
-  function applyPhrase(name: TextSelectorParamName, phrase: string) {
-    TDClient.signal(name).setValue(phrase)
+  function applyPhrase(name: SceneTextParamName, phrase: string) {
+    connection.signal(name).setValue(phrase)
     props.store.commitRecent(phrase)
   }
-  const applyToText1 = (phrase: string) => applyPhrase('text1', phrase)
+  function applyToText1(phrase: string) {
+    const scene = activeScene()
+    if (scene) applyPhrase(sceneTextParam(scene, 1), phrase)
+  }
 
   const activeTab = createMemo(
     () => props.store.state.tabs.find((t) => t.id === props.store.state.activeTabId) ?? props.store.state.tabs[0],
@@ -42,10 +53,36 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
 
   return (
     <>
-      <section class="mt-4 flex flex-col gap-3">
-        <TextField name="text1" label="Text 1" commitRecent={props.store.commitRecent} applyPhrase={applyPhrase} />
-        <TextField name="text2" label="Text 2" commitRecent={props.store.commitRecent} applyPhrase={applyPhrase} />
-      </section>
+      {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
+          param name once at setup, so a changed `name` prop would not rebind. */}
+      <Show
+        when={activeScene()}
+        keyed
+        fallback={
+          <p class="mt-4 text-sm text-gray-500">
+            Waiting for a scene loader — <code>selectedLoader</code> is{' '}
+            <TDClient.Value name="selectedLoader" />
+          </p>
+        }
+      >
+        {(scene) => (
+          <section class="mt-4 flex flex-col gap-3">
+            <h2 class="text-sm font-semibold text-gray-500">Scene {scene}</h2>
+            <TextField
+              name={sceneTextParam(scene, 1)}
+              label="Text 1"
+              commitRecent={props.store.commitRecent}
+              applyPhrase={applyPhrase}
+            />
+            <TextField
+              name={sceneTextParam(scene, 2)}
+              label="Text 2"
+              commitRecent={props.store.commitRecent}
+              applyPhrase={applyPhrase}
+            />
+          </section>
+        )}
+      </Show>
 
       <section class="mt-4 border-t pt-3">
         <RecentRow recent={props.store.state.recent} onApply={applyToText1} />

@@ -1,5 +1,5 @@
 /**
- * A single `text1`/`text2` field (TEXT_SELECTOR.md §1, §4): a `<form>`-wrapped
+ * A single Text 1 / Text 2 field (TEXT_SELECTOR.md §1, §4): a `<form>`-wrapped
  * `commitOn="enter"` input, feeding the recent list on commit, and a drop
  * target for phrase chips (custom-mime only — plain text dragged in from
  * outside the app is not accepted).
@@ -7,14 +7,15 @@
 
 import type { JSX } from 'solid-js'
 import { hasPhraseDragData, readPhraseDragData } from '../dnd'
-import { TDClient, type TextSelectorParamName } from '../td'
+import { TDClient, type SceneTextParamName } from '../td'
 
 export interface TextFieldProps {
-  name: TextSelectorParamName
+  /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
+  name: SceneTextParamName
   label: string
   commitRecent: (phrase: string) => void
   /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentRow`/`PhraseList`'s (always Text 1) `onApply`. */
-  applyPhrase: (name: TextSelectorParamName, phrase: string) => void
+  applyPhrase: (name: SceneTextParamName, phrase: string) => void
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
