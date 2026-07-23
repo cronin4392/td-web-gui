@@ -19,34 +19,47 @@ export interface TextFieldProps {
   commitRecent: (phrase: string) => void
   /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentRow`/`PhraseList`'s (always Text 1) `onApply`. */
   applyPhrase: (name: SceneTextParamName, phrase: string) => void
+  /** Clear this field's TD text param. */
+  onClear: (name: SceneTextParamName) => void
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
   return (
     // No onSubmit here: <TextInput commitOn="enter"> already attaches its own
     // submit listener directly to this ancestor form (preventDefault + commit).
-    <form>
-      <label class="flex flex-col gap-1 text-sm font-medium">
-        {props.label}
-        <TDClient.TextInput
-          name={props.name}
-          commitOn="enter"
-          multiline
-          rows={3}
-          onCommit={props.commitRecent}
-          placeholder={props.label}
-          class="resize-y rounded border px-2 py-1"
-          onDragOver={(event) => {
-            if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
-          }}
-          onDrop={(event) => {
-            const payload = readPhraseDragData(event.dataTransfer!)
-            if (!payload) return
-            event.preventDefault()
-            props.applyPhrase(props.name, payload.phrase)
-          }}
-        />
-      </label>
+    <form class="flex flex-col gap-1">
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-medium" for={props.name}>
+          {props.label}
+        </label>
+        <button
+          type="button"
+          onClick={() => props.onClear(props.name)}
+          class="rounded border px-2 py-0.5 text-xs text-gray-500 hover:text-red-600"
+          title={`Clear ${props.label}`}
+        >
+          Clear
+        </button>
+      </div>
+      <TDClient.TextInput
+        id={props.name}
+        name={props.name}
+        commitOn="enter"
+        multiline
+        rows={3}
+        onCommit={props.commitRecent}
+        placeholder={props.label}
+        class="resize-y rounded border px-2 py-1"
+        onDragOver={(event) => {
+          if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
+        }}
+        onDrop={(event) => {
+          const payload = readPhraseDragData(event.dataTransfer!)
+          if (!payload) return
+          event.preventDefault()
+          props.applyPhrase(props.name, payload.phrase)
+        }}
+      />
     </form>
   )
 }

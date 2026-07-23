@@ -94,6 +94,22 @@ describe('recent list', () => {
     store.commitRecent('hello')
     expect(store.state.recent).toEqual(['hello', 'HELLO'])
   })
+
+  it('deleteRecent removes a single entry, leaving the rest in order', () => {
+    const store = makeStore(new FakeStorage())
+    store.commitRecent('a')
+    store.commitRecent('b')
+    store.commitRecent('c')
+    store.deleteRecent('b')
+    expect(store.state.recent).toEqual(['c', 'a'])
+  })
+
+  it('deleteRecent is a no-op for a phrase not in the list', () => {
+    const store = makeStore(new FakeStorage())
+    store.commitRecent('a')
+    store.deleteRecent('missing')
+    expect(store.state.recent).toEqual(['a'])
+  })
 })
 
 // ---- tabs --------------------------------------------------------------

@@ -9,6 +9,7 @@ import { PhraseChip } from './PhraseChip'
 export interface RecentRowProps {
   recent: string[]
   onApply: (phrase: string) => void
+  onDelete: (phrase: string) => void
 }
 
 export function RecentRow(props: RecentRowProps): JSX.Element {
@@ -19,7 +20,14 @@ export function RecentRow(props: RecentRowProps): JSX.Element {
         <div class="flex flex-col gap-1">
           <For each={props.recent}>
             {(phrase) => (
-              <PhraseChip phrase={phrase} source="recent" tabId={null} index={null} onApply={props.onApply} />
+              <PhraseChip
+                phrase={phrase}
+                source="recent"
+                tabId={null}
+                index={null}
+                onApply={props.onApply}
+                onDelete={() => props.onDelete(phrase)}
+              />
             )}
           </For>
         </div>
