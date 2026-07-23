@@ -47,13 +47,20 @@ Minimal end-to-end. **No** reconnect, throttle, backpressure, watchdog, or heart
 
 All tasks are per-connection options with sane defaults, not wire-format changes. Mostly independent of each other.
 
-- [ ] **3.1 — Reconnect + exponential backoff.** ~500ms start, double to ~10s ceiling, with jitter. Re-run the full handshake + snapshot resync on each reconnect.
-- [ ] **3.2 — Handshake watchdog.** Require `welcome` **and** `snapshot` within ~5s of `onopen`; otherwise abandon the attempt → backoff. Cleared the moment `snapshot` applies (`synced` flips true).
-- [ ] **3.3 — `ping`/`pong` heartbeat.** App-level `ping` ~every 5s; a missing `pong` within ~10s marks the socket half-open → forces reconnect. (Guards an *established* session only — the watchdog covers the pre-handshake window.)
-- [ ] **3.4 — Outbound throttle.** rAF-aligned (~60fps) coalescing of `update` sends (multiple param changes in a frame → one message). Per-component rate/opt-out prop.
-- [ ] **3.5 — Backpressure.** Check `ws.bufferedAmount` against a high-water mark before sending; skip `update`s while above it (latest coalesced value supersedes). Flip a `congested` flag on the status signal; sustained high-water → forced reconnect.
-- [ ] **3.6 — Disconnected sends + error handling.** Drop (debug-log) `update`/`pulse` written while `connecting`/`closed` — do **not** queue. Route inbound `error` messages to an errors signal / `onError` (console-log by default, non-fatal). Ignore unknown message `type`s; catch + drop malformed JSON without tearing down the socket.
-- [ ] **3.7 — Provider teardown.** `onCleanup`: close WS, cancel reconnect/backoff timer **and** ping interval, drop routing table + per-param signals. Each provider tears down only its own instance.
+- [x] **3.1 — Reconnect + exponential backoff.** ~500ms start, double to ~10s ceiling, with jitter. Re-run the full handshake + snapshot resync on each reconnect.
+  - *Note:* per-connection options `reconnect` / `backoff.{min,max}`. Half-jitter (`base/2 + rand·base/2`). Each attempt gets a monotonic `attemptId`; a torn-down socket's late `close`/`error` events guard on it, so a stale event can't drive a second reconnect.
+- [x] **3.2 — Handshake watchdog.** Require `welcome` **and** `snapshot` within ~5s of `onopen`; otherwise abandon the attempt → backoff. Cleared the moment `snapshot` applies (`synced` flips true).
+  - *Note:* the watchdog is armed **before** `hello` is sent — a TD (or the in-memory mock) that replies synchronously can complete the whole handshake inside the `hello` send, and arming after would leave a watchdog `onSynced` already ran past, firing a spurious reconnect.
+- [x] **3.3 — `ping`/`pong` heartbeat.** App-level `ping` ~every 5s; a missing `pong` within ~10s marks the socket half-open → forces reconnect. (Guards an *established* session only — the watchdog covers the pre-handshake window.)
+  - *Note:* the pong deadline is armed only on the *first* unanswered ping, so when the interval is shorter than the pong timeout later pings don't push it out (a truly half-open socket still trips). `heartbeat: false` disables it. Wire types `ping`/`pong` added.
+- [x] **3.4 — Outbound throttle.** rAF-aligned (~60fps) coalescing of `update` sends (multiple param changes in a frame → one message). Per-component rate/opt-out prop.
+  - *Note:* `setValue(v, { throttle: true })` on the binding buffers into one per-frame `update`; the optimistic local signal write stays immediate. `<RangeInput>` throttles by default with a `throttle={false}` opt-out; discrete controls (`NumberInput`, `TextInput`) send immediately.
+- [x] **3.5 — Backpressure.** Check `ws.bufferedAmount` against a high-water mark before sending; skip `update`s while above it (latest coalesced value supersedes). Flip a `congested` flag on the status signal; sustained high-water → forced reconnect.
+  - *Note:* `congested` is exposed as its own `Accessor<boolean>` on the connection (kept off the `status` enum so `status()` stays a plain lifecycle string). Sustained congestion past `backpressure.timeout` reconnects.
+- [x] **3.6 — Disconnected sends + error handling.** Drop (debug-log) `update`/`pulse` written while `connecting`/`closed` — do **not** queue. Route inbound `error` messages to an errors signal / `onError` (console-log by default, non-fatal). Ignore unknown message `type`s; catch + drop malformed JSON without tearing down the socket.
+  - *Note:* `error` wire type added; routed to `onError` + a `lastError` accessor. (`pulse` drop lands with the pulse message in Phase 4.3 — the update path already drops-and-logs while disconnected.)
+- [x] **3.7 — Provider teardown.** `onCleanup`: close WS, cancel reconnect/backoff timer **and** ping interval, drop routing table + per-param signals. Each provider tears down only its own instance.
+  - *Note:* `close()` cancels every timer (reconnect, watchdog, ping/pong, congestion, rAF frame), closes the socket, and clears the routing table. Timers go through an injectable `TDScheduler` (default = platform globals) so the timing paths are deterministically testable.
 
 ---
 

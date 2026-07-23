@@ -6,6 +6,12 @@
  * in-range number, so there's no empty/`NaN`/clamp handling — the browser keeps
  * it within `min`/`max`. The control stays fully controlled (`value={…}`) since,
  * unlike a text field, there's no cursor to fight while TD echoes flow in.
+ *
+ * A slider is a high-frequency control, so its wire sends are **throttled by
+ * default** (Phase 3.4): the optimistic signal write is still immediate (the
+ * thumb and any bound readout move without waiting), but the `update` messages
+ * coalesce to one per animation frame. Pass `throttle={false}` to opt out (send
+ * on every input event) for a low-frequency use.
  */
 
 import { splitProps, type JSX } from 'solid-js'
@@ -19,11 +25,13 @@ export interface RangeInputProps
   min?: number
   max?: number
   step?: number | string
+  /** rAF-coalesce outbound sends. Default `true`. */
+  throttle?: boolean
 }
 
 export function RangeInput(props: RangeInputProps): JSX.Element {
   const binding = createTDSignal<number>(props.name)
-  const [, rest] = splitProps(props, ['name', 'onInput', 'onFocus', 'onBlur'])
+  const [, rest] = splitProps(props, ['name', 'throttle', 'onInput', 'onFocus', 'onBlur'])
 
   return (
     <input
@@ -32,7 +40,9 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
       {...rest}
       value={binding.value() ?? props.min ?? 0}
       onInput={(event) => {
-        binding.setValue(Number(event.currentTarget.value))
+        binding.setValue(Number(event.currentTarget.value), {
+          throttle: props.throttle !== false,
+        })
         callHandler(props.onInput, event)
       }}
       onFocus={(event) => {

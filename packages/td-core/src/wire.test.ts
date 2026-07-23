@@ -19,6 +19,25 @@ describe('parse', () => {
       type: 'update',
       params: { a: 1 },
     })
+    expect(parse('{"type":"ping"}')).toEqual({ type: 'ping' })
+    expect(parse('{"type":"pong"}')).toEqual({ type: 'pong' })
+  })
+
+  it('parses error messages, keeping optional message/ref only when strings', () => {
+    expect(parse('{"type":"error","code":"unknown_param","message":"no param","ref":"foo"}')).toEqual({
+      type: 'error',
+      code: 'unknown_param',
+      message: 'no param',
+      ref: 'foo',
+    })
+    // A connection-scoped error carries no ref — omitted, not null.
+    expect(parse('{"type":"error","code":"internal"}')).toEqual({
+      type: 'error',
+      code: 'internal',
+    })
+    // Non-string code is structurally invalid.
+    expect(parse('{"type":"error","code":42}')).toBeNull()
+    expect(parse('{"type":"error"}')).toBeNull()
   })
 
   it('accepts every wire-legal value shape in a params map', () => {
