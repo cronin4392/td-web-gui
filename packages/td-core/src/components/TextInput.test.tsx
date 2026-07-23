@@ -1,7 +1,8 @@
 /**
  * `commitOn` behavior (TEXT_SELECTOR.md §6): nothing sent while typing, commit
  * on form submit, commit on blur, Escape reverts silently, no-op on unchanged
- * value, `commitOn="input"` unregressed.
+ * value, `commitOn="input"` unregressed. Plus `multiline`: textarea rendering
+ * and newline ↔ `\n` translation at the wire boundary.
  */
 
 import { render } from 'solid-js/web'
@@ -26,6 +27,7 @@ afterEach(() => {
 interface SetupOptions {
   commitOn?: 'input' | 'enter'
   wrapInForm?: boolean
+  multiline?: boolean
   onCommit?: (v: string) => void
 }
 
@@ -36,7 +38,13 @@ async function setup(snapshot: Record<string, unknown>, opts: SetupOptions = {})
   document.body.appendChild(host)
 
   const input = () => (
-    <TD.TextInput name="text1" commitOn={opts.commitOn ?? 'enter'} data-testid="txt" onCommit={opts.onCommit} />
+    <TD.TextInput
+      name="text1"
+      commitOn={opts.commitOn ?? 'enter'}
+      multiline={opts.multiline}
+      data-testid="txt"
+      onCommit={opts.onCommit}
+    />
   )
 
   dispose = render(
@@ -48,13 +56,19 @@ async function setup(snapshot: Record<string, unknown>, opts: SetupOptions = {})
     host,
   )
   await flush()
-  const el = host.querySelector<HTMLInputElement>('[data-testid="txt"]')!
+  const el = host.querySelector<HTMLInputElement | HTMLTextAreaElement>('[data-testid="txt"]')!
   return { td, input: el }
 }
 
-function type(input: HTMLInputElement, value: string) {
+function type(input: HTMLInputElement | HTMLTextAreaElement, value: string) {
   input.value = value
   input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function pressEnter(input: HTMLInputElement | HTMLTextAreaElement, shiftKey = false) {
+  const event = new KeyboardEvent('keydown', { key: 'Enter', shiftKey, bubbles: true, cancelable: true })
+  input.dispatchEvent(event)
+  return event
 }
 
 function updatesSent(td: ReturnType<typeof createMockTD>) {
@@ -141,6 +155,61 @@ describe('TextInput commitOn="enter"', () => {
 
     td.socket().serverSend({ type: 'update', params: { text1: 'from td' } })
     expect(input.value).toBe('from td')
+  })
+})
+
+describe('TextInput multiline', () => {
+  it('renders a textarea', async () => {
+    const { input } = await setup({ text1: '' }, { multiline: true })
+    expect(input.tagName).toBe('TEXTAREA')
+  })
+
+  it('shows TD\'s \\n escapes as real line breaks', async () => {
+    const { td, input } = await setup({ text1: 'line one\\nline two' }, { multiline: true })
+    expect(input.value).toBe('line one\nline two')
+
+    td.socket().serverSend({ type: 'update', params: { text1: 'a\\nb\\nc' } })
+    expect(input.value).toBe('a\nb\nc')
+  })
+
+  it('sends line breaks as \\n escapes on commit', async () => {
+    const onCommit: string[] = []
+    const { td, input } = await setup({ text1: '' }, { multiline: true, onCommit: (v) => onCommit.push(v) })
+    input.focus()
+    type(input, 'line one\nline two')
+    pressEnter(input)
+
+    expect(updatesSent(td)).toEqual([{ type: 'update', params: { text1: 'line one\\nline two' } }])
+    // onCommit reports what the user typed, not the wire form.
+    expect(onCommit).toEqual(['line one\nline two'])
+  })
+
+  it('Shift+Enter inserts a line break instead of committing', async () => {
+    const { td, input } = await setup({ text1: '' }, { multiline: true })
+    input.focus()
+    type(input, 'line one')
+    const event = pressEnter(input, true)
+
+    expect(event.defaultPrevented).toBe(false) // the browser inserts the newline
+    expect(updatesSent(td)).toHaveLength(0)
+  })
+
+  it('commits on blur, escaped', async () => {
+    const { td, input } = await setup({ text1: '' }, { multiline: true })
+    input.focus()
+    type(input, 'a\nb')
+    input.blur()
+
+    expect(updatesSent(td)).toEqual([{ type: 'update', params: { text1: 'a\\nb' } }])
+  })
+
+  it('a commit differing only in escaping is still a no-op', async () => {
+    const { td, input } = await setup({ text1: 'a\\nb' }, { multiline: true })
+    input.focus()
+    type(input, 'a\nb')
+    input.blur()
+
+    expect(updatesSent(td)).toHaveLength(0)
   })
 })
 

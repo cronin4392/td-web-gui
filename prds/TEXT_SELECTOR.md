@@ -72,6 +72,9 @@ Two inputs bound to `text1` and `text2`, each wrapped in its own native `<form>`
   recent-list entry. This is what keeps Enter-then-blur from firing twice.
 - Empty-string commits are valid (clearing a TD text par is a real operation) but are **not** added
   to the recent list.
+- **The fields are multi-line** (`<textarea>`, 3 rows). **Shift+Enter inserts a line break**; plain
+  Enter still commits. Line breaks reach TD as the `\n` escape its string pars use, and TD's `\n`
+  comes back as a real break in the field — the stored recent/phrase entries keep real newlines.
 
 This requires a change to `td-core`'s `<TextInput>` — see [§6](#6-td-core-changes).
 
@@ -205,7 +208,11 @@ export interface TextInputProps {
   name: string
   /** When the local value is written to the bound signal and sent to TD. Default: 'input'. */
   commitOn?: 'input' | 'enter'
-  /** Fired on each committed value (including via form submit / blur). */
+  /** Render a `<textarea>`, carrying line breaks to TD as the `\n` escape. */
+  multiline?: boolean
+  /** Visible rows; `multiline` only. */
+  rows?: number
+  /** Fired on each committed value (including via form submit / blur), with real newlines. */
   onCommit?: (value: string) => void
 }
 ```
@@ -222,7 +229,13 @@ export interface TextInputProps {
   always flushes, **a draft can only exist while the input is focused** — there is no unfocused
   pending state for an inbound update to fight with.
 - The app also needs to set an input's value programmatically (phrase click / drop). That's the
-  existing `signal()` write path — a phrase apply is an ordinary commit, not a draft edit.
+  existing `signal()` write path — a phrase apply is an ordinary commit, not a draft edit. Because
+  that path bypasses the component, it owes the same newline escaping (`escapeNewlines`, exported
+  from `td-core`) that a multi-line commit does.
+- **`multiline`** renders a `<textarea>` and translates newlines ↔ TD's `\n` escape at the wire
+  boundary; Enter commits, Shift+Enter breaks the line. See
+  [TECH_PROPOSAL.md § Multi-line text](TECH_PROPOSAL.md#multi-line-text) for why the translation is
+  per-component rather than applied to every string param.
 
 `TECH_PROPOSAL.md` gets a short *Text commit modes* entry under **Behavioral Decisions** recording
 the default and the blur/Escape rules, and `TASKS.md` gains the corresponding task.

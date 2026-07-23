@@ -217,6 +217,12 @@ The params bus is a **broadcast** (every client receives all exposed param updat
 - **`commitOn="input"`** is the existing send-on-every-keystroke behavior and stays the default, so `apps/example` and prior tests are unregressed.
 - **`commitOn="enter"`** (added for `apps/text-selector`, see [TEXT_SELECTOR.md §6](TEXT_SELECTOR.md#6-td-core-changes)) holds keystrokes in a local draft; nothing is sent until commit. Commit fires on the ancestor `<form>`'s native `submit` (`preventDefault()`'d), or an Enter `keydown` fallback when there's no ancestor form (guarded on `event.isComposing` so an IME confirmation doesn't commit), and always on blur. **Escape reverts the draft** to the last committed value and sends nothing; because a commit whose draft equals the last committed value is a no-op, a blur immediately following Escape can't re-send. This relies on focus-based echo suppression (below) — a draft can only exist while focused, so `binding.value()` doubles as "last committed" with no extra signal.
 
+### Multi-line text
+
+`<TextInput multiline>` renders a `<textarea>` and translates line breaks at the wire boundary: the field holds real newlines, the bound signal and TD hold the two-character `\n` escape TouchDesigner string pars use (`escapeNewlines` / `unescapeNewlines`, exported for code that writes such a param through `signal()` directly). Translation is opt-in per component rather than applied to every string param, because `\n` in a param that holds a Windows path is a path, not a line break.
+
+Under `commitOn="enter"`, **Enter commits and Shift+Enter inserts a line break**. A textarea has no implicit form submission, so Enter is handled in `keydown` even inside a `<form>`; the form's `submit` listener stays as a commit path for other submitters.
+
 ### Bidirectional echo / edit conflict
 
 When the user is actively editing an input **and** TD pushes a new value for the same parameter, the **local edit wins while the input is focused / being dragged**. Inbound TD updates for that parameter are ignored until blur, then sync resumes. This prevents the value or cursor from jumping out from under the user.

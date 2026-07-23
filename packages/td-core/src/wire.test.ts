@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parse, PROTOCOL_VERSION } from './wire'
+import { escapeNewlines, parse, PROTOCOL_VERSION, unescapeNewlines } from './wire'
 
 describe('parse', () => {
   it('parses each known message type', () => {
@@ -80,5 +80,23 @@ describe('parse', () => {
 
   it('exports the current protocol version', () => {
     expect(PROTOCOL_VERSION).toBe(1)
+  })
+})
+
+describe('newline escaping', () => {
+  it('encodes every line-break flavour as the two-character \\n', () => {
+    expect(escapeNewlines('a\nb')).toBe('a\\nb')
+    expect(escapeNewlines('a\r\nb')).toBe('a\\nb')
+    expect(escapeNewlines('a\rb')).toBe('a\\nb')
+    expect(escapeNewlines('a\n\nb')).toBe('a\\n\\nb')
+  })
+
+  it('leaves text without line breaks untouched', () => {
+    expect(escapeNewlines('hello world')).toBe('hello world')
+    expect(unescapeNewlines('hello world')).toBe('hello world')
+  })
+
+  it('round-trips through TD and back', () => {
+    expect(unescapeNewlines(escapeNewlines('line one\nline two\n'))).toBe('line one\nline two\n')
   })
 })
