@@ -25,6 +25,30 @@ export type ParamValue = number | string | boolean | number[]
 /** Map of friendly param name → value, as carried by `snapshot`/`update`. */
 export type ParamMap = Record<string, ParamValue>
 
+/**
+ * Encode a browser-side multi-line string for a TD string parameter: real line
+ * breaks become the two-character escape `\n`, which is how TouchDesigner's
+ * string pars carry newlines (a Text TOP renders `\n` as a line break; a raw
+ * newline in a par is not what TD expects). CR and CRLF are normalized to the
+ * same escape, so a paste from Windows/legacy sources lands as one break.
+ */
+export function escapeNewlines(text: string): string {
+  return text.replace(/\r\n|\r|\n/g, '\\n')
+}
+
+/**
+ * Inverse of {@link escapeNewlines}, for showing a TD string in a `<textarea>`.
+ *
+ * Deliberately naive: it does not honour a backslash-escaped backslash, so text
+ * whose *literal* content is `C:\name` comes back with a line break. Only params
+ * a component explicitly marks multi-line go through this, and those hold prose,
+ * not paths — handling the ambiguity would mean escaping backslashes on the way
+ * out too, which TD itself would then show verbatim.
+ */
+export function unescapeNewlines(wire: string): string {
+  return wire.replace(/\\n/g, '\n')
+}
+
 // ── web → TD ────────────────────────────────────────────────────────────────
 
 /** Version handshake; opens every (re)connection. */

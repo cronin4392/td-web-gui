@@ -16,7 +16,9 @@ export const version = '0.0.0'
 // Wire format
 export {
   PROTOCOL_VERSION,
+  escapeNewlines,
   parse,
+  unescapeNewlines,
   type ClientMessage,
   type ErrorMessage,
   type HelloMessage,

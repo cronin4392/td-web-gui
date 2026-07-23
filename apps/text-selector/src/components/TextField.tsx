@@ -3,6 +3,9 @@
  * `commitOn="enter"` input, feeding the recent list on commit, and a drop
  * target for phrase chips (custom-mime only — plain text dragged in from
  * outside the app is not accepted).
+ *
+ * `multiline` makes it a textarea: Enter still commits, Shift+Enter inserts a
+ * line break, and `td-core` carries the breaks to TD as `\n` escapes.
  */
 
 import type { JSX } from 'solid-js'
@@ -28,9 +31,11 @@ export function TextField(props: TextFieldProps): JSX.Element {
         <TDClient.TextInput
           name={props.name}
           commitOn="enter"
+          multiline
+          rows={3}
           onCommit={props.commitRecent}
           placeholder={props.label}
-          class="rounded border px-2 py-1"
+          class="resize-y rounded border px-2 py-1"
           onDragOver={(event) => {
             if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
           }}

@@ -1,4 +1,5 @@
 import { createMemo, onCleanup, Show, type JSX } from 'solid-js'
+import { escapeNewlines } from 'td-core'
 import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
 import { TDClient, type SceneTextParamName } from './td'
 import { createTextSelectorStore } from './store'
@@ -38,8 +39,11 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
 
   // The one place that owns "commit a phrase to a TD text field" — shared by
   // TextField's own drop target and RecentRow/PhraseList (always Text 1).
+  // This writes the signal directly, so it owes the same newline escaping the
+  // multiline <TextInput> does on its own commits; stored phrases keep real
+  // newlines.
   function applyPhrase(name: SceneTextParamName, phrase: string) {
-    connection.signal(name).setValue(phrase)
+    connection.signal(name).setValue(escapeNewlines(phrase))
     props.store.commitRecent(phrase)
   }
   function applyToText1(phrase: string) {
