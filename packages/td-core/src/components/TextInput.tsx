@@ -77,9 +77,13 @@ export function TextInput(props: TextInputProps): JSX.Element {
     // Split out (not spread) because the element is a union here: a `ref` typed
     // for both would satisfy neither branch. `setRef` forwards it instead.
     'ref',
+    // Split out so it can't reach an <input>, where `rows` is not a valid
+    // attribute; the textarea branches apply it explicitly.
+    'rows',
   ])
 
   const multiline = props.multiline ?? false
+  const commitOn = props.commitOn ?? 'input'
 
   /** Wire value (TD's escapes) → what the user sees and edits. */
   const toField = (wire: string) => (multiline ? unescapeNewlines(wire) : wire)
@@ -94,7 +98,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
     if (typeof forward === 'function') (forward as (el: TextFieldElement) => void)(el)
   }
 
-  if ((props.commitOn ?? 'input') === 'input') {
+  if (commitOn === 'input') {
     const value = () => toField(binding.value() ?? '')
     const handleInput = (event: { currentTarget: TextFieldElement }) => {
       const text = event.currentTarget.value
@@ -116,6 +120,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
         ref={setRef}
         class="td-text-input"
         {...rest}
+        rows={props.rows}
         value={value()}
         onInput={handleInput}
         onFocus={handleFocus}
@@ -198,6 +203,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
       ref={setRef}
       class="td-text-input"
       {...rest}
+      rows={props.rows}
       value={draft()}
       onInput={handleInput}
       onFocus={handleFocus}
