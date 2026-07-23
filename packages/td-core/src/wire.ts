@@ -2,10 +2,12 @@
  * Wire format — the typed JSON discriminated-union envelope spoken over the
  * WebSocket between the web UI and TouchDesigner.
  *
- * Phase 2 covers the control-data subset only: `hello`, `welcome`,
- * `snapshot-request`, `snapshot`, and `update`. Pulse, errors, ping/pong, and
- * the WebRTC signaling messages arrive in later phases — `parse` is written so
- * those (and any future) `type`s are dropped, not mis-decoded, until then.
+ * Phase 2 covered the control-data subset: `hello`, `welcome`,
+ * `snapshot-request`, `snapshot`, and `update`. Phase 3 (WebSocket hardening)
+ * adds the connection-liveness and error messages — `ping`/`pong` (app-level
+ * heartbeat) and `error` (surfaced, non-fatal). Pulse and the WebRTC signaling
+ * messages still arrive in later phases — `parse` drops those (and any future)
+ * `type`s rather than mis-decoding them until then.
  *
  * See prds/TECH_PROPOSAL.md § "WebSocket Wire Format" for the full catalog.
  */
@@ -36,6 +38,15 @@ export interface SnapshotRequestMessage {
   type: 'snapshot-request'
 }
 
+/**
+ * App-level heartbeat (web → TD). Browser JS can't observe the WS protocol's
+ * own ping/pong frames, so liveness of an *established* session is probed with
+ * this explicit message; a missing `pong` marks the socket half-open.
+ */
+export interface PingMessage {
+  type: 'ping'
+}
+
 // ── both directions ───────────────────────────────────────────────────────
 
 /**
@@ -63,22 +74,52 @@ export interface SnapshotMessage {
   params: ParamMap
 }
 
+/** Reply to `ping`: proof the established session is still live. */
+export interface PongMessage {
+  type: 'pong'
+}
+
+/**
+ * A surfaced-but-non-fatal error (TD → web). Routed to the connection's errors
+ * signal / `onError`; it never tears down the socket. `ref` is present for
+ * param-scoped errors (`unknown_param`, `param_not_writable`) so handlers can do
+ * per-param recovery, and absent for connection-scoped errors.
+ */
+export interface ErrorMessage {
+  type: 'error'
+  code: string
+  message?: string
+  ref?: string
+}
+
 /** Messages the web sends to TD. */
-export type ClientMessage = HelloMessage | SnapshotRequestMessage | UpdateMessage
+export type ClientMessage =
+  | HelloMessage
+  | SnapshotRequestMessage
+  | UpdateMessage
+  | PingMessage
 
 /** Messages the web receives from TD. */
-export type ServerMessage = WelcomeMessage | SnapshotMessage | UpdateMessage
+export type ServerMessage =
+  | WelcomeMessage
+  | SnapshotMessage
+  | UpdateMessage
+  | PongMessage
+  | ErrorMessage
 
 /** Every known message in either direction. */
 export type Message = ClientMessage | ServerMessage
 
-/** The Phase 2 message `type`s `parse` will accept; anything else is dropped. */
+/** The message `type`s `parse` will accept; anything else is dropped. */
 const KNOWN_TYPES = new Set([
   'hello',
   'welcome',
   'snapshot-request',
   'snapshot',
   'update',
+  'ping',
+  'pong',
+  'error',
 ])
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -137,6 +178,19 @@ export function parse(raw: string): Message | null {
       return isParamMap(data.params) ? { type: 'snapshot', params: data.params } : null
     case 'update':
       return isParamMap(data.params) ? { type: 'update', params: data.params } : null
+    case 'ping':
+      return { type: 'ping' }
+    case 'pong':
+      return { type: 'pong' }
+    case 'error':
+      return typeof data.code === 'string'
+        ? {
+            type: 'error',
+            code: data.code,
+            ...(typeof data.message === 'string' ? { message: data.message } : {}),
+            ...(typeof data.ref === 'string' ? { ref: data.ref } : {}),
+          }
+        : null
     default:
       return null
   }

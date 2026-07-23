@@ -34,6 +34,13 @@ export class MockTDSocket {
   readyState: number = CONNECTING
   url: string
 
+  /**
+   * Bytes queued but not yet transmitted. Real `WebSocket` exposes this; the
+   * backpressure path (Phase 3.5) reads it. Tests set it to simulate a socket
+   * TD has stopped draining.
+   */
+  bufferedAmount = 0
+
   /** Raw frames the client (connection) has sent, in order. */
   readonly sent: string[] = []
   /** Parsed frames the client has sent, in order. */
@@ -117,6 +124,12 @@ export interface MockTDOptions {
   instance?: string
   /** Params returned in the `snapshot` reply to `snapshot-request`. */
   snapshot?: Record<string, unknown>
+  /**
+   * When `false`, the server opens the socket but never replies to `hello` /
+   * `snapshot-request` — used to exercise the handshake watchdog (Phase 3.2).
+   * Defaults to `true`.
+   */
+  autoHandshake?: boolean
 }
 
 export interface MockTDHandle {
@@ -135,6 +148,7 @@ export interface MockTDHandle {
 export function createMockTD(options: MockTDOptions = {}): MockTDHandle {
   const protocol = options.protocol ?? 1
   const snapshot = options.snapshot ?? {}
+  const autoHandshake = options.autoHandshake ?? true
   let instance: MockTDSocket | undefined
 
   class WS extends MockTDSocket {
@@ -142,6 +156,7 @@ export function createMockTD(options: MockTDOptions = {}): MockTDHandle {
       super(url)
       instance = this
       this.onClientMessage = (message) => {
+        if (!autoHandshake) return
         if (message?.type === 'hello') {
           this.serverSend({
             type: 'welcome',
