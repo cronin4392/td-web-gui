@@ -51,6 +51,11 @@ function moveToFront(arr: readonly string[], item: string, limit?: number): stri
   return limit === undefined ? next : next.slice(0, limit)
 }
 
+/** Move `item` to the back, deduping any existing match. */
+function moveToBack(arr: readonly string[], item: string): string[] {
+  return [...arr.filter((p) => p !== item), item]
+}
+
 /** The persisted `activeTabId` if it names one of `tabs` (or the pinned Recent tab); the first tab otherwise. Never throws. */
 function loadActiveTabId(storage: Storage | undefined, tabs: readonly PhraseTab[]): string {
   const fallback = tabs[0]!.id
@@ -95,7 +100,7 @@ export interface TextSelectorStore {
   setActiveTab: (id: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
 
-  /** Add a phrase to the top of a tab's list; moves an existing match to the top instead of duplicating. */
+  /** Add a phrase to the bottom of a tab's list; moves an existing match to the bottom instead of duplicating. */
   addPhrase: (tabId: string, phrase: string) => void
   deletePhrase: (tabId: string, index: number) => void
   reorderPhrase: (tabId: string, fromIndex: number, toIndex: number) => void
@@ -253,7 +258,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     if (!trimmed) return
     const idx = findTabIndex(tabId)
     if (idx === -1) return
-    setState('tabs', idx, 'phrases', (phrases) => moveToFront(phrases, trimmed))
+    setState('tabs', idx, 'phrases', (phrases) => moveToBack(phrases, trimmed))
     markLibraryDirty()
   }
 
