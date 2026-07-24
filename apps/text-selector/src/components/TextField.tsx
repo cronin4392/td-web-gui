@@ -17,7 +17,7 @@ export interface TextFieldProps {
   name: SceneTextParamName
   label: string
   commitRecent: (phrase: string) => void
-  /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentRow`/`PhraseList`'s (always Text 1) `onApply`. */
+  /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s (always Text 1) `onApply`. */
   applyPhrase: (name: SceneTextParamName, phrase: string) => void
   /** Clear this field's TD text param. */
   onClear: (name: SceneTextParamName) => void
@@ -27,20 +27,16 @@ export function TextField(props: TextFieldProps): JSX.Element {
   return (
     // No onSubmit here: <TextInput commitOn="enter"> already attaches its own
     // submit listener directly to this ancestor form (preventDefault + commit).
-    <form class="flex flex-col gap-1">
-      <div class="flex items-center justify-between">
-        <label class="text-sm font-medium" for={props.name}>
-          {props.label}
-        </label>
-        <button
-          type="button"
-          onClick={() => props.onClear(props.name)}
-          class="rounded border px-2 py-0.5 text-xs text-gray-500 hover:text-red-600"
-          title={`Clear ${props.label}`}
-        >
-          Clear
-        </button>
-      </div>
+    <form class="relative">
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => props.onClear(props.name)}
+        class="absolute right-1 top-1 z-10 rounded border border-neutral-600 bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400 hover:text-red-400"
+        title={`Clear ${props.label}`}
+      >
+        Clear
+      </button>
       <TDClient.TextInput
         id={props.name}
         name={props.name}
@@ -49,7 +45,8 @@ export function TextField(props: TextFieldProps): JSX.Element {
         rows={2}
         onCommit={props.commitRecent}
         placeholder={props.label}
-        class="resize-y rounded border px-2 py-1"
+        aria-label={props.label}
+        class="w-full resize-y rounded-md border border-neutral-600 bg-neutral-800 px-2 py-1 pr-16 text-sm text-neutral-100 placeholder:text-neutral-500"
         onDragOver={(event) => {
           if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
         }}

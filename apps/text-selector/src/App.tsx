@@ -2,11 +2,11 @@ import { createMemo, onCleanup, Show, type JSX } from 'solid-js'
 import { escapeNewlines } from 'td-core'
 import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
 import { TDClient, type SceneTextParamName } from './td'
-import { createTextSelectorStore } from './store'
+import { RECENT_TAB_ID, createTextSelectorStore } from './store'
 import { saveLibrary } from './library-api'
 import type { Library } from './library'
 import { TextField } from './components/TextField'
-import { RecentRow } from './components/RecentRow'
+import { RecentPanel } from './components/RecentPanel'
 import { TabStrip } from './components/TabStrip'
 import { PhraseList } from './components/PhraseList'
 
@@ -22,11 +22,11 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => store.dispose())
 
   return (
-    <main class="mx-auto max-w-2xl p-6">
+    <main class="p-6">
       <TDClient.Provider url={textSelector.url} instance={textSelector.id}>
         <TextSelectorBody store={store} />
       </TDClient.Provider>
-      <p class="mt-8 text-sm text-gray-700">
+      <p class="mt-6 text-sm text-neutral-500">
         Bound to instance <code>{textSelector.id}</code> at <code>{textSelector.url}</code>
       </p>
     </main>
@@ -43,7 +43,7 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
   const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()))
 
   // The one place that owns "commit a phrase to a TD text field" — shared by
-  // TextField's own drop target and RecentRow/PhraseList (always Text 1).
+  // TextField's own drop target and RecentPanel/PhraseList (always Text 1).
   // This writes the signal directly, so it owes the same newline escaping the
   // multiline <TextInput> does on its own commits; stored phrases keep real
   // newlines.
@@ -71,15 +71,14 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
         when={activeScene()}
         keyed
         fallback={
-          <p class="mt-4 text-sm text-gray-500">
+          <p class="mt-4 text-sm text-neutral-500">
             Waiting for a scene loader — <code>selectedLoader</code> is{' '}
             <TDClient.Value name="selectedLoader" />
           </p>
         }
       >
         {(scene) => (
-          <section class="mt-4 flex flex-col gap-3">
-            <h2 class="text-sm font-semibold text-gray-500">Scene {scene}</h2>
+          <section class="flex flex-col gap-2">
             <TextField
               name={sceneTextParam(scene, 1)}
               label="Text 1"
@@ -98,13 +97,14 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
         )}
       </Show>
 
-      <section class="mt-4 border-t pt-3">
-        <RecentRow recent={props.store.state.recent} onApply={applyToText1} onDelete={props.store.deleteRecent} />
-      </section>
-
-      <section class="mt-4 border-t pt-3">
+      <section class="mt-4 border-t border-neutral-700 pt-3">
         <TabStrip store={props.store} />
-        <Show when={activeTab()}>{(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}</Show>
+        <Show
+          when={props.store.state.activeTabId !== RECENT_TAB_ID}
+          fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
+        >
+          <Show when={activeTab()}>{(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}</Show>
+        </Show>
       </section>
     </>
   )
