@@ -46,7 +46,11 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   }
 
   return (
-    <div role="tablist" aria-label="Phrase lists" class="flex flex-wrap items-center gap-1 border-b border-neutral-700 pb-1">
+    <div
+      role="tablist"
+      aria-label="Phrase lists"
+      class="flex shrink-0 flex-wrap items-center gap-1 border-b border-neutral-700 pb-1"
+    >
       <button
         ref={(el) => tabRefs.set(RECENT_TAB_ID, el)}
         type="button"
