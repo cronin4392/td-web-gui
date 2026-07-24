@@ -28,7 +28,7 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
       role="tabpanel"
       id={`tabpanel-${RECENT_TAB_ID}`}
       aria-labelledby={`tab-${RECENT_TAB_ID}`}
-      class="mt-2 flex h-full flex-col"
+      class="flex h-full flex-col"
     >
       <input
         type="search"
