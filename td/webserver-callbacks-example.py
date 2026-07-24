@@ -1,7 +1,8 @@
 """
-webserverDAT callbacks — TD Web GUI control-data protocol (Phase 2 subset,
-plus pulse and array (ParGroup) params so every control kind in apps/example
-has a working backing entry).
+webserverDAT callbacks — TD Web GUI control-data protocol.
+
+Reference configuration: one registry entry per control kind in apps/example,
+so every control there has a working backing par.
 
 Speaks the WebSocket wire contract the web app expects:
 
@@ -13,16 +14,29 @@ Speaks the WebSocket wire contract the web app expects:
 
 Friendly wire names are mapped to (operator, parameter, wire-type) by REGISTRY,
 which is the single place type info lives. TD-side param edits are pushed back to
-the browser by a Parameter Execute DAT that calls broadcast_param_change()
-(snippet at the bottom of this file).
+the browser by a Parameter Execute DAT that calls broadcast_param_change() — see
+td/parameter-execute.py.
 
 See prds/TECH_PROPOSAL.md "WebSocket Wire Format" for the full message catalog.
 """
-from typing import Any, Dict
 
-import json
+# ═════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION — the only part of this file that is project specific.
+#
+# This project's backing operators are a single `params` Base COMP with one
+# custom par per REGISTRY entry:
+#   Message    String
+#   Intensity  Float   (0-1)
+#   Enabled    Toggle
+#   Reset      Pulse
+#   Gate       Toggle
+#   Mute       Toggle
+#   Blendmode  Menu    (menu keys must match apps/example's Select options)
+#   Position   XYZ     (Float) -> Positionx/Positiony/Positionz
+#   Color      RGBA    (Float, 0-1) -> Colorr/Colorg/Colorb/Colora
+# ═════════════════════════════════════════════════════════════════════════════
 
-PROTOCOL = 1
+# Identifies this TD project to the web app, sent in the `welcome` reply.
 INSTANCE = 'example'
 
 # friendly wire name -> backing parameter.
@@ -43,6 +57,20 @@ REGISTRY = {
 	'position':  {'op': 'params', 'par': 'Position',  'type': 'number[]'},
 	'color':     {'op': 'params', 'par': 'Color',     'type': 'number[]'},
 }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SHARED CODE — identical in webserver-callbacks.py and
+# webserver-callbacks-example.py; nothing below is project specific. Change it
+# in one file, change it in the other.
+# ═════════════════════════════════════════════════════════════════════════════
+
+from typing import Any, Dict
+
+import json
+
+# Wire protocol version, sent in the `welcome` reply.
+PROTOCOL = 1
 
 # Open WebSocket client connections, used for broadcast.
 clients = set()
@@ -66,7 +94,7 @@ def _warn_missing(entry, reason):
 	if key in _warned:
 		return
 	_warned.add(key)
-	print("webserver-callbacks-example: warning - %s" % reason)
+	print("webserver-callbacks: warning - %s" % reason)
 
 
 def _pars(entry):
@@ -94,7 +122,13 @@ def _read(name):
 	if entry['type'] == 'number[]':
 		return [p.eval() for p in pars]
 	value = pars[0].eval()
-	return bool(value) if entry['type'] == 'bool' else value
+	if entry['type'] == 'bool':
+		return bool(value)
+	if entry['type'] == 'string' and hasattr(value, 'path'):
+		# OP-reference pars (e.g. COMP-type custom pars) eval() to the operator
+		# itself, not a string — send its path over the wire instead.
+		return value.path
+	return value
 
 
 def _snapshot():
@@ -272,27 +306,3 @@ def onServerStart(dat: webserverDAT):
 def onServerStop(dat: webserverDAT):
 	clients.clear()
 	return
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# TD -> web: add a Parameter Execute DAT to push TD-side edits to the browser.
-#
-# 1. Create a `params` Base COMP with one custom par per REGISTRY entry:
-#      Message    String
-#      Intensity  Float   (0-1)
-#      Enabled    Toggle
-#      Reset      Pulse
-#      Gate       Toggle
-#      Mute       Toggle
-#      Blendmode  Menu    (menu keys must match apps/example's Select options)
-#      Position   XYZ     (Float) -> Positionx/Positiony/Positionz
-#      Color      RGBA    (Float, 0-1) -> Colorr/Colorg/Colorb/Colora
-# 2. Add a Parameter Execute DAT, set its OP to `params`, enable Value Change
-#    and Custom (Pulse pars don't raise Value Change, so Reset never needs to
-#    broadcast), and use this body (replace 'webserver_callbacks' with the
-#    actual name of THIS callbacks DAT — TD op names can't contain hyphens):
-#
-#        def onValueChange(par, prev):
-#            op('webserver_callbacks').module.broadcast_param_change(par)
-#            return
-# ─────────────────────────────────────────────────────────────────────────────

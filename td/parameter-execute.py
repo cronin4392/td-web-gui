@@ -6,21 +6,33 @@ all connected browsers via the Web Server DAT's callbacks module. Edits that
 arrive from the web flow through here too, because onWebSocketReceiveText sets
 par.val — so this is the single broadcast path for both web- and TD-originated
 changes.
-
-Setup: set this DAT's OPs parameter to `/GUI/ExternalScenes/Scene* /GUI/GUI`
-(every operator REGISTRY references) and enable the "Value Change" and "Custom"
-toggles.
 """
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION — the only part of this file that is project specific.
+#
+# Set on the DAT itself, not here:
+#   OPs            every operator the callbacks DAT's REGISTRY references, space
+#                  separated — a Parameter Execute DAT can watch several at once
+#                  (e.g. `/GUI/ExternalScenes/Scene* /GUI/GUI`).
+#   Value Change   enabled.
+#   Custom         enabled.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Name of, or path to, the Web Server DAT's callbacks DAT. TD op names can't
+# contain hyphens, so this won't literally be "webserver-callbacks".
+CALLBACKS = 'webserver1_callbacks'
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SHARED CODE — nothing below is project specific.
+# ═════════════════════════════════════════════════════════════════════════════
 
 from typing import Any, List
 
-# Name of the Web Server DAT's callbacks DAT. TD op names can't contain hyphens,
-# so this won't literally be "webserver-callbacks" — set it to the actual name.
-CALLBACKS = 'webserver1_callbacks'
 
 def _callbacks():
 	dat = op(CALLBACKS)
-	# dat = op.WebGui.op('webserver1_callbacks')
 	return dat.module if dat is not None else None
 
 
