@@ -19,7 +19,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
   const [filter, setFilter] = createSignal('')
   const [adding, setAdding] = createSignal(false)
   const [dropIndex, setDropIndex] = createSignal<number | null>(null)
-  let addInputRef: HTMLInputElement | undefined
+  let addInputRef: HTMLTextAreaElement | undefined
 
   const isFiltered = createMemo(() => filter().trim().length > 0)
 
@@ -82,14 +82,24 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
             addInputRef?.focus()
           }}
         >
-          <input
+          <textarea
             ref={addInputRef}
-            type="text"
+            rows={2}
             placeholder="new phrase…"
             aria-label="New phrase"
-            class="w-full rounded border px-2 py-1 text-sm"
+            class="w-full resize-y rounded border px-2 py-1 text-sm"
             onKeyDown={(event) => {
-              if (event.key === 'Escape') setAdding(false)
+              if (event.key === 'Escape') {
+                setAdding(false)
+                return
+              }
+              // A textarea raises no implicit submit; Enter commits here
+              // (Shift+Enter still inserts a line break), matching
+              // TextField/TDClient.TextInput's multiline commit behavior.
+              if (event.key === 'Enter' && !event.isComposing && !event.shiftKey) {
+                event.preventDefault()
+                event.currentTarget.form?.requestSubmit()
+              }
             }}
           />
         </form>
