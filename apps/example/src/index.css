@@ -1,0 +1,53 @@
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #222;
+  margin: 2rem;
+}
+
+main {
+  max-width: 32rem;
+}
+
+section {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+input,
+select,
+button {
+  margin-top: 0.25rem;
+}
+
+.status {
+  margin-bottom: 1.5rem;
+}
+
+.status .dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: #999;
+}
+
+.status .dot.synced {
+  background: #2a9d4a;
+}
+
+.status .dot.connecting {
+  background: #e0a020;
+}
+
+.status .dot.closed {
+  background: #999;
+}
+
+.status .error {
+  color: #c0392b;
+}
