@@ -30,6 +30,7 @@ interface SetupOptions {
   multiline?: boolean
   rows?: number
   onCommit?: (v: string) => void
+  readonly?: string[]
 }
 
 async function setup(snapshot: Record<string, unknown>, opts: SetupOptions = {}) {
@@ -51,7 +52,7 @@ async function setup(snapshot: Record<string, unknown>, opts: SetupOptions = {})
 
   dispose = render(
     () => (
-      <TD.Provider url="ws://test" options={{ WebSocket: td.WebSocket }}>
+      <TD.Provider url="ws://test" options={{ WebSocket: td.WebSocket }} readonly={opts.readonly}>
         {opts.wrapInForm === false ? input() : <form data-testid="form">{input()}</form>}
       </TD.Provider>
     ),
@@ -238,5 +239,10 @@ describe('TextInput commitOn="input" (unregressed)', () => {
       { type: 'update', params: { text1: 'h' } },
       { type: 'update', params: { text1: 'hi' } },
     ])
+  })
+
+  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+    const { input } = await setup({ text1: 'hi' }, { commitOn: 'input', readonly: ['text1'] })
+    expect(input.disabled).toBe(true)
   })
 })

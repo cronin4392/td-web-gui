@@ -19,6 +19,7 @@ describe('parse', () => {
       type: 'update',
       params: { a: 1 },
     })
+    expect(parse('{"type":"pulse","name":"reset"}')).toEqual({ type: 'pulse', name: 'reset' })
     expect(parse('{"type":"ping"}')).toEqual({ type: 'ping' })
     expect(parse('{"type":"pong"}')).toEqual({ type: 'pong' })
   })
@@ -63,7 +64,6 @@ describe('parse', () => {
   })
 
   it('drops unknown message types', () => {
-    expect(parse('{"type":"pulse","name":"reset"}')).toBeNull()
     expect(parse('{"type":"rtc-offer","sdp":"..."}')).toBeNull()
     expect(parse('{"type":"totally-made-up"}')).toBeNull()
     expect(parse('{"protocol":1}')).toBeNull()
@@ -76,6 +76,8 @@ describe('parse', () => {
     expect(parse('{"type":"update","params":42}')).toBeNull() // params not a map
     expect(parse('{"type":"update","params":{"bad":{"nested":1}}}')).toBeNull()
     expect(parse('{"type":"update","params":{"arr":[1,"x"]}}')).toBeNull() // mixed array
+    expect(parse('{"type":"pulse"}')).toBeNull() // missing name
+    expect(parse('{"type":"pulse","name":42}')).toBeNull() // wrong name type
   })
 
   it('exports the current protocol version', () => {

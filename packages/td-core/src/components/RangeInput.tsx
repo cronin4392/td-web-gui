@@ -31,7 +31,14 @@ export interface RangeInputProps
 
 export function RangeInput(props: RangeInputProps): JSX.Element {
   const binding = createTDSignal<number>(props.name)
-  const [, rest] = splitProps(props, ['name', 'throttle', 'onInput', 'onFocus', 'onBlur'])
+  const [, rest] = splitProps(props, [
+    'name',
+    'throttle',
+    'disabled',
+    'onInput',
+    'onFocus',
+    'onBlur',
+  ])
 
   return (
     <input
@@ -39,6 +46,7 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
       class="td-range-input"
       {...rest}
       value={binding.value() ?? props.min ?? 0}
+      disabled={props.disabled ?? binding.readonly()}
       onInput={(event) => {
         binding.setValue(Number(event.currentTarget.value), {
           throttle: props.throttle !== false,

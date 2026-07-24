@@ -310,6 +310,104 @@ describe('disconnected sends + errors (3.6)', () => {
   })
 })
 
+describe('pulse (4.3)', () => {
+  it('sends a pulse message immediately, uncoalesced by the throttle', async () => {
+    const sched = createManualScheduler()
+    const td = createMockTD({ snapshot: {} })
+    const conn = createTDConnection('ws://test', {
+      WebSocket: td.WebSocket,
+      scheduler: sched.scheduler,
+    })
+    await flush()
+
+    conn.pulse('reset')
+    // No frame flush needed — pulse is throttle-exempt.
+    expect(received(td).at(-1)).toEqual({ type: 'pulse', name: 'reset' })
+
+    conn.pulse('reset')
+    conn.pulse('reset')
+    expect(received(td).filter((m: any) => m?.type === 'pulse')).toHaveLength(3)
+  })
+
+  it('drops a pulse fired while disconnected', async () => {
+    const sched = createManualScheduler()
+    const td = createMockTD({ snapshot: {} })
+    const conn = createTDConnection('ws://test', {
+      WebSocket: td.WebSocket,
+      scheduler: sched.scheduler,
+      reconnect: false,
+    })
+    await flush()
+
+    td.socket().close()
+    const before = received(td).length
+    conn.pulse('reset')
+    expect(received(td).length).toBe(before)
+  })
+
+  it('drops a pulse while backpressured, same as an update', async () => {
+    const sched = createManualScheduler()
+    const td = createMockTD({ snapshot: {} })
+    const conn = createTDConnection('ws://test', {
+      WebSocket: td.WebSocket,
+      scheduler: sched.scheduler,
+      backpressure: { highWaterMark: 1_000, timeout: 5_000 },
+    })
+    await flush()
+
+    td.socket().bufferedAmount = 2_000
+    const before = received(td).length
+    conn.pulse('reset')
+    expect(received(td).length).toBe(before)
+    expect(conn.congested()).toBe(true)
+  })
+})
+
+describe('read-only params (4.10)', () => {
+  it('honors a statically-declared readonly set from construction', async () => {
+    const sched = createManualScheduler()
+    const td = createMockTD({ snapshot: { fps: 60 } })
+    const conn = createTDConnection('ws://test', {
+      WebSocket: td.WebSocket,
+      scheduler: sched.scheduler,
+      readonly: ['fps'],
+    })
+    await flush()
+
+    expect(conn.isReadonly('fps')).toBe(true)
+    expect(conn.isReadonly('level')).toBe(false)
+  })
+
+  it('marks a param read-only at runtime on param_not_writable and re-syncs it', async () => {
+    const sched = createManualScheduler()
+    const td = createMockTD({ snapshot: { fps: 60 } })
+    const conn = createTDConnection('ws://test', {
+      WebSocket: td.WebSocket,
+      scheduler: sched.scheduler,
+    })
+    const fps = conn.signal('fps')
+    await flush()
+    expect(conn.isReadonly('fps')).toBe(false)
+
+    // Optimistic edit lands locally before TD rejects the write.
+    fps.setValue(30)
+    expect(fps.value()).toBe(30)
+    expect(received(td).filter((m: any) => m?.type === 'update')).toHaveLength(1)
+
+    td.socket().serverSend({
+      type: 'error',
+      code: 'param_not_writable',
+      ref: 'fps',
+    })
+    expect(conn.isReadonly('fps')).toBe(true)
+    // The runtime safety net re-requests a snapshot to revert the optimistic edit.
+    expect(received(td).at(-1)).toEqual({ type: 'snapshot-request' })
+
+    td.socket().serverSend({ type: 'snapshot', params: { fps: 60 } })
+    expect(fps.value()).toBe(60) // reverted to TD's authoritative value
+  })
+})
+
 describe('teardown (3.7)', () => {
   it('cancels every timer and closes the socket on dispose', async () => {
     const sched = createManualScheduler()

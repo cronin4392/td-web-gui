@@ -28,7 +28,11 @@ afterEach(() => {
   host = undefined
 })
 
-async function setup(snapshot: Record<string, unknown>, attrs: Record<string, unknown> = {}) {
+async function setup(
+  snapshot: Record<string, unknown>,
+  attrs: Record<string, unknown> = {},
+  providerProps: Record<string, unknown> = {},
+) {
   const td = createMockTD({ snapshot })
   const sched = createManualScheduler()
   const TD = createTDClient<Params>()
@@ -39,6 +43,7 @@ async function setup(snapshot: Record<string, unknown>, attrs: Record<string, un
       <TD.Provider
         url="ws://test"
         options={{ WebSocket: td.WebSocket, scheduler: sched.scheduler }}
+        {...providerProps}
       >
         <TD.RangeInput name="level" data-testid="range" min={0} max={1} step={0.01} {...attrs} />
       </TD.Provider>
@@ -107,5 +112,10 @@ describe('RangeInput', () => {
 
     td.socket().serverSend({ type: 'update', params: { level: 0.9 } })
     expect(input.value).toBe('0.9')
+  })
+
+  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+    const { input } = await setup({ level: 0.5 }, {}, { readonly: ['level'] })
+    expect(input.disabled).toBe(true)
   })
 })

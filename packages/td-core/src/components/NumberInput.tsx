@@ -30,7 +30,15 @@ export interface NumberInputProps
 
 export function NumberInput(props: NumberInputProps): JSX.Element {
   const binding = createTDSignal<number>(props.name)
-  const [, rest] = splitProps(props, ['name', 'min', 'max', 'onInput', 'onFocus', 'onBlur'])
+  const [, rest] = splitProps(props, [
+    'name',
+    'min',
+    'max',
+    'disabled',
+    'onInput',
+    'onFocus',
+    'onBlur',
+  ])
 
   let inputRef!: HTMLInputElement
 
@@ -58,6 +66,7 @@ export function NumberInput(props: NumberInputProps): JSX.Element {
       max={props.max}
       step={props.step}
       {...rest}
+      disabled={props.disabled ?? binding.readonly()}
       onInput={(event) => {
         const raw = event.currentTarget.value
         // Empty or unparseable mid-edit: hold last valid value, send nothing.

@@ -31,6 +31,17 @@
  *    `onError` / the `lastError` signal without tearing down the socket.
  *  - **Teardown** (3.7) — `close()` cancels every timer, closes the socket, and
  *    drops the routing table; registered on `onCleanup` when owned.
+ *
+ * ## Phase 4 additions
+ *  - **`pulse(name)`** (4.3) — fires a momentary TD parameter. Throttle-exempt
+ *    (always sent immediately) but still honors the disconnected-drop and
+ *    backpressure rules; holds no state, so it bypasses the routing table
+ *    entirely.
+ *  - **Read-only params** (4.10) — a statically-declared `readonly` name set
+ *    (authored beside the schema, forwarded from `<Provider readonly>`) plus a
+ *    runtime safety net: an inbound `param_not_writable` error marks that name
+ *    read-only from then on and re-requests a snapshot to revert whatever
+ *    optimistic edit just got silently ignored by TD.
  */
 
 import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js'
@@ -77,6 +88,12 @@ export interface TDBinding<T extends ParamValue = ParamValue> {
   beginEdit: () => void
   /** Release the active-editing mark (blur / drag-end). */
   endEdit: () => void
+  /**
+   * Reactive: whether this name is currently read-only (Phase 4.10) — either
+   * statically declared via `<Provider readonly>`, or marked so at runtime by
+   * an inbound `param_not_writable` error. Bound controls disable on this.
+   */
+  readonly: Accessor<boolean>
 }
 
 /** Per-name routing entry: the shared signal plus its active-editor count. */
@@ -168,6 +185,12 @@ export interface TDConnectionOptions {
   backpressure?: BackpressureOptions
   /** Jitter source for backoff. Defaults to `Math.random`; injected in tests. */
   random?: () => number
+  /**
+   * Names to statically declare read-only (Phase 4.10) — authored beside the
+   * schema, forwarded from `<Provider readonly>`. Bound controls render
+   * disabled and warn in dev; never sent over the wire.
+   */
+  readonly?: string[]
 }
 
 /** Schema-bound connection; defaults to an open `name → value` map. */
@@ -188,6 +211,14 @@ export interface TDConnection<
    * callers for the same name share one signal and one editor count.
    */
   signal: <K extends keyof Schema & string>(name: K) => TDBinding<Schema[K]>
+  /**
+   * Fire a momentary TD parameter (Phase 4.3). Immediate, throttle-exempt;
+   * still dropped (debug-logged) while disconnected or backpressured. Holds no
+   * state — there is nothing to read back.
+   */
+  pulse: (name: keyof Schema & string) => void
+  /** Reactive: whether `name` is currently read-only (Phase 4.10). */
+  isReadonly: (name: string) => boolean
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void
   /** Close the socket, cancel all timers, and drop the routing table. */
@@ -228,6 +259,9 @@ export function createTDConnection<
   const [status, setStatus] = createSignal<TDStatus>('connecting')
   const [congested, setCongested] = createSignal(false)
   const [lastError, setLastError] = createSignal<ErrorMessage | undefined>(undefined)
+  const [readonlyNames, setReadonlyNames] = createSignal<ReadonlySet<string>>(
+    new Set(options.readonly ?? []),
+  )
   const entries = new Map<string, SignalEntry>()
 
   let socket: WebSocketLike | null = null
@@ -358,6 +392,42 @@ export function createTDConnection<
     }
   }
 
+  // ── read-only params (4.10) ────────────────────────────────────────────────
+
+  function isReadonly(name: string): boolean {
+    return readonlyNames().has(name)
+  }
+
+  /** Mark `name` read-only from now on (runtime safety net for `param_not_writable`). */
+  function markReadonly(name: string) {
+    setReadonlyNames((prev) => {
+      if (prev.has(name)) return prev
+      const next = new Set(prev)
+      next.add(name)
+      return next
+    })
+  }
+
+  /**
+   * Fire a momentary parameter. Same disconnected-drop / backpressure rules as
+   * `sendUpdate`, but never throttled — a pulse is a discrete event, not a
+   * sampled value, so buffering it a frame would add latency and risk
+   * coalescing or dropping distinct presses (see § "Outbound throttle").
+   */
+  function sendPulse(name: string) {
+    if (!socket || socket.readyState !== socket.OPEN) {
+      console.debug('[td-core] dropping pulse while disconnected', name)
+      return
+    }
+    if ((socket.bufferedAmount ?? 0) > highWaterMark) {
+      markCongested()
+      console.debug('[td-core] backpressure: dropping pulse', name)
+      return
+    }
+    socket.send(JSON.stringify({ type: 'pulse', name }))
+    clearCongested()
+  }
+
   // ── inbound ──────────────────────────────────────────────────────────────
 
   /** Apply a `params` map to bound signals, respecting echo suppression. */
@@ -422,6 +492,14 @@ export function createTDConnection<
 
   function handleError(error: ErrorMessage) {
     setLastError(error)
+    if (error.code === 'param_not_writable' && error.ref) {
+      // Runtime safety net: TD silently no-ops a write to a non-CONSTANT par.
+      // Mark it read-only from here on (disables the control) and re-request a
+      // snapshot so the optimistic edit that just got ignored snaps back to
+      // TD's real value rather than "sticking" until an unrelated resync.
+      markReadonly(error.ref)
+      rawSend({ type: 'snapshot-request' })
+    }
     if (options.onError) {
       options.onError(error)
     } else {
@@ -554,6 +632,10 @@ export function createTDConnection<
       entries.set(name, entry)
     }
 
+    if (isReadonly(name)) {
+      console.warn(`[td-core] "${name}" is bound to a read-only param — control disabled`)
+    }
+
     const bound = entry
     return {
       value: bound.read as Accessor<Schema[K] | undefined>,
@@ -568,6 +650,7 @@ export function createTDConnection<
       endEdit: () => {
         if (bound.editors > 0) bound.editors--
       },
+      readonly: () => isReadonly(name),
     }
   }
 
@@ -593,5 +676,14 @@ export function createTDConnection<
   // down only this instance (3.7).
   if (getOwner()) onCleanup(close)
 
-  return { status, congested, lastError, signal, send: rawSend, close }
+  return {
+    status,
+    congested,
+    lastError,
+    signal,
+    pulse: sendPulse,
+    isReadonly,
+    send: rawSend,
+    close,
+  }
 }

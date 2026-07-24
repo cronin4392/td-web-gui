@@ -7,6 +7,12 @@ const Example = createTDClient<ExampleParams>()
 
 const example = instances[0]
 
+const blendModes = [
+  { value: 'over', label: 'Over' },
+  { value: 'add', label: 'Add' },
+  { value: 'multiply', label: 'Multiply' },
+]
+
 /**
  * Connection-state readout (Phase 3). Reads the reactive `status`, `congested`,
  * and `lastError` off the nearest provider's connection — the same surface the
@@ -80,6 +86,48 @@ export function App() {
           <p>
             Current: <Example.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
           </p>
+        </section>
+
+        <section>
+          <label>
+            Enabled
+            <Example.Toggle name="enabled" />
+          </label>
+        </section>
+
+        <section>
+          <p>Button modes (Phase 4.3/4.4/4.5)</p>
+          {/* Fire-and-forget: sends a `pulse` message, holds no state. */}
+          <Example.Button name="reset" mode="pulse">
+            Reset (pulse)
+          </Example.Button>
+          {/* Momentary bool: true while held, false on release. */}
+          <Example.Button name="gate" mode="hold">
+            Gate (hold)
+          </Example.Button>
+          {/* Same wire path as <Toggle>, rendered as a button. */}
+          <Example.Button name="mute" mode="toggle">
+            Mute (toggle)
+          </Example.Button>
+        </section>
+
+        <section>
+          <label>
+            Blend mode
+            <Example.Select name="blendmode" options={blendModes} />
+          </label>
+        </section>
+
+        <section>
+          <p>Position</p>
+          <Example.Vector name="position" labels={['x', 'y', 'z']} step={0.01} />
+        </section>
+
+        <section>
+          <label>
+            Color
+            <Example.Color name="color" alpha />
+          </label>
         </section>
       </Example.Provider>
     </main>

@@ -69,6 +69,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
     'name',
     'commitOn',
     'multiline',
+    'disabled',
     'onCommit',
     'onInput',
     'onFocus',
@@ -122,6 +123,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
         {...rest}
         rows={props.rows}
         value={value()}
+        disabled={props.disabled ?? binding.readonly()}
         onInput={handleInput}
         onFocus={handleFocus}
         onBlur={handleBlur}
@@ -133,6 +135,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
         class="td-text-input"
         {...rest}
         value={value()}
+        disabled={props.disabled ?? binding.readonly()}
         onInput={handleInput}
         onFocus={handleFocus}
         onBlur={handleBlur}
@@ -205,6 +208,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
       {...rest}
       rows={props.rows}
       value={draft()}
+      disabled={props.disabled ?? binding.readonly()}
       onInput={handleInput}
       onFocus={handleFocus}
       onBlur={handleBlur}
@@ -217,6 +221,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
       class="td-text-input"
       {...rest}
       value={draft()}
+      disabled={props.disabled ?? binding.readonly()}
       onInput={handleInput}
       onFocus={handleFocus}
       onBlur={handleBlur}

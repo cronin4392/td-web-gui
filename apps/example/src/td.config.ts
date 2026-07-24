@@ -23,8 +23,15 @@ export const instances = [
   { id: 'example', url: `ws://${host}:${port}` },
 ] as const satisfies readonly TDInstanceConfig[]
 
-/** Param schema for the `example` instance. */
+/** Param schema for the `example` instance — one param per bound control kind. */
 export interface ExampleParams {
   message: string
   intensity: number
+  enabled: boolean
+  reset: boolean
+  gate: boolean
+  mute: boolean
+  blendmode: string
+  position: number[]
+  color: number[]
 }
