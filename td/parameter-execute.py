@@ -19,8 +19,8 @@ from typing import Any, List
 CALLBACKS = 'webserver1_callbacks'
 
 def _callbacks():
-	# dat = op(CALLBACKS)
-	dat = op.WebGui.op('webserver1_callbacks')
+	dat = op(CALLBACKS)
+	# dat = op.WebGui.op('webserver1_callbacks')
 	return dat.module if dat is not None else None
 
 
