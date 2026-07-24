@@ -46,7 +46,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
         name={props.name}
         commitOn="enter"
         multiline
-        rows={3}
+        rows={2}
         onCommit={props.commitRecent}
         placeholder={props.label}
         class="resize-y rounded border px-2 py-1"
