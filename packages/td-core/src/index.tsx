@@ -3,11 +3,12 @@
  *
  * Public surface: the wire format, the standalone connection manager (Phase 3
  * adds reconnect/backoff, handshake watchdog, ping/pong heartbeat, outbound
- * throttle, backpressure, and error routing — all per-connection options), the
- * schema-bound factory/context layer, and the bound components (`TextInput`,
- * `NumberInput`, `RangeInput`, `Value`). The factory (`createTDClient`) is the
- * intended path for app UI; the connection/signal primitives stay public for
- * non-component or advanced use.
+ * throttle, backpressure, and error routing; Phase 4 adds `pulse` and
+ * read-only params — all per-connection options), the schema-bound
+ * factory/context layer, and the bound components (`TextInput`, `NumberInput`,
+ * `RangeInput`, `Value`, `Toggle`, `Button`, `Select`, `Vector`, `Color`). The
+ * factory (`createTDClient`) is the intended path for app UI; the
+ * connection/signal primitives stay public for non-component or advanced use.
  */
 
 /** Library version marker. */
@@ -27,6 +28,7 @@ export {
   type ParamValue,
   type PingMessage,
   type PongMessage,
+  type PulseMessage,
   type ServerMessage,
   type SnapshotMessage,
   type SnapshotRequestMessage,
@@ -59,7 +61,12 @@ export {
 } from './context'
 
 // Components
+export { Button, type ButtonProps } from './components/Button'
+export { Color, type ColorProps } from './components/Color'
 export { NumberInput, type NumberInputProps } from './components/NumberInput'
 export { RangeInput, type RangeInputProps } from './components/RangeInput'
+export { Select, type SelectOption, type SelectProps } from './components/Select'
 export { TextInput, type TextInputProps } from './components/TextInput'
+export { Toggle, type ToggleProps } from './components/Toggle'
 export { Value, type ValueProps } from './components/Value'
+export { Vector, type VectorProps } from './components/Vector'

@@ -27,10 +27,15 @@ import {
   type TDConnectionOptions,
 } from './connection'
 import type { ParamValue } from './wire'
+import { Button, type ButtonProps } from './components/Button'
+import { Color, type ColorProps } from './components/Color'
 import { NumberInput, type NumberInputProps } from './components/NumberInput'
 import { RangeInput, type RangeInputProps } from './components/RangeInput'
+import { Select, type SelectProps } from './components/Select'
 import { TextInput, type TextInputProps } from './components/TextInput'
+import { Toggle, type ToggleProps } from './components/Toggle'
 import { Value, type ValueProps } from './components/Value'
+import { Vector, type VectorProps } from './components/Vector'
 
 /** Shared runtime context: the nearest provider's connection. */
 const TDContext = createContext<TDConnection>()
@@ -63,6 +68,12 @@ export interface TDProviderProps {
   url: string
   /** Config `id` for this instance; authoritative over `welcome` metadata. */
   instance?: string
+  /**
+   * Param names to declare read-only (Phase 4.10) — authored beside the
+   * schema, e.g. an expression-driven par. Bound controls render disabled and
+   * warn in dev; never sent over the wire (see § "Parameter modes").
+   */
+  readonly?: string[]
   /** Per-connection options forwarded to {@link createTDConnection}. */
   options?: TDConnectionOptions
   children?: JSX.Element
@@ -85,7 +96,10 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
   function Provider(props: TDProviderProps): JSX.Element {
     // One connection per provider; auto-torn-down via the connection's own
     // onCleanup when this provider unmounts.
-    const connection = createTDConnection<Schema>(props.url, props.options)
+    const connection = createTDConnection<Schema>(props.url, {
+      ...props.options,
+      readonly: props.readonly ?? props.options?.readonly,
+    })
     return (
       <TDContext.Provider value={connection as unknown as TDConnection}>
         {props.children}
@@ -95,6 +109,11 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
 
   function signal<K extends AnyKey<Schema>>(name: K): TDBinding<Schema[K]> {
     return createTDSignal<Schema[K]>(name)
+  }
+
+  /** Fire a momentary parameter on the nearest provider's connection. */
+  function pulse(name: AnyKey<Schema>): void {
+    useTDConnection().pulse(name)
   }
 
   // Typed wrappers: restrict `name` to the keys whose wire-type matches each
@@ -116,13 +135,43 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     props: ValueProps & { name: AnyKey<Schema> },
   ): JSX.Element => Value(props)
 
+  const TypedToggle = (
+    props: ToggleProps & { name: KeysOfType<Schema, boolean> },
+  ): JSX.Element => Toggle(props)
+
+  // `name` isn't narrowed to a boolean-valued key: `mode="pulse"` binds a
+  // momentary param that isn't part of the synced value schema at all, so
+  // `Button` accepts any schema key regardless of mode (same stance as
+  // `<Value>`, which also works across every value type).
+  const TypedButton = (
+    props: ButtonProps & { name: AnyKey<Schema> },
+  ): JSX.Element => Button(props)
+
+  const TypedSelect = (
+    props: SelectProps & { name: KeysOfType<Schema, string> },
+  ): JSX.Element => Select(props)
+
+  const TypedVector = (
+    props: VectorProps & { name: KeysOfType<Schema, number[]> },
+  ): JSX.Element => Vector(props)
+
+  const TypedColor = (
+    props: ColorProps & { name: KeysOfType<Schema, number[]> },
+  ): JSX.Element => Color(props)
+
   return {
     Provider,
     signal,
+    pulse,
     useConnection: useTDConnection,
     TextInput: TypedTextInput,
     NumberInput: TypedNumberInput,
     RangeInput: TypedRangeInput,
     Value: TypedValue,
+    Toggle: TypedToggle,
+    Button: TypedButton,
+    Select: TypedSelect,
+    Vector: TypedVector,
+    Color: TypedColor,
   }
 }

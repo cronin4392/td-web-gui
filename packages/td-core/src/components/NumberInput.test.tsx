@@ -23,14 +23,18 @@ afterEach(() => {
   host = undefined
 })
 
-async function setup(snapshot: Record<string, unknown>, attrs: Record<string, unknown> = {}) {
+async function setup(
+  snapshot: Record<string, unknown>,
+  attrs: Record<string, unknown> = {},
+  providerProps: Record<string, unknown> = {},
+) {
   const td = createMockTD({ snapshot })
   const TD = createTDClient<Params>()
   host = document.createElement('div')
   document.body.appendChild(host)
   dispose = render(
     () => (
-      <TD.Provider url="ws://test" options={{ WebSocket: td.WebSocket }}>
+      <TD.Provider url="ws://test" options={{ WebSocket: td.WebSocket }} {...providerProps}>
         <TD.NumberInput name="level" data-testid="num" {...attrs} />
       </TD.Provider>
     ),
@@ -93,5 +97,10 @@ describe('NumberInput', () => {
 
     td.socket().serverSend({ type: 'update', params: { level: 42 } })
     expect(input.value).toBe('42')
+  })
+
+  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+    const { input } = await setup({ level: 5 }, {}, { readonly: ['level'] })
+    expect(input.disabled).toBe(true)
   })
 })

@@ -4,10 +4,11 @@
  *
  * Phase 2 covered the control-data subset: `hello`, `welcome`,
  * `snapshot-request`, `snapshot`, and `update`. Phase 3 (WebSocket hardening)
- * adds the connection-liveness and error messages — `ping`/`pong` (app-level
- * heartbeat) and `error` (surfaced, non-fatal). Pulse and the WebRTC signaling
- * messages still arrive in later phases — `parse` drops those (and any future)
- * `type`s rather than mis-decoding them until then.
+ * added the connection-liveness and error messages — `ping`/`pong` (app-level
+ * heartbeat) and `error` (surfaced, non-fatal). Phase 4 adds `pulse` (momentary
+ * params, web → TD only). The WebRTC signaling messages still arrive in a later
+ * phase — `parse` drops those (and any future) `type`s rather than mis-decoding
+ * them until then.
  *
  * See prds/TECH_PROPOSAL.md § "WebSocket Wire Format" for the full catalog.
  */
@@ -71,6 +72,17 @@ export interface PingMessage {
   type: 'ping'
 }
 
+/**
+ * Fires a momentary TD parameter (`par.pulse()`), web → TD only. Unlike
+ * `update`, a pulse carries no value and holds no synced state — it's a
+ * fire-and-forget event, excluded from snapshot/echo logic and throttle-exempt
+ * (sent immediately; still subject to backpressure, see § "Outbound throttle").
+ */
+export interface PulseMessage {
+  type: 'pulse'
+  name: string
+}
+
 // ── both directions ───────────────────────────────────────────────────────
 
 /**
@@ -121,6 +133,7 @@ export type ClientMessage =
   | HelloMessage
   | SnapshotRequestMessage
   | UpdateMessage
+  | PulseMessage
   | PingMessage
 
 /** Messages the web receives from TD. */
@@ -141,6 +154,7 @@ const KNOWN_TYPES = new Set([
   'snapshot-request',
   'snapshot',
   'update',
+  'pulse',
   'ping',
   'pong',
   'error',
@@ -202,6 +216,8 @@ export function parse(raw: string): Message | null {
       return isParamMap(data.params) ? { type: 'snapshot', params: data.params } : null
     case 'update':
       return isParamMap(data.params) ? { type: 'update', params: data.params } : null
+    case 'pulse':
+      return typeof data.name === 'string' ? { type: 'pulse', name: data.name } : null
     case 'ping':
       return { type: 'ping' }
     case 'pong':
