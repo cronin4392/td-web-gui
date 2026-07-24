@@ -2,64 +2,36 @@
  * App state + persistence (TEXT_SELECTOR.md §§2-3, 5).
  *
  * `createTextSelectorStore()` is a factory (not a bare module singleton) so
- * tests can spin up isolated instances against a fake `Storage`; the app
- * itself owns exactly one instance for its lifetime.
+ * tests can spin up isolated instances with a fake `persistence.save` /
+ * `uiStorage`; the app itself owns exactly one instance for its lifetime.
  *
- * Every mutator ends by scheduling a debounced whole-document write — the
- * data is tiny and mutations are human-paced, so read-modify-write of the
- * entire blob on every change is correct and simple.
+ * Persistence is split by what the data *is*, not stored in one blob:
+ * `tabs`/`recent` are library content and go through `persistence.save` (the
+ * SQLite-backed `/api/library`, via `saveLibrary()` in `library-api.ts`);
+ * `activeTabId` is a per-browser UI preference and stays in `localStorage`.
+ * Both share one debounce timer via two dirty flags, so switching tabs
+ * writes `localStorage` without rewriting the library.
  */
 
 import { createStore, unwrap } from 'solid-js/store'
+import { defaultLibrary, type Library, type PhraseTab } from './library'
 
-const STORAGE_KEY = 'td-web-gui:text-selector'
-const CURRENT_VERSION = 1
+export type { PhraseTab }
+
+const UI_STORAGE_KEY = 'td-web-gui:text-selector:ui'
 const RECENT_LIMIT = 10
 const DEFAULT_DEBOUNCE_MS = 200
 
-export interface PhraseTab {
-  id: string
-  name: string
-  phrases: string[]
-}
-
-export interface StoredState {
-  version: 1
-  recent: string[]
+export interface AppState {
   tabs: PhraseTab[]
+  recent: string[]
   activeTabId: string
 }
 
-// ---- defaults / validation / load --------------------------------------
+// ---- pure helpers ----------------------------------------------------------
 
 function makeTab(name: string): PhraseTab {
   return { id: crypto.randomUUID(), name, phrases: [] }
-}
-
-function defaultState(): StoredState {
-  const tab = makeTab('List 1')
-  return { version: CURRENT_VERSION, recent: [], tabs: [tab], activeTabId: tab.id }
-}
-
-function isStringArray(x: unknown): x is string[] {
-  return Array.isArray(x) && x.every((v) => typeof v === 'string')
-}
-
-function isPhraseTab(x: unknown): x is PhraseTab {
-  if (typeof x !== 'object' || x === null) return false
-  const t = x as Record<string, unknown>
-  return typeof t.id === 'string' && typeof t.name === 'string' && isStringArray(t.phrases)
-}
-
-function isStoredState(x: unknown): x is StoredState {
-  if (typeof x !== 'object' || x === null) return false
-  const s = x as Record<string, unknown>
-  if (s.version !== CURRENT_VERSION) return false
-  if (!isStringArray(s.recent)) return false
-  if (!Array.isArray(s.tabs) || s.tabs.length === 0 || !s.tabs.every(isPhraseTab)) return false
-  if (typeof s.activeTabId !== 'string') return false
-  if (!(s.tabs as PhraseTab[]).some((t) => t.id === s.activeTabId)) return false
-  return true
 }
 
 /** Splice `arr[from]` out and reinsert it at `to` (post-removal index), returning a new array. */
@@ -76,40 +48,33 @@ function moveToFront(arr: readonly string[], item: string, limit?: number): stri
   return limit === undefined ? next : next.slice(0, limit)
 }
 
-/** Load + validate stored state; never throws — a bad entry falls back to defaults. */
-export function loadState(storage: Storage): StoredState {
-  let raw: string | null
+/** The persisted `activeTabId` if it names one of `tabs`; the first tab otherwise. Never throws. */
+function loadActiveTabId(storage: Storage | undefined, tabs: readonly PhraseTab[]): string {
+  const fallback = tabs[0]!.id
+  if (!storage) return fallback
   try {
-    raw = storage.getItem(STORAGE_KEY)
-  } catch (err) {
-    console.warn('[text-selector] localStorage unavailable, using defaults', err)
-    return defaultState()
-  }
-  if (!raw) return defaultState()
-  try {
-    const parsed = JSON.parse(raw)
-    if (!isStoredState(parsed)) {
-      console.warn('[text-selector] stored state failed validation, using defaults')
-      return defaultState()
-    }
-    return parsed
-  } catch (err) {
-    console.warn('[text-selector] stored state is corrupt JSON, using defaults', err)
-    return defaultState()
+    const stored = storage.getItem(UI_STORAGE_KEY)
+    return stored !== null && tabs.some((t) => t.id === stored) ? stored : fallback
+  } catch {
+    return fallback
   }
 }
 
-// ---- store ---------------------------------------------------------------
+// ---- store ------------------------------------------------------------------
 
 export interface CreateStoreOptions {
-  /** Defaults to `localStorage`; injectable for tests. */
-  storage?: Storage
+  /** Library hydrated before mount (e.g. via `fetchLibrary()`); defaults to a single empty `List 1` tab. */
+  initial?: Library
+  /** Where library writes (tabs/phrases/recent) go. Omitted in tests that don't care about persistence. */
+  persistence?: { save: (library: Library) => void | Promise<void> }
+  /** Where `activeTabId` — UI state, not library content — is remembered. Defaults to `localStorage`. */
+  uiStorage?: Storage
   /** Debounce window for writes, in ms. Default 200. */
   debounceMs?: number
 }
 
 export interface TextSelectorStore {
-  state: StoredState
+  state: AppState
 
   /** Feed a committed phrase (from either text input) into the recent list. */
   commitRecent: (phrase: string) => void
@@ -137,28 +102,69 @@ export interface TextSelectorStore {
 }
 
 export function createTextSelectorStore(options: CreateStoreOptions = {}): TextSelectorStore {
-  const storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined)
+  const uiStorage = options.uiStorage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined)
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
+  const library = options.initial ?? defaultLibrary()
 
-  const [state, setState] = createStore<StoredState>(storage ? loadState(storage) : defaultState())
+  const [state, setState] = createStore<AppState>({
+    tabs: library.tabs,
+    recent: library.recent,
+    activeTabId: loadActiveTabId(uiStorage, library.tabs),
+  })
 
   let saveTimer: ReturnType<typeof setTimeout> | undefined
+  let libraryDirty = false
+  let uiDirty = false
   let warnedWriteFailure = false
 
   function scheduleSave() {
-    if (!storage) return
     if (saveTimer !== undefined) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       saveTimer = undefined
-      try {
-        storage.setItem(STORAGE_KEY, JSON.stringify(unwrap(state)))
-      } catch (err) {
-        if (!warnedWriteFailure) {
-          warnedWriteFailure = true
-          console.warn('[text-selector] failed to persist state; continuing in-memory', err)
-        }
-      }
+      flush()
     }, debounceMs)
+  }
+
+  function flush() {
+    if (uiDirty) {
+      uiDirty = false
+      writeUiStorage()
+    }
+    if (libraryDirty) {
+      libraryDirty = false
+      void writeLibrary()
+    }
+  }
+
+  function writeUiStorage() {
+    if (!uiStorage) return
+    try {
+      uiStorage.setItem(UI_STORAGE_KEY, state.activeTabId)
+    } catch {
+      // A UI preference, not library content — silently dropped on quota/private-mode failure.
+    }
+  }
+
+  async function writeLibrary() {
+    if (!options.persistence) return
+    try {
+      await options.persistence.save({ tabs: unwrap(state.tabs), recent: unwrap(state.recent) })
+    } catch (err) {
+      if (!warnedWriteFailure) {
+        warnedWriteFailure = true
+        console.warn('[text-selector] failed to persist library; continuing in-memory', err)
+      }
+    }
+  }
+
+  function markLibraryDirty() {
+    libraryDirty = true
+    scheduleSave()
+  }
+
+  function markUiDirty() {
+    uiDirty = true
+    scheduleSave()
   }
 
   function findTabIndex(id: string): number {
@@ -176,19 +182,20 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     const trimmed = phrase.trim()
     if (!trimmed) return
     setState('recent', (recent) => moveToFront(recent, trimmed, RECENT_LIMIT))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function deleteRecent(phrase: string): void {
     setState('recent', (recent) => recent.filter((p) => p !== phrase))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function addTab(): string {
     const tab = makeTab(nextListName())
     setState('tabs', (tabs) => [...tabs, tab])
     setState('activeTabId', tab.id)
-    scheduleSave()
+    markLibraryDirty()
+    markUiDirty()
     return tab.id
   }
 
@@ -198,7 +205,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     const idx = findTabIndex(id)
     if (idx === -1) return
     setState('tabs', idx, 'name', trimmed)
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function deleteTab(id: string): void {
@@ -213,15 +220,18 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
       // Left neighbour, or the new first tab if the deleted one was first.
       const newIdx = Math.min(Math.max(0, idx - 1), state.tabs.length - 1)
       const next = state.tabs[newIdx]
-      if (next) setState('activeTabId', next.id)
+      if (next) {
+        setState('activeTabId', next.id)
+        markUiDirty()
+      }
     }
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function setActiveTab(id: string): void {
     if (findTabIndex(id) === -1) return
     setState('activeTabId', id)
-    scheduleSave()
+    markUiDirty() // UI-only: does not touch the library, so no libraryDirty here.
   }
 
   function reorderTabs(fromIndex: number, toIndex: number): void {
@@ -230,7 +240,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
       return
     }
     setState('tabs', (tabs) => moveItem(tabs, fromIndex, toIndex))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function addPhrase(tabId: string, phrase: string): void {
@@ -239,14 +249,14 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     const idx = findTabIndex(tabId)
     if (idx === -1) return
     setState('tabs', idx, 'phrases', (phrases) => moveToFront(phrases, trimmed))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function deletePhrase(tabId: string, index: number): void {
     const idx = findTabIndex(tabId)
     if (idx === -1) return
     setState('tabs', idx, 'phrases', (phrases) => phrases.filter((_, i) => i !== index))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function reorderPhrase(tabId: string, fromIndex: number, toIndex: number): void {
@@ -263,7 +273,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
       return
     }
     setState('tabs', idx, 'phrases', (phrases) => moveItem(phrases, fromIndex, toIndex))
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function sortPhrases(tabId: string): void {
@@ -272,7 +282,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     setState('tabs', idx, 'phrases', (phrases) =>
       [...phrases].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
     )
-    scheduleSave()
+    markLibraryDirty()
   }
 
   function dispose(): void {

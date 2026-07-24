@@ -50,7 +50,7 @@ v1 media scope is **video TD → Web only**. Audio, webcam/mic Web → TD, and W
 └─────────────────────────────────────┘    signaling over each WS)
 ```
 
-No backend server required — each TouchDesigner instance acts as its own server via its Web Server DAT (WebSocket, which also carries that instance's WebRTC signaling) and WebRTC DAT (video).
+No backend server required for TouchDesigner communication — each TouchDesigner instance acts as its own server via its Web Server DAT (WebSocket, which also carries that instance's WebRTC signaling) and WebRTC DAT (video). *(This is specifically about the TD control/video channel. `apps/text-selector` separately runs a small persistence API alongside its own Vite dev/preview server — a Vite plugin backed by SQLite — for its phrase library, unrelated to TD; see [TEXT_SELECTOR.md §5](TEXT_SELECTOR.md#5-storage).)*
 
 ### Security & serving model
 
