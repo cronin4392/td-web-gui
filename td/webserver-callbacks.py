@@ -9,11 +9,14 @@ Speaks the WebSocket wire contract the web app expects:
 	pulse             -> fire a momentary param (par.pulse()), no reply
 	ping              -> pong
 
-Nothing here is project specific — drop this into any project unchanged. The
-param map (REGISTRY) and the instance name are read from a Text DAT named
-`config` beside this one; see td/config.py for what that DAT must define.
-Friendly wire names are mapped there to (operator, parameter, wire-type), which
-is the single place type info lives.
+Nothing here is project specific — drop this into any project unchanged.
+Everything project specific comes from the WebGuiServer component, reached by
+its global OP shortcut:
+
+	Identifier    names this instance to the web app.
+	Config File   loaded into op.WebGuiServer.op('config'); its REGISTRY maps
+	              friendly wire names to (operator, parameter, wire-type), the
+	              single place type info lives. See td/config.py.
 
 TD-side param edits are pushed back to the browser by a Parameter Execute DAT
 that calls broadcast_param_change() — see td/parameter-execute.py.
@@ -23,10 +26,6 @@ See prds/TECH_PROPOSAL.md "WebSocket Wire Format" for the full message catalog.
 from typing import Any, Dict
 
 import json
-
-# Name of the Text DAT holding this project's configuration, looked up beside
-# this DAT. The one thing this file needs to know about its project.
-CONFIG = 'config'
 
 # Wire protocol version, sent in the `welcome` reply.
 PROTOCOL = 1
@@ -43,16 +42,29 @@ _server = None
 _warned = set()
 
 
-def _config():
-	"""This project's config DAT module.
+def _webgui():
+	"""The WebGuiServer component, via its global OP shortcut.
 
-	Read fresh each time rather than cached, so editing the config DAT takes
-	effect without re-cooking this one (TD caches the compiled module itself).
+	A shortcut rather than a path, so this file resolves it wherever it's dropped.
 	"""
-	dat = op(CONFIG)
+	comp = getattr(op, 'WebGuiServer', None)
+	if comp is None:
+		raise RuntimeError("webserver-callbacks: no global OP shortcut 'WebGuiServer' - "
+						   "set one on the component holding the config DAT")
+	return comp
+
+
+def _config():
+	"""This project's config DAT module, loaded from WebGuiServer's Config File par.
+
+	Read fresh each time rather than cached, so repointing Config File (or editing
+	the file) takes effect without re-cooking this DAT — TD caches the compiled
+	module itself, so this costs an op lookup.
+	"""
+	dat = _webgui().op('config')
 	if dat is None:
-		raise RuntimeError("webserver-callbacks: no DAT named '%s' beside this one - "
-						   "paste td/config.py into a Text DAT with that name" % CONFIG)
+		raise RuntimeError("webserver-callbacks: WebGuiServer has no 'config' DAT - "
+						   "check its Config File parameter")
 	return dat.module
 
 
@@ -81,7 +93,10 @@ def _pars(entry):
 	"""
 	base = op(entry['op'])
 	if base is None:
-		_warn_missing(entry, "operator '%s' not found" % entry['op'])
+		# A bare name is the likely culprit: this runs inside WebGuiServer, so
+		# relative lookups resolve against the component, not the project root.
+		hint = '' if entry['op'].startswith('/') else ' - REGISTRY paths should be absolute'
+		_warn_missing(entry, "operator '%s' not found%s" % (entry['op'], hint))
 		return []
 	if entry['type'] == 'number[]':
 		return list(base.pars(entry['par'] + '*'))
@@ -221,7 +236,7 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 
 	if mtype == 'hello':
 		_send(client, {'type': 'welcome', 'protocol': PROTOCOL,
-					   'instance': _config().INSTANCE})
+					   'instance': _webgui().par.Identifier.eval()})
 
 	elif mtype == 'snapshot-request':
 		_send(client, {'type': 'snapshot', 'params': _snapshot()})

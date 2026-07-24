@@ -8,8 +8,8 @@ par.val — so this is the single broadcast path for both web- and TD-originated
 changes.
 
 Nothing here is project specific — drop this into any project unchanged. The
-name of the callbacks DAT is read from a Text DAT named `config` beside this
-one; see td/config.py for what that DAT must define.
+name of the callbacks DAT comes from CALLBACKS in the config DAT, which the
+WebGuiServer component loads from its Config File par; see td/config.py.
 
 Set on this DAT itself, since they're parameters rather than values that can be
 read from the config DAT:
@@ -22,16 +22,24 @@ read from the config DAT:
 
 from typing import Any, List
 
-# Name of the Text DAT holding this project's configuration, looked up beside
-# this DAT. The one thing this file needs to know about its project.
-CONFIG = 'config'
+
+def _webgui():
+	"""The WebGuiServer component, via its global OP shortcut.
+
+	A shortcut rather than a path, so this file resolves it wherever it's dropped.
+	"""
+	comp = getattr(op, 'WebGuiServer', None)
+	if comp is None:
+		raise RuntimeError("parameter-execute: no global OP shortcut 'WebGuiServer' - "
+						   "set one on the component holding the config DAT")
+	return comp
 
 
 def _config():
-	dat = op(CONFIG)
+	dat = _webgui().op('config')
 	if dat is None:
-		raise RuntimeError("parameter-execute: no DAT named '%s' beside this one - "
-						   "paste td/config.py into a Text DAT with that name" % CONFIG)
+		raise RuntimeError("parameter-execute: WebGuiServer has no 'config' DAT - "
+						   "check its Config File parameter")
 	return dat.module
 
 

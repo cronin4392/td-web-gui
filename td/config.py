@@ -1,12 +1,12 @@
 """
 Project configuration for the TD Web GUI bridge — the scene-loader GUI.
 
-Everything project specific lives here. td/webserver-callbacks.py and
-td/parameter-execute.py are drop-in copies that read these values back out via
-op('config').module, so this is the only file you edit per project.
+The param map lives here. td/webserver-callbacks.py and td/parameter-execute.py
+are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
 
-Setup: paste this into a Text DAT named `config`, beside the Web Server DAT's
-callbacks DAT and the Parameter Execute DAT.
+Setup: point the WebGuiServer component's Config File par at this file — it
+loads it into the `config` Text DAT the two scripts read. The instance name the
+web app sees is WebGuiServer's Identifier par, not a value in this file.
 
 Backing operators this project expects:
 	/GUI/ExternalScenes/SceneA … SceneH   custom pars `Text` (String), `Text2` (String)
@@ -18,16 +18,15 @@ from here:
 	                        (space-separated pattern — one Parameter Execute DAT
 	                        can watch several operators), Value Change and Custom
 	                        enabled.
-	Web Server DAT          Callbacks DAT = the callbacks DAT named below.
+	Web Server DAT          Callbacks DAT = the callbacks DAT named below;
+	                        Port = `op.WebGuiServer.par.Port`.
 """
 
-# Name of, or path to, the Web Server DAT's callbacks DAT — the Parameter
-# Execute DAT reads this to find the module it broadcasts through. TD op names
-# can't contain hyphens, so this won't literally be "webserver-callbacks".
+# The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to
+# find the module it broadcasts through. Resolved relative to that DAT, so give
+# an absolute path unless the two sit side by side inside WebGuiServer. TD op
+# names can't contain hyphens, so this won't literally be "webserver-callbacks".
 CALLBACKS = 'webserver1_callbacks'
-
-# Identifies this TD project to the web app, sent in the `welcome` reply.
-INSTANCE = 'example'
 
 # The eight external scene loaders. Each exposes the same pair of text pars; the
 # web app shows only the pair belonging to the loader `selectedLoader` points at.
@@ -35,6 +34,9 @@ SCENE_IDS = 'ABCDEFGH'
 SCENE_PATH = '/GUI/ExternalScenes/Scene%s'
 
 # friendly wire name -> backing parameter.
+#   op:   absolute path, e.g. '/GUI/GUI'. WebGuiServer is a global operator that
+#         can live anywhere and these lookups run from inside it, so a bare name
+#         resolves against the component, not your project.
 #   type: 'bool' | 'number' | 'string' | 'number[]' | 'pulse'
 #     - 'number[]' entries reference the ParGroup's base name (e.g. 'Position'
 #       for the tuple pars 'Positionx'/'Positiony'/'Positionz'); component
