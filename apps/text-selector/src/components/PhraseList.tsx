@@ -42,8 +42,13 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
   }
 
   return (
-    <div role="tabpanel" id={`tabpanel-${props.tab.id}`} aria-labelledby={`tab-${props.tab.id}`} class="mt-2">
-      <div class="flex items-center gap-2">
+    <div
+      role="tabpanel"
+      id={`tabpanel-${props.tab.id}`}
+      aria-labelledby={`tab-${props.tab.id}`}
+      class="mt-2 flex h-full flex-col"
+    >
+      <div class="flex shrink-0 items-center gap-2">
         <input
           type="search"
           value={filter()}
@@ -73,7 +78,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
 
       <Show when={adding()}>
         <form
-          class="mt-2"
+          class="mt-2 shrink-0"
           onSubmit={(event) => {
             event.preventDefault()
             const value = addInputRef?.value ?? ''
@@ -105,7 +110,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
         </form>
       </Show>
 
-      <ul class="mt-2 flex flex-col gap-1">
+      <ul class="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         <For each={rows()}>
           {(row) => (
             <li

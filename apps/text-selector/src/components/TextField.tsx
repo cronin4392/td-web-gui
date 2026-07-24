@@ -46,7 +46,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
         onCommit={props.commitRecent}
         placeholder={props.label}
         aria-label={props.label}
-        class="w-full resize-y rounded-md border border-neutral-600 bg-neutral-800 px-2 py-1 pr-16 text-sm text-neutral-100 placeholder:text-neutral-500"
+        class="block w-full resize-y border border-neutral-600 bg-neutral-800 px-2 py-1 pr-16 text-sm text-neutral-100 placeholder:text-neutral-500"
         onDragOver={(event) => {
           if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
         }}

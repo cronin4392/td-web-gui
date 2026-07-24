@@ -24,17 +24,22 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
   })
 
   return (
-    <div role="tabpanel" id={`tabpanel-${RECENT_TAB_ID}`} aria-labelledby={`tab-${RECENT_TAB_ID}`} class="mt-2">
+    <div
+      role="tabpanel"
+      id={`tabpanel-${RECENT_TAB_ID}`}
+      aria-labelledby={`tab-${RECENT_TAB_ID}`}
+      class="mt-2 flex h-full flex-col"
+    >
       <input
         type="search"
         value={filter()}
         onInput={(event) => setFilter(event.currentTarget.value)}
         placeholder="filter…"
         aria-label="Filter recent phrases"
-        class="w-full rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
+        class="w-full shrink-0 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
       />
 
-      <ul class="mt-2 flex flex-col gap-1">
+      <ul class="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         <For each={rows()}>
           {(phrase) => (
             <li>

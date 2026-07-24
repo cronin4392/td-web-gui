@@ -22,11 +22,12 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => store.dispose())
 
   return (
-    <main class="p-6">
+    <main class="flex h-screen flex-col px-2 pt-2">
       <TDClient.Provider url={textSelector.url} instance={textSelector.id}>
         <TextSelectorBody store={store} />
       </TDClient.Provider>
-      <p class="mt-6 text-sm text-neutral-500">
+      {/* Hidden for now — re-enable by dropping the `hidden` class. */}
+      <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
         Bound to instance <code>{textSelector.id}</code> at <code>{textSelector.url}</code>
       </p>
     </main>
@@ -71,24 +72,24 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
         when={activeScene()}
         keyed
         fallback={
-          <p class="mt-4 text-sm text-neutral-500">
+          <p class="mt-4 shrink-0 text-sm text-neutral-500">
             Waiting for a scene loader — <code>selectedLoader</code> is{' '}
             <TDClient.Value name="selectedLoader" />
           </p>
         }
       >
         {(scene) => (
-          <section class="flex flex-col gap-2">
+          <section class="flex shrink-0 flex-col gap-1">
             <TextField
               name={sceneTextParam(scene, 1)}
-              label="Text 1"
+              label="Artist name"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
               onClear={clearText}
             />
             <TextField
               name={sceneTextParam(scene, 2)}
-              label="Text 2"
+              label="Event"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
               onClear={clearText}
@@ -97,14 +98,16 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
         )}
       </Show>
 
-      <section class="mt-4 border-t border-neutral-700 pt-3">
+      <section class="flex min-h-0 flex-1 flex-col pt-1">
         <TabStrip store={props.store} />
-        <Show
-          when={props.store.state.activeTabId !== RECENT_TAB_ID}
-          fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
-        >
-          <Show when={activeTab()}>{(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}</Show>
-        </Show>
+        <div class="min-h-0 flex-1">
+          <Show
+            when={props.store.state.activeTabId !== RECENT_TAB_ID}
+            fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
+          >
+            <Show when={activeTab()}>{(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}</Show>
+          </Show>
+        </div>
       </section>
     </>
   )
