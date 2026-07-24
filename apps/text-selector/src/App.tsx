@@ -3,6 +3,8 @@ import { escapeNewlines } from 'td-core'
 import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
 import { TDClient, type SceneTextParamName } from './td'
 import { createTextSelectorStore } from './store'
+import { saveLibrary } from './library-api'
+import type { Library } from './library'
 import { TextField } from './components/TextField'
 import { RecentRow } from './components/RecentRow'
 import { TabStrip } from './components/TabStrip'
@@ -10,8 +12,13 @@ import { PhraseList } from './components/PhraseList'
 
 const textSelector = instances[0]
 
-export function App(): JSX.Element {
-  const store = createTextSelectorStore()
+export interface AppProps {
+  /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
+  library: Library
+}
+
+export function App(props: AppProps): JSX.Element {
+  const store = createTextSelectorStore({ initial: props.library, persistence: { save: saveLibrary } })
   onCleanup(() => store.dispose())
 
   return (

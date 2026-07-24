@@ -23,7 +23,8 @@ and over, in a live setting where a half-typed word must never reach the render.
 
 ## Non-goals (v1)
 
-- Syncing the phrase library to TD or to disk — it is browser-local state only.
+- Syncing the phrase library to TD — the library never reaches the WebSocket wire (see
+  [§5](#5-storage) for where it does live: a local SQLite file, not TD).
 - Dragging phrases *between* tabs (tabs are not drop targets for phrases).
 - Multi-instance / video. This app talks to one TD instance and sends two strings.
 - A keyboard equivalent for drag-reordering (see [Accessibility](#accessibility)).
@@ -170,33 +171,66 @@ Reorder index is computed from the pointer's position against each row's vertica
 
 ## 5. Storage
 
-One `localStorage` key holding the whole app state as a single JSON document:
+Storage is split by what the data *is*, not kept in one blob:
 
-```ts
-// key: "td-web-gui:text-selector"
-interface StoredState {
-  version: 1
-  recent: string[]                                          // most-recent first, ≤ 10
-  tabs: { id: string; name: string; phrases: string[] }[]   // display order
-  activeTabId: string
-}
+| Data | Home | Why |
+|---|---|---|
+| `tabs` (id, name, phrases, order) | SQLite | curated library content — inspectable, backup-able, survives a browser profile wipe |
+| `recent` | SQLite | committed phrase content, just auto-collected rather than hand-curated |
+| `activeTabId` | `localStorage` (`td-web-gui:text-selector:ui`) | a per-browser UI preference, not library content |
+
+### Library — SQLite via `/api/library`
+
+`apps/text-selector` runs a small persistence API alongside its Vite dev/preview server (a Vite
+plugin, `server/plugin.ts`) backed by a SQLite file at `apps/text-selector/data/text-selector.db`
+(gitignored; path overridable via `TEXT_SELECTOR_DB`). The browser never touches SQLite directly —
+it only ever calls `GET`/`PUT /api/library`.
+
+```sql
+CREATE TABLE tabs (
+  id       TEXT PRIMARY KEY,     -- crypto.randomUUID(), never derived from the name
+  name     TEXT NOT NULL,
+  position INTEGER NOT NULL
+);
+CREATE TABLE phrases (
+  tab_id   TEXT NOT NULL REFERENCES tabs(id) ON DELETE CASCADE,
+  phrase   TEXT NOT NULL,        -- real newlines; the `\n` escape is a wire concern, not storage
+  position INTEGER NOT NULL,
+  PRIMARY KEY (tab_id, phrase)   -- backstop for §3's no-duplicates-within-a-list rule
+);
+CREATE TABLE recent (
+  phrase   TEXT PRIMARY KEY,
+  position INTEGER NOT NULL      -- 0 = most recent; the ≤10 cap is still enforced in the store
+);
 ```
 
-- **`version` is a migration hook.** On read, a document whose `version` isn't recognised is
-  discarded and replaced with the default state rather than being partially trusted.
-- **Corrupt or absent data falls back to defaults** — a `JSON.parse` failure, a non-object, or a
-  failed shape validation is logged and replaced with a single empty tab named `List 1` and an empty
-  recent list. Never throws on load; a bad localStorage entry must not white-screen the app.
-- **Writes are debounced** (~200ms) and write the whole document. The data is tiny and mutations are
-  human-paced, so read-modify-write of the entire blob is correct and simple.
-- **Quota / private-mode failures are non-fatal** — a failed write is logged once; the app continues
-  working in-memory for the session.
-- Tab `id`s are generated (`crypto.randomUUID()`), never derived from the name, so renaming a tab
-  doesn't orphan `activeTabId`.
+- **`PRAGMA user_version` is the migration hook**, replacing the old JSON document's `version`
+  field. On first open (`user_version = 0`) the schema is created and seeded with a single empty
+  `List 1` tab, so "there is always at least one list" (§3's last-tab guard) is a database
+  invariant rather than something every reader re-derives.
+- **A malformed `GET /api/library` response falls back to defaults** — bad JSON, a non-object, or a
+  failed shape validation is logged and the app starts with a single empty `List 1` tab and no
+  recent history. Never throws; a bad or unreachable server must not white-screen the app.
+- **Writes are debounced** (~200ms) and `PUT` the whole library. The server applies it as a
+  transactional delete-and-reinsert across the three tables. Same tradeoff as before: at tens of
+  phrases the rewrite is instant, and it keeps every store mutator free of per-mutation SQL — the
+  cost is no per-row identity or write history, which nothing here needs.
+- **A failed `PUT` is non-fatal** — logged once; the app continues working in-memory for the
+  session (its next successful write catches the database back up).
+- **Known limitation:** two browser tabs open on the app each hold their own in-memory store, so the
+  last debounced write wins. Unchanged from the localStorage version, just worth restating now that
+  "last write wins" means *across* tabs/windows, not just within one.
 
-State lives in a single Solid store owned by the app (`src/store.ts`), with the persistence layer as
-a subscriber. **No phrase-library state ever reaches TD** — the only thing on the wire is the two
-committed strings.
+### UI state — `localStorage`
+
+`activeTabId` alone lives under `td-web-gui:text-selector:ui` in `localStorage`, written on the same
+debounce as the library write but independently: switching tabs updates `localStorage` without
+triggering a library `PUT`. A stored id that names no loaded tab (stale after a tab was deleted
+elsewhere) falls back to the first tab.
+
+State lives in a single Solid store owned by the app (`src/store.ts`), with the library and UI
+persistence layers as independent subscribers sharing one debounce timer. **No phrase-library state
+ever reaches TD** — the only thing on the WebSocket wire is the two committed strings.
 
 ## 6. `td-core` changes
 
@@ -257,8 +291,14 @@ Vitest, against the store module — it holds all the logic worth testing and ne
 - tabs: add / rename / delete (including the last-tab guard and active-tab reassignment), reorder
 - phrases: add-to-top, dedupe-to-top within a tab, delete, reorder index maths, one-shot A→Z
 - filter: case-insensitive substring, reorder disabled while filtered
-- persistence: round-trip, debounce coalescing, corrupt-JSON fallback, unknown-`version` fallback,
-  write failure is non-fatal
+- persistence (`src/store.test.ts`): library round-trip, debounce coalescing, save-failure is
+  non-fatal, `activeTabId` round-trips through `localStorage` independent of the library, an
+  active-tab change alone doesn't trigger a library write
+- `/api/library` client (`src/library-api.test.ts`): malformed-response / network-failure fallback
+  to defaults, failed `PUT` rejects
+- SQLite layer (`server/db.test.ts`): schema + seed on a fresh file, migration is idempotent,
+  round-trip preserves ordering, a rewrite fully replaces prior contents, `ON DELETE CASCADE`,
+  duplicate-phrase rejection, a failed write rolls back rather than half-applying
 
 In `td-core`: `commitOn="enter"` — nothing sent while typing, commit on submit, commit on blur,
 Escape reverts silently, no-op on unchanged value, `commitOn="input"` behaviour unregressed.
@@ -279,3 +319,9 @@ Escape reverts silently, no-op on unchanged value, `commitOn="input"` behaviour 
       tab reorder.
 - [x] **T9 — Accessibility pass.** Tablist roles, arrow-key tab nav, focus management on
       add/rename/delete.
+- [x] **T10 — SQLite persistence.** `server/db.ts` (schema, `PRAGMA user_version` migration + seed,
+      `readLibrary`/`writeLibrary`) and `server/plugin.ts` (`GET`/`PUT /api/library` on both the dev
+      and preview servers) using `node:sqlite`. `src/library.ts` shared types/guards,
+      `src/library-api.ts` client. `store.ts` reworked to split library writes (SQLite) from
+      `activeTabId` (`localStorage`) on one shared debounce. Full test coverage across all three
+      layers; see [Testing](#testing).
