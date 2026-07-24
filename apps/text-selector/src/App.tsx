@@ -100,7 +100,7 @@ function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorSt
 
       <section class="flex min-h-0 flex-1 flex-col pt-1">
         <TabStrip store={props.store} />
-        <div class="min-h-0 flex-1">
+        <div class="min-h-0 flex-1 pt-2">
           <Show
             when={props.store.state.activeTabId !== RECENT_TAB_ID}
             fallback={<RecentPanel store={props.store} onApply={applyToText1} />}

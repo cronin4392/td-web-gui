@@ -46,7 +46,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
       role="tabpanel"
       id={`tabpanel-${props.tab.id}`}
       aria-labelledby={`tab-${props.tab.id}`}
-      class="mt-2 flex h-full flex-col"
+      class="flex h-full flex-col"
     >
       <div class="flex shrink-0 items-center gap-2">
         <input
