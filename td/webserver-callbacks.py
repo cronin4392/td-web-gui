@@ -48,6 +48,10 @@ clients = set()
 # callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`.
 _server = None
 
+# (op path, par name) pairs we've already warned about, so a project that's
+# missing a scene loader doesn't spam the textport on every snapshot request.
+_warned = set()
+
 
 def _remember(dat):
 	global _server
@@ -58,8 +62,20 @@ def _par(entry):
 	"""Backing Par, or None when that operator/parameter isn't in this project."""
 	owner = op(entry['op'])
 	if owner is None:
+		_warn_missing(entry, "operator '%s' not found" % entry['op'])
 		return None
-	return getattr(owner.par, entry['par'], None)
+	par = getattr(owner.par, entry['par'], None)
+	if par is None:
+		_warn_missing(entry, "operator '%s' has no par '%s'" % (entry['op'], entry['par']))
+	return par
+
+
+def _warn_missing(entry, reason):
+	key = (entry['op'], entry['par'])
+	if key in _warned:
+		return
+	_warned.add(key)
+	print("webserver-callbacks: warning - %s" % reason)
 
 
 def _read(name):
