@@ -210,12 +210,12 @@ describe('tabs', () => {
 // ---- phrases -------------------------------------------------------------
 
 describe('phrases', () => {
-  it('adds a phrase to the top of the list', () => {
+  it('adds a phrase to the bottom of the list', () => {
     const store = makeStore()
     const tabId = store.state.tabs[0]!.id
     store.addPhrase(tabId, 'hello world')
     store.addPhrase(tabId, 'cue two')
-    expect(store.state.tabs[0]?.phrases).toEqual(['cue two', 'hello world'])
+    expect(store.state.tabs[0]?.phrases).toEqual(['hello world', 'cue two'])
   })
 
   it('trims added phrases and ignores empty input', () => {
@@ -226,13 +226,13 @@ describe('phrases', () => {
     expect(store.state.tabs[0]?.phrases).toEqual(['padded'])
   })
 
-  it('adding an existing phrase moves it to the top instead of duplicating', () => {
+  it('adding an existing phrase moves it to the bottom instead of duplicating', () => {
     const store = makeStore()
     const tabId = store.state.tabs[0]!.id
     store.addPhrase(tabId, 'a')
     store.addPhrase(tabId, 'b')
     store.addPhrase(tabId, 'a')
-    expect(store.state.tabs[0]?.phrases).toEqual(['a', 'b'])
+    expect(store.state.tabs[0]?.phrases).toEqual(['b', 'a'])
   })
 
   it('the same phrase may appear in different tabs', () => {
@@ -250,9 +250,9 @@ describe('phrases', () => {
     const tabId = store.state.tabs[0]!.id
     store.addPhrase(tabId, 'a')
     store.addPhrase(tabId, 'b')
-    store.addPhrase(tabId, 'c') // -> [c, b, a]
+    store.addPhrase(tabId, 'c') // -> [a, b, c]
     store.deletePhrase(tabId, 1) // remove 'b'
-    expect(store.state.tabs[0]?.phrases).toEqual(['c', 'a'])
+    expect(store.state.tabs[0]?.phrases).toEqual(['a', 'c'])
   })
 
   it('reorders phrases within a tab', () => {
@@ -260,9 +260,9 @@ describe('phrases', () => {
     const tabId = store.state.tabs[0]!.id
     store.addPhrase(tabId, 'a')
     store.addPhrase(tabId, 'b')
-    store.addPhrase(tabId, 'c') // -> [c, b, a]
-    store.reorderPhrase(tabId, 0, 2) // move 'c' to the end
-    expect(store.state.tabs[0]?.phrases).toEqual(['b', 'a', 'c'])
+    store.addPhrase(tabId, 'c') // -> [a, b, c]
+    store.reorderPhrase(tabId, 0, 2) // move 'a' to the end
+    expect(store.state.tabs[0]?.phrases).toEqual(['b', 'c', 'a'])
   })
 
   it('sorts alphabetically (case-insensitive) once, and it persists as manual order', () => {
@@ -274,9 +274,9 @@ describe('phrases', () => {
     store.sortPhrases(tabId)
     expect(store.state.tabs[0]?.phrases).toEqual(['Apple', 'banana', 'cherry'])
 
-    // Not a sticky mode: a subsequent add still lands on top, not re-sorted.
+    // Not a sticky mode: a subsequent add still lands at the bottom, not re-sorted.
     store.addPhrase(tabId, 'zeta')
-    expect(store.state.tabs[0]?.phrases).toEqual(['zeta', 'Apple', 'banana', 'cherry'])
+    expect(store.state.tabs[0]?.phrases).toEqual(['Apple', 'banana', 'cherry', 'zeta'])
   })
 })
 
