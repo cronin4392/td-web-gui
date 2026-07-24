@@ -9,58 +9,24 @@ Speaks the WebSocket wire contract the web app expects:
 	pulse             -> fire a momentary param (par.pulse()), no reply
 	ping              -> pong
 
-Friendly wire names are mapped to (operator, parameter, wire-type) by REGISTRY,
-which is the single place type info lives. TD-side param edits are pushed back to
-the browser by a Parameter Execute DAT that calls broadcast_param_change() — see
-td/parameter-execute.py.
+Nothing here is project specific — drop this into any project unchanged. The
+param map (REGISTRY) and the instance name are read from a Text DAT named
+`config` beside this one; see td/config.py for what that DAT must define.
+Friendly wire names are mapped there to (operator, parameter, wire-type), which
+is the single place type info lives.
+
+TD-side param edits are pushed back to the browser by a Parameter Execute DAT
+that calls broadcast_param_change() — see td/parameter-execute.py.
 
 See prds/TECH_PROPOSAL.md "WebSocket Wire Format" for the full message catalog.
 """
-
-# ═════════════════════════════════════════════════════════════════════════════
-# CONFIGURATION — the only part of this file that is project specific.
-#
-# This project's backing operators are:
-#   /GUI/ExternalScenes/SceneA … SceneH   each with custom pars `Text` (String)
-#                                         and `Text2` (String)
-#   /GUI/GUI                              with the `Selectedloader` custom par
-# ═════════════════════════════════════════════════════════════════════════════
-
-# Identifies this TD project to the web app, sent in the `welcome` reply.
-INSTANCE = 'example'
-
-# The eight external scene loaders. Each exposes the same pair of text pars; the
-# web app shows only the pair belonging to the loader `selectedLoader` points at.
-SCENE_IDS = 'ABCDEFGH'
-SCENE_PATH = '/GUI/ExternalScenes/Scene%s'
-
-# friendly wire name -> backing parameter.
-#   type: 'bool' | 'number' | 'string' | 'number[]' | 'pulse'
-#     - 'number[]' entries reference the ParGroup's base name (e.g. 'Position'
-#       for the tuple pars 'Positionx'/'Positiony'/'Positionz'); component
-#       order there is the wire array order.
-#     - 'pulse' entries hold no state: excluded from snapshot, written via a
-#       dedicated `pulse` message (not `update`), and call par.pulse().
-REGISTRY = {
-	'selectedLoader': {'op': '/GUI/GUI', 'par': 'Selectedloader', 'type': 'string'},
-}
-
-# sceneAText1 / sceneAText2 … sceneHText1 / sceneHText2. The web app derives these
-# same names from its scene id, so the two sides must agree on the spelling.
-for _scene in SCENE_IDS:
-	REGISTRY['scene%sText1' % _scene] = {'op': SCENE_PATH % _scene, 'par': 'Text', 'type': 'string'}
-	REGISTRY['scene%sText2' % _scene] = {'op': SCENE_PATH % _scene, 'par': 'Text2', 'type': 'string'}
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SHARED CODE — identical in webserver-callbacks.py and
-# webserver-callbacks-example.py; nothing below is project specific. Change it
-# in one file, change it in the other.
-# ═════════════════════════════════════════════════════════════════════════════
-
 from typing import Any, Dict
 
 import json
+
+# Name of the Text DAT holding this project's configuration, looked up beside
+# this DAT. The one thing this file needs to know about its project.
+CONFIG = 'config'
 
 # Wire protocol version, sent in the `welcome` reply.
 PROTOCOL = 1
@@ -75,6 +41,23 @@ _server = None
 # (op path, par name) pairs we've already warned about, so a project that's
 # missing a backing operator/par doesn't spam the textport on every request.
 _warned = set()
+
+
+def _config():
+	"""This project's config DAT module.
+
+	Read fresh each time rather than cached, so editing the config DAT takes
+	effect without re-cooking this one (TD caches the compiled module itself).
+	"""
+	dat = op(CONFIG)
+	if dat is None:
+		raise RuntimeError("webserver-callbacks: no DAT named '%s' beside this one - "
+						   "paste td/config.py into a Text DAT with that name" % CONFIG)
+	return dat.module
+
+
+def _registry():
+	return _config().REGISTRY
 
 
 def _remember(dat):
@@ -110,7 +93,7 @@ def _pars(entry):
 
 
 def _read(name):
-	entry = REGISTRY[name]
+	entry = _registry()[name]
 	pars = _pars(entry)
 	if entry['type'] == 'number[]':
 		return [p.eval() for p in pars]
@@ -130,7 +113,7 @@ def _snapshot():
 	# browser drops unknown names anyway, and a project that only has some of
 	# the backing operators wired up still syncs.
 	result = {}
-	for name, entry in REGISTRY.items():
+	for name, entry in _registry().items():
 		if entry['type'] == 'pulse':
 			continue
 		if not _pars(entry):
@@ -157,7 +140,7 @@ def _write(name, value):
 
 	Returns False when the backing par(s) don't exist in this project.
 	"""
-	entry = REGISTRY[name]
+	entry = _registry()[name]
 	pars = _pars(entry)
 	if not pars:
 		return False
@@ -174,7 +157,7 @@ def _pulse(name):
 
 	Returns False when the backing par doesn't exist in this project.
 	"""
-	pars = _pars(REGISTRY[name])
+	pars = _pars(_registry()[name])
 	if not pars:
 		return False
 	pars[0].pulse()
@@ -194,7 +177,7 @@ def broadcast_param_change(par):
 	doesn't raise Value Change), but are skipped regardless since they hold no
 	synced state to broadcast.
 	"""
-	for name, entry in REGISTRY.items():
+	for name, entry in _registry().items():
 		if entry['type'] == 'pulse':
 			continue
 		if op(entry['op']) is not par.owner:
@@ -237,14 +220,15 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 	mtype = message.get('type')
 
 	if mtype == 'hello':
-		_send(client, {'type': 'welcome', 'protocol': PROTOCOL, 'instance': INSTANCE})
+		_send(client, {'type': 'welcome', 'protocol': PROTOCOL,
+					   'instance': _config().INSTANCE})
 
 	elif mtype == 'snapshot-request':
 		_send(client, {'type': 'snapshot', 'params': _snapshot()})
 
 	elif mtype == 'update':
 		for name, value in (message.get('params') or {}).items():
-			entry = REGISTRY.get(name)
+			entry = _registry().get(name)
 			if entry is None:
 				_send(client, {'type': 'error', 'code': 'unknown_param',
 							   'message': "no param '%s'" % name, 'ref': name})
@@ -262,7 +246,7 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 
 	elif mtype == 'pulse':
 		name = message.get('name')
-		entry = REGISTRY.get(name)
+		entry = _registry().get(name)
 		if entry is None or entry['type'] != 'pulse':
 			_send(client, {'type': 'error', 'code': 'unknown_param',
 						   'message': "no pulse param '%s'" % name, 'ref': name})

@@ -5,7 +5,7 @@ persistent library of phrases. Built on `td-core` per [TECH_PROPOSAL.md](TECH_PR
 
 Those two fields belong to whichever of the eight external scene loaders TD's `selectedLoader`
 points at: each loader exposes its own `scene<A-H>Text1` / `scene<A-H>Text2` pair, and the app binds
-the fields to the selected one (see `td.config.ts` and `td/webserver-callbacks.py`). Everywhere below
+the fields to the selected one (see `td.config.ts` and `td/config.py`). Everywhere below
 that says "Text 1"/"Text 2" means the selected loader's pair.
 
 ## Problem

@@ -6,33 +6,37 @@ all connected browsers via the Web Server DAT's callbacks module. Edits that
 arrive from the web flow through here too, because onWebSocketReceiveText sets
 par.val — so this is the single broadcast path for both web- and TD-originated
 changes.
+
+Nothing here is project specific — drop this into any project unchanged. The
+name of the callbacks DAT is read from a Text DAT named `config` beside this
+one; see td/config.py for what that DAT must define.
+
+Set on this DAT itself, since they're parameters rather than values that can be
+read from the config DAT:
+	OPs            every operator the config's REGISTRY references, space
+	               separated — one Parameter Execute DAT can watch several at
+	               once (e.g. `/GUI/ExternalScenes/Scene* /GUI/GUI`).
+	Value Change   enabled.
+	Custom         enabled.
 """
-
-# ═════════════════════════════════════════════════════════════════════════════
-# CONFIGURATION — the only part of this file that is project specific.
-#
-# Set on the DAT itself, not here:
-#   OPs            every operator the callbacks DAT's REGISTRY references, space
-#                  separated — a Parameter Execute DAT can watch several at once
-#                  (e.g. `/GUI/ExternalScenes/Scene* /GUI/GUI`).
-#   Value Change   enabled.
-#   Custom         enabled.
-# ═════════════════════════════════════════════════════════════════════════════
-
-# Name of, or path to, the Web Server DAT's callbacks DAT. TD op names can't
-# contain hyphens, so this won't literally be "webserver-callbacks".
-CALLBACKS = 'webserver1_callbacks'
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SHARED CODE — nothing below is project specific.
-# ═════════════════════════════════════════════════════════════════════════════
 
 from typing import Any, List
 
+# Name of the Text DAT holding this project's configuration, looked up beside
+# this DAT. The one thing this file needs to know about its project.
+CONFIG = 'config'
+
+
+def _config():
+	dat = op(CONFIG)
+	if dat is None:
+		raise RuntimeError("parameter-execute: no DAT named '%s' beside this one - "
+						   "paste td/config.py into a Text DAT with that name" % CONFIG)
+	return dat.module
+
 
 def _callbacks():
-	dat = op(CALLBACKS)
+	dat = op(_config().CALLBACKS)
 	return dat.module if dat is not None else None
 
 

@@ -7,7 +7,7 @@
  * discovered at runtime.
  *
  * The typed param schema for each instance lives beside this config, along with
- * the scene-loader naming contract it shares with `td/webserver-callbacks.py`.
+ * the scene-loader naming contract it shares with `td/config.py`.
  */
 
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
@@ -23,7 +23,7 @@ export const instances = [
   { id: 'text-selector', url: `ws://${host}:${port}` },
 ] as const satisfies readonly TDInstanceConfig[]
 
-/** The eight external scene loaders, matching `SCENE_IDS` in `td/webserver-callbacks.py`. */
+/** The eight external scene loaders, matching `SCENE_IDS` in `td/config.py`. */
 export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
 export type SceneId = (typeof sceneIds)[number]
 
