@@ -50,12 +50,12 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
           onInput={(event) => setFilter(event.currentTarget.value)}
           placeholder="filter…"
           aria-label="Filter phrases in this list"
-          class="min-w-0 flex-1 rounded border px-2 py-1 text-sm"
+          class="min-w-0 flex-1 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
         />
         <button
           type="button"
           onClick={() => props.store.sortPhrases(props.tab.id)}
-          class="rounded border px-2 py-1 text-sm"
+          class="rounded border border-neutral-600 px-2 py-1 text-sm"
           title="Sort A→Z (one-time, persists as the new order)"
         >
           A→Z
@@ -65,7 +65,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
           aria-label={adding() ? 'Close add phrase' : 'Add a phrase'}
           aria-expanded={adding()}
           onClick={toggleAdd}
-          class="rounded border px-2 py-1 text-sm font-semibold"
+          class="rounded border border-neutral-600 px-2 py-1 text-sm font-semibold"
         >
           +
         </button>
@@ -87,7 +87,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
             rows={2}
             placeholder="new phrase…"
             aria-label="New phrase"
-            class="w-full resize-y rounded border px-2 py-1 text-sm"
+            class="w-full resize-y rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 setAdding(false)
@@ -129,7 +129,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
               }}
             >
               <Show when={dropIndex() === row.index}>
-                <div class="absolute -top-0.5 left-0 right-0 h-0.5 bg-blue-500" />
+                <div class="absolute -top-1 left-0 right-0 h-0.5 bg-blue-400" />
               </Show>
               <PhraseChip
                 phrase={row.phrase}
@@ -143,7 +143,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class="px-1 py-2 text-sm text-gray-400">
+          <li class="px-1 py-2 text-sm text-neutral-500">
             {isFiltered() ? 'No phrases match.' : 'No phrases yet — add one above.'}
           </li>
         </Show>

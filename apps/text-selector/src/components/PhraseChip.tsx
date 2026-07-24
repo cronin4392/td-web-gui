@@ -20,7 +20,7 @@ export interface PhraseChipProps {
 
 export function PhraseChip(props: PhraseChipProps): JSX.Element {
   return (
-    <div class="group flex w-full items-center rounded border border-gray-200 bg-white">
+    <div class="group flex w-full items-center rounded-md border border-neutral-700 bg-neutral-800">
       <button
         type="button"
         draggable="true"
@@ -43,9 +43,10 @@ export function PhraseChip(props: PhraseChipProps): JSX.Element {
       {props.onDelete && (
         <button
           type="button"
+          tabIndex={-1}
           aria-label={`Delete "${props.phrase}"`}
           onClick={props.onDelete}
-          class="shrink-0 px-2 py-1 text-xs text-gray-400 hover:text-red-600"
+          class="shrink-0 px-2 py-1 text-xs text-neutral-500 hover:text-red-400"
         >
           ×
         </button>

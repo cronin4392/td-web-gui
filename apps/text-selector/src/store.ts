@@ -22,6 +22,9 @@ const UI_STORAGE_KEY = 'td-web-gui:text-selector:ui'
 const RECENT_LIMIT = 10
 const DEFAULT_DEBOUNCE_MS = 200
 
+/** Pinned first entry in the tab strip, backed by `state.recent` rather than `state.tabs` — never a real tab id. */
+export const RECENT_TAB_ID = '__recent__'
+
 export interface AppState {
   tabs: PhraseTab[]
   recent: string[]
@@ -48,12 +51,13 @@ function moveToFront(arr: readonly string[], item: string, limit?: number): stri
   return limit === undefined ? next : next.slice(0, limit)
 }
 
-/** The persisted `activeTabId` if it names one of `tabs`; the first tab otherwise. Never throws. */
+/** The persisted `activeTabId` if it names one of `tabs` (or the pinned Recent tab); the first tab otherwise. Never throws. */
 function loadActiveTabId(storage: Storage | undefined, tabs: readonly PhraseTab[]): string {
   const fallback = tabs[0]!.id
   if (!storage) return fallback
   try {
     const stored = storage.getItem(UI_STORAGE_KEY)
+    if (stored === RECENT_TAB_ID) return stored
     return stored !== null && tabs.some((t) => t.id === stored) ? stored : fallback
   } catch {
     return fallback
@@ -87,6 +91,7 @@ export interface TextSelectorStore {
   renameTab: (id: string, name: string) => void
   /** Delete a tab (no-op if it's the last one); reassigns the active tab if needed. */
   deleteTab: (id: string) => void
+  /** Also accepts `RECENT_TAB_ID`, selecting the pinned Recent tab. */
   setActiveTab: (id: string) => void
   reorderTabs: (fromIndex: number, toIndex: number) => void
 
@@ -229,7 +234,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
   }
 
   function setActiveTab(id: string): void {
-    if (findTabIndex(id) === -1) return
+    if (id !== RECENT_TAB_ID && findTabIndex(id) === -1) return
     setState('activeTabId', id)
     markUiDirty() // UI-only: does not touch the library, so no libraryDirty here.
   }
