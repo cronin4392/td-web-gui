@@ -129,6 +129,43 @@ describe('parse', () => {
     expect(parse('{"type":"pulse","name":42}')).toBeNull() // wrong name type
   })
 
+  it('parses a menus announcement (Phase 6.2)', () => {
+    // A real TD audio-device key, not a tidied-up one: it carries braces, dots,
+    // pipes and parentheses, and any encoding that mangled it would send back a
+    // device id TD no longer recognises.
+    const key =
+      '{0.0.1.00000000}.{feb5e51a-d9cd-45c0-8aff-4770ba283ba0}||Voicemeeter_Out_A4_(VB-Audio_Voicemeeter_VAIO)||1'
+    const raw = JSON.stringify({
+      type: 'menus',
+      menus: { audiodevice: [{ value: key, label: 'Voicemeeter Out A4' }] },
+    })
+
+    expect(parse(raw)).toEqual({
+      type: 'menus',
+      menus: { audiodevice: [{ value: key, label: 'Voicemeeter Out A4' }] },
+    })
+  })
+
+  it('parses a menus-request (the reload-devices action)', () => {
+    expect(parse('{"type":"menus-request"}')).toEqual({ type: 'menus-request' })
+  })
+
+  it('accepts an empty menus map and an empty option list', () => {
+    expect(parse('{"type":"menus","menus":{}}')).toEqual({ type: 'menus', menus: {} })
+    expect(parse('{"type":"menus","menus":{"m":[]}}')).toEqual({ type: 'menus', menus: { m: [] } })
+  })
+
+  it('rejects malformed menus', () => {
+    expect(parse('{"type":"menus"}')).toBeNull() // missing map
+    expect(parse('{"type":"menus","menus":[]}')).toBeNull() // not an object
+    expect(parse('{"type":"menus","menus":{"m":"x"}}')).toBeNull() // options not a list
+    // Both fields are required: a labelless entry has nothing to render, and a
+    // valueless one can't be sent back as a menu key.
+    expect(parse('{"type":"menus","menus":{"m":[{"value":"a"}]}}')).toBeNull()
+    expect(parse('{"type":"menus","menus":{"m":[{"label":"A"}]}}')).toBeNull()
+    expect(parse('{"type":"menus","menus":{"m":[{"value":1,"label":"A"}]}}')).toBeNull()
+  })
+
   it('exports the current protocol version', () => {
     expect(PROTOCOL_VERSION).toBe(1)
   })

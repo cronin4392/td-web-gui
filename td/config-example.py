@@ -22,6 +22,11 @@ with one custom par per REGISTRY entry:
 	Position   XYZ     (Float) -> Positionx/Positiony/Positionz
 	Color      RGBA    (Float, 0-1) -> Colorr/Colorg/Colorb/Colora
 
+plus, for the TD-announced-menu demo:
+	/project1/audiodevicein_demo  Audio Device In CHOP, Active off. Only its
+	                              built-in `device` menu is used — the CHOP is
+	                              there to own a menu the web cannot author.
+
 Video (Phase 5/6.7) additionally expects:
 	webrtc1                       WebRTC DAT inside WebGuiServer, beside the
 	                              Web Server DAT's callbacks.
@@ -106,6 +111,14 @@ STREAMS = {
 #       order there is the wire array order.
 #     - 'pulse' entries hold no state: excluded from snapshot, written via a
 #       dedicated `pulse` message (not `update`), and call par.pulse().
+#   writable: optional, defaults True. False makes the entry read-only to the
+#       web — it still snapshots and broadcasts, but a write is refused with a
+#       `param_not_writable` error instead of applied. Use it for readouts the
+#       browser must never drive. Note this flag is NOT sent to the web: the web
+#       authors its own read-only set beside its schema (see apps/example), and
+#       this is the TD-side backstop. A par in EXPRESSION/EXPORT/BIND mode is
+#       refused whether or not it's flagged, so this is only needed for a
+#       CONSTANT par you want to keep TD-driven.
 REGISTRY = {
 	'message':   {'op': '/project1/params', 'par': 'Message',   'type': 'string'},
 	'intensity': {'op': '/project1/params', 'par': 'Intensity', 'type': 'number'},
@@ -116,4 +129,16 @@ REGISTRY = {
 	'blendmode': {'op': '/project1/params', 'par': 'Blendmode', 'type': 'string'},
 	'position':  {'op': '/project1/params', 'par': 'Position',  'type': 'number[]'},
 	'color':     {'op': '/project1/params', 'par': 'Color',     'type': 'number[]'},
+
+	# The TD-announced-menu case. Unlike 'blendmode' (whose keys the web app
+	# hardcodes), nothing about this menu can be authored in advance: the keys are
+	# machine-specific device GUIDs like
+	#   {0.0.1.00000000}.{feb5e51a-...}||Voicemeeter_Out_A4_(VB-Audio...)||1
+	# paired with readable labels, and the whole list changes when hardware is
+	# plugged in. The callbacks announce it over the `menus` message and
+	# apps/example renders <Select name="audiodevice" /> with no options prop.
+	#
+	# Note the lowercase par name: `device` is a built-in par, and only custom
+	# pars are capitalized like the ones above.
+	'audiodevice': {'op': '/project1/audiodevicein_demo', 'par': 'device', 'type': 'string'},
 }

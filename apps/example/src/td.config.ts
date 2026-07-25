@@ -47,4 +47,12 @@ export interface ExampleParams {
   blendmode: string
   position: number[]
   color: number[]
+  /**
+   * Audio input device (Phase 6.2). Typed as a plain `string` like `blendmode`
+   * — the difference is entirely in where the *options* come from. `blendmode`'s
+   * are hardcoded in `App.tsx`; these can't be, because the keys are
+   * machine-specific device GUIDs that change when hardware is plugged in. TD
+   * announces them over the `menus` message instead.
+   */
+  audiodevice: string
 }
