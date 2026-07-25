@@ -125,6 +125,12 @@ export interface MockTDOptions {
   /** Params returned in the `snapshot` reply to `snapshot-request`. */
   snapshot?: Record<string, unknown>
   /**
+   * Menu options announced for menu-backed params (Phase 6.2). Sent **before**
+   * the snapshot, which is the order the real callbacks use — a `<Select>` that
+   * got its value first would briefly have no option matching it.
+   */
+  menus?: Record<string, { value: string; label: string }[]>
+  /**
    * When `false`, the server opens the socket but never replies to `hello` /
    * `snapshot-request` — used to exercise the handshake watchdog (Phase 3.2).
    * Defaults to `true`.
@@ -164,7 +170,15 @@ export function createMockTD(options: MockTDOptions = {}): MockTDHandle {
             ...(options.instance ? { instance: options.instance } : {}),
           })
         } else if (message?.type === 'snapshot-request') {
+          if (options.menus) {
+            this.serverSend({ type: 'menus', menus: options.menus })
+          }
           this.serverSend({ type: 'snapshot', params: snapshot })
+        } else if (message?.type === 'menus-request') {
+          // Re-reads whatever `menus` currently holds, so a test can mutate the
+          // handle's options to simulate hardware being plugged in or removed
+          // and then assert on the reload.
+          this.serverSend({ type: 'menus', menus: options.menus ?? {} })
         }
       }
     }

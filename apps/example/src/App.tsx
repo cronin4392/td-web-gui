@@ -58,6 +58,41 @@ function StatusBar() {
 }
 
 /**
+ * Audio device picker (Phase 6.2) — a `<Select>` whose options come from
+ * TouchDesigner rather than from this app.
+ *
+ * Every other control here binds a param whose *options* (if any) are authored
+ * on the web side. This one can't be: TD's device menu keys are machine-specific
+ * GUIDs, and the list changes when hardware is plugged in. TD announces them
+ * over the `menus` message, so `<Select>` is given no `options` prop at all.
+ *
+ * The reload button exists because that list can go stale while the page is
+ * open, and TD has no event to push from — plugging in an interface leaves the
+ * parameter's value untouched and only changes the set of legal values, which no
+ * Parameter Execute callback reports. Asking on demand beats TD polling forever
+ * on the chance someone plugged something in.
+ */
+function AudioDevicePicker() {
+  const conn = Example.useConnection()
+
+  return (
+    <section>
+      <label>
+        Audio input device
+        <Example.Select name="audiodevice" />
+      </label>
+      <button type="button" onClick={() => conn.requestMenus()} disabled={conn.status() !== 'synced'}>
+        Reload devices
+      </button>
+      <p class="caption">
+        Options come from TouchDesigner, not from this app — see <code>menus</code> in the
+        wire format. Plug in an interface, then hit reload.
+      </p>
+    </section>
+  )
+}
+
+/**
  * The video wall (Phase 6.7) — every stream this instance announces, rendered
  * at once. `<Provider video>` opens **one** WebRTC peer and every tile is a
  * track on it, which is why the grid is driven by `video.streams()` (the id →
@@ -181,9 +216,13 @@ export function App() {
         <section>
           <label>
             Blend mode
+            {/* Web-authored options: the keys are stable, documented TD menu
+                strings, so hardcoding them is fine and stays the default. */}
             <Example.Select name="blendmode" options={blendModes} />
           </label>
         </section>
+
+        <AudioDevicePicker />
 
         <section>
           <p>Position</p>

@@ -116,7 +116,8 @@ This repo **owns a reference TD project** under `td/` so the web UI is testable 
     - **`mode="toggle"`** — bound to a TD **bool** parameter; each click flips the value. Same wire path as `<Toggle>` (bool `update`, bidirectional) but rendered as a button — this is the "TD has a toggle, shown as a button in the web UI" case.
 
     Only `pulse` mode uses the `pulse` message; `hold` and `toggle` are ordinary bool updates, so they participate fully in snapshot/resync and reflect TD-side changes.
-  - `<Select name="par_name" options={...} />` — dropdown bound to a TD **Menu** parameter. `options` is a list of `{ value, label }`; the wire value is the menu's string key. Reflects TD-side changes. Options are **authored on the web side**, not introspected from TD's menu — consistent with the no-introspection schema stance. If TD's menu keys change, the web `options` must be updated to match; keeping them in sync is the app's responsibility, exactly like the typed param schema.
+  - `<Select name="par_name" options={...} />` — dropdown bound to a TD **Menu** parameter. `options` is a list of `{ value, label }`; the wire value is the menu's string key. Reflects TD-side changes. Options are **authored on the web side** by default, not introspected from TD's menu — consistent with the no-introspection schema stance. If TD's menu keys change, the web `options` must be updated to match; keeping them in sync is the app's responsibility, exactly like the typed param schema.
+  - `<Select name="par_name" />` with **no `options`** — the deliberate exception, added in Phase 6.2. Some menus cannot be authored in advance at all: an Audio Device In/Out CHOP's `device` menu has machine-specific keys (`{0.0.1.00000000}.{feb5e51a-…}||Voicemeeter_Out_A4_(VB-Audio…)||1`) paired with readable labels, and the list changes when hardware is plugged in. For these TD announces the options over the [`menus`](#menus) message and the dropdown builds itself. The prop always wins when both exist, so announcing is backwards-compatible for every existing `<Select>`. See § *TD-announced menus*.
   - `<Color name="par_name" />` — color picker bound to a multi-component **array** parameter (`[r, g, b]` or `[r, g, b, a]`, 0–1 floats matching TD's color pars). Sends the array (throttled by default while dragging), reflects TD-side changes; an `alpha` prop toggles RGB vs RGBA.
   - `<Vector name="par_name" />` — a group of numeric inputs bound to a non-color multi-component **array** parameter (XYZ position, UV, size, etc.). A `length` (or `labels`) prop sets the component count; sends the whole array (throttled by default while dragging) and reflects TD-side changes. This is the generic case of the array wire shape — `<Color>` is its color-specialized sibling and `<NumberInput>` the single-component scalar case — so vector pars don't fall through the gap between scalar inputs and the color picker.
 - **Components — Display** (read-only, one-directional TD → Web):
@@ -336,7 +337,7 @@ Two specifics this pins down:
 A TD parameter has a **mode** — `CONSTANT`, `EXPRESSION`, `EXPORT` (CHOP-driven), or `BIND` — and the mode determines whether a write actually takes. This matters because the wire format hides it: the web only ever sees clean JSON values, never the mode.
 
 - **Reads are mode-agnostic — no special handling.** `par.eval()` returns the evaluated result for *every* mode, so snapshots, `update` broadcasts, and read-only displays (`<Value>`, and the display side of any control) reflect the correct live value of an expression/exported/bound par with zero extra logic. The read column of the coercion table already covers this.
-- **Writes only take in `CONSTANT` mode.** `par.val = v` on an expression/export/bound par sets the underlying constant slot but **does not change what the par evaluates to** (the expression/export/bind keeps overriding it), and TD **raises no Python error**. Left unguarded, a control bound to such a par would: apply its optimistic local write, send an `update` that silently no-ops, then — because the focused input suppresses TD's echo (see *Bidirectional echo / edit conflict*) — appear to "stick" until blur, at which point it snaps back to the evaluated value. The user sees an edit revert for no visible reason. (`BIND` is the one nuance: a two-way bind *may* propagate a write to its master, so it isn't uniformly read-only the way `EXPRESSION`/`EXPORT` are — but it can't be assumed writable either.)
+- **Writes only belong in `CONSTANT` mode — and an unguarded one is destructive, not inert.** This bullet originally assumed `par.val = v` on an expression/export par would quietly no-op, leaving the user with an edit that reverts for no visible reason. **Measured against 2025.33070 in Phase 6.2, it is worse than that:** assigning `par.val` *flips the par into `CONSTANT` mode*, and the expression stops driving it permanently. The expression text survives in `par.expr`, but nothing evaluates it any more, and TD raises no Python error. So a single web write to an expression-driven par silently detaches a TD author's work, and the damage outlives the browser session that caused it. That makes the mode guard below a data-safety measure rather than a UX nicety. (`BIND` is the one nuance: a two-way bind was measured to *propagate* the write to its master rather than break, so it isn't uniformly read-only the way `EXPRESSION`/`EXPORT` are — but it can't be assumed writable either, and the guard refuses it with the rest.)
 
 Two complementary mechanisms keep this from being a silent failure — a **static** preventive layer and a **runtime** safety net:
 
@@ -367,7 +368,51 @@ Two complementary mechanisms keep this from being a silent failure — a **stati
    })
    ```
 
-The static layer (1) makes the common, known case — an expression-driven readout authored as `<Value>` — never even produce an error; the runtime layer (2) catches what (1) can't see. If TD ever needs to drive *more* metadata to the web (`min`/`max`/`label`/units), the escape hatch is a dedicated one-time `schema` message after `welcome` — but that's a deliberate move toward introspection, out of scope here and explicitly not folded into `snapshot`.
+The static layer (1) makes the common, known case — an expression-driven readout authored as `<Value>` — never even produce an error; the runtime layer (2) catches what (1) can't see. If TD ever needs to drive *more* metadata to the web (`min`/`max`/`label`/units), the escape hatch is a dedicated message alongside the snapshot — a deliberate move toward introspection, and explicitly not folded into `snapshot`. **Phase 6.2 opened exactly that hatch, once, for menu options** (see § *TD-announced menus*); the same shape is what any future metadata would use.
+
+### TD-announced menus
+
+The no-introspection stance holds everywhere the web *can* author what it needs. Menu options are the one place it sometimes can't, so `menus` is a deliberate, bounded exception rather than a softening of the rule.
+
+The motivating case is an audio-device dropdown. An Audio Device In CHOP's `device` menu, read off a real machine:
+
+```
+key:   {0.0.1.00000000}.{feb5e51a-d9cd-45c0-8aff-4770ba283ba0}||Voicemeeter_Out_A4_(VB-Audio_Voicemeeter_VAIO)||1
+label: Voicemeeter Out A4 (VB-Audio Voicemeeter VAIO)
+```
+
+Nothing about that is authorable ahead of time: the keys are machine-specific, and the list changes when hardware is plugged in. The usual "keep the web `options` in sync with TD's menu" bargain isn't merely tedious here, it's impossible — which is the test for whether a menu belongs in this exception.
+
+```jsonc
+// TD → web, sent before `snapshot` on every snapshot-request, and again whenever the list changes
+{ "type": "menus", "menus": { "audiodevice": [ { "value": "default", "label": "default" }, … ] } }
+```
+
+Design points, each of which is load-bearing:
+
+- **A separate message, not part of `snapshot`.** `snapshot` stays a flat `{name: value}` map in both directions, and a changed device list can be re-announced on its own without resending every value.
+- **Sent before the snapshot**, so a `<Select>` never briefly holds a value with no option matching it.
+- **The web-authored `options` prop always wins.** Adding announcements to a project cannot change what an existing `<Select>` renders.
+- **Re-announcing replaces the list wholesale.** A merge would leave an unplugged device selectable forever.
+- **No registry flag drives it.** TD announces any menu-backed `string` param, because a par either has `menuNames` or it doesn't and asking TD beats asking an author to remember. `bool` params are excluded even though TD Toggles also carry `menuNames` (`['off','on']`) — they travel the wire as bools and render as checkboxes.
+- **The value/label split is required, not cosmetic** — a device dropdown showing raw GUIDs would be unusable.
+
+#### Refreshing a stale menu
+
+Menu *contents* changing has **no TD callback**. A Parameter Execute DAT fires on a par's value, mode, enable and export; plugging in an audio interface changes none of those — the value is untouched and only the set of legal values grows. There is nothing to subscribe to, so something has to look again.
+
+This is a known TouchDesigner bug, not an oversight in our design. Derivative logged it in April 2021 ([forum thread](https://forum.derivative.ca/t/breaking-binding-a-dropdown-menu-out-to-a-perform-ui/13123), where staff confirm "the menuNames and menuLabels members are changing so they should be dependable"), and **it is still open on 2025.33070** — measured directly: a Parameter DAT with Menu Names/Labels output, watched by a DAT Execute, fires `onTableChange` **zero** times when `menuNames` changes and **once** when the same par's *value* changes. So that route — the obvious one, and the one the forum poster tried — does not work; don't spend an afternoon rediscovering it. (The DAT's content *is* fresh whenever pulled; what never arrives is the nudge to pull.)
+
+Three ways to look again, best first:
+
+0. **The pulse that causes the change**, when the menu is rebuilt by a TD action rather than by the OS — a Screen Grab TOP's *Refresh Sources*, say. Hook that pulse (`onPulse`) and re-announce: a real event, no poll and no button. Audio devices don't qualify, since the OS changes that list rather than a par.
+
+Otherwise: two mechanisms, and the wire supports both:
+
+1. **`menus-request` (web → TD)** — the default, and what `apps/example` uses. A "Reload devices" button beside the dropdown calls `connection.requestMenus()`; TD re-reads and answers with `menus`. The person who just plugged the device in is right there, so asking on demand is both cheaper and more predictable than guessing. Deliberately separate from `snapshot-request`: refreshing a device list shouldn't drag every parameter value along with it.
+2. **A TD-side poll** — for menus that must refresh with nobody watching. `broadcast_menus_if_changed()` diffs against the last announced map and broadcasts only on a real change; wire it to an Execute DAT's `onFrameStart` gated to every second or two. **Not wired up by default**, since it costs a `menuNames` read per registered menu par per tick, forever, for something most projects never need.
+
+Both funnel through the same diffing helper, which is what makes either safe to call freely: an unchanged list sends nothing, so no client is woken for a no-op. On a *real* change the result is broadcast to **every** client rather than only the requester — a device that appeared is news for every open browser, not just the one whose button was clicked.
 
 Registry entry shape (TD side, conceptual):
 
@@ -413,6 +458,7 @@ This adds **one error code** to the catalog (`param_not_writable`) and **no chan
 // web → TD
 { "type": "hello", "protocol": 1 }                 // version handshake
 { "type": "snapshot-request" }                     // request current state (on connect/reconnect)
+{ "type": "menus-request" }                        // re-read TD's menus; answered with `menus` (the "reload devices" action)
 { "type": "update", "params": { "opacity": 0.5, "color": [1, 0, 0, 1], "blendmode": "add", "enabled": true } }
 { "type": "pulse",  "name": "reset" }              // momentary param: TD calls par.pulse()
 { "type": "rtc-offer",  "sdp": "..." }             // offerer role TBD (see below)
@@ -425,11 +471,13 @@ This adds **one error code** to the catalog (`param_not_writable`) and **no chan
 { "type": "snapshot", "params": { "opacity": 0.3, "text1": "hi", "speed": 2 } }
 { "type": "update",   "params": { "speed": 4 } }   // broadcast to all connected clients
 { "type": "streams",  "streams": [ { "id": "main", "mid": "0", "label": "Render A" } ] }
+{ "type": "menus",    "menus": { "audiodevice": [ { "value": "default", "label": "default" } ] } }  // options for menus the web can't author; see § TD-announced menus
 { "type": "rtc-offer",  "sdp": "..." }
 { "type": "rtc-answer", "sdp": "..." }
 { "type": "rtc-ice",    "candidate": "candidate:...", "sdpMid": "0", "sdpMLineIndex": 0 }  // candidate:null = end-of-candidates
 { "type": "error", "code": "unknown_param", "message": "no param 'foo'", "ref": "foo" }
 { "type": "error", "code": "param_not_writable", "message": "param 'fps' is not web-writable", "ref": "fps" }  // expression/export/bind par, or registry writable:false
+{ "type": "error", "code": "param_type_mismatch", "message": "param 'color' expects 4 components, got 3", "ref": "color" }  // value doesn't fit the entry's wire type: wrong JSON type, wrong array length, unknown menu key
 { "type": "pong" }
 ```
 

@@ -49,6 +49,11 @@ SCENE_PATH = '/GUI/ExternalScenes/Scene%s'
 #       order there is the wire array order.
 #     - 'pulse' entries hold no state: excluded from snapshot, written via a
 #       dedicated `pulse` message (not `update`), and call par.pulse().
+#   writable: optional, defaults True. False makes the entry read-only to the
+#       web — it still snapshots and broadcasts, but a write is refused with a
+#       `param_not_writable` error. A par in EXPRESSION/EXPORT/BIND mode is
+#       refused whether or not it's flagged, so this is only needed for a
+#       CONSTANT par you want to keep TD-driven.
 REGISTRY = {
 	'selectedLoader': {'op': '/GUI/GUI', 'par': 'Selectedloader', 'type': 'string'},
 }

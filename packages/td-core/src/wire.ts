@@ -8,8 +8,10 @@
  * heartbeat) and `error` (surfaced, non-fatal). Phase 4 adds `pulse` (momentary
  * params, web → TD only). Phase 5 adds the WebRTC signaling messages —
  * `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams` — multiplexed over this
- * same socket. Any *other* `type` is still dropped by `parse` rather than
- * mis-decoded, which is what keeps older clients forward-compatible.
+ * same socket. Phase 6.2 adds `menus`, the one deliberate piece of TD → web
+ * introspection (see {@link MenusMessage}). Any *other* `type` is still dropped
+ * by `parse` rather than mis-decoded, which is what keeps older clients
+ * forward-compatible.
  *
  * See prds/TECH_PROPOSAL.md § "WebSocket Wire Format" for the full catalog.
  */
@@ -71,6 +73,24 @@ export interface SnapshotRequestMessage {
  */
 export interface PingMessage {
   type: 'ping'
+}
+
+/**
+ * Asks TD to re-read and re-announce its menus (Phase 6.2). Answered with a
+ * {@link MenusMessage}.
+ *
+ * Exists because menu *contents* changing has no TD-side event to broadcast
+ * from — plugging in an audio interface leaves the par's value untouched and
+ * only changes the set of legal values, which no Parameter Execute callback
+ * reports. That leaves two ways to notice: TD polls, or the user says "look
+ * again". This is the second, and it's the cheaper default — the person who
+ * just plugged the device in is right there.
+ *
+ * Deliberately not folded into `snapshot-request`: refreshing a device list
+ * shouldn't drag every parameter value along with it.
+ */
+export interface MenusRequestMessage {
+  type: 'menus-request'
 }
 
 /**
@@ -185,10 +205,42 @@ export interface ErrorMessage {
   ref?: string
 }
 
+/** One choice in a TD-announced menu: the wire value plus its display label. */
+export interface MenuOption {
+  /** The menu **key** — exactly what `update` carries for this param. */
+  value: string
+  /** TD's human-readable label for that key. */
+  label: string
+}
+
+/**
+ * Menu options for menu-backed params, announced by TD (TD → web).
+ *
+ * This is the one place the "the web authors its own schema, TD is never
+ * introspected" rule is deliberately broken, and it exists because some menus
+ * **cannot** be authored in advance: an audio-device list depends on the machine
+ * TD is running on and changes when hardware is plugged in. For those, keeping a
+ * hand-written `options` array in sync isn't merely tedious, it's impossible.
+ *
+ * Kept a **separate message rather than folded into `snapshot`** (see the
+ * proposal's § "Parameter modes"): `snapshot` stays a flat `{name: value}` map
+ * in both directions, and menus can be re-announced on their own when a device
+ * list changes without resending every value.
+ *
+ * Static, web-authored menus are unaffected — `<Select options={...}>` still
+ * wins over anything announced here, so a project that announces nothing keeps
+ * working exactly as before.
+ */
+export interface MenusMessage {
+  type: 'menus'
+  menus: Record<string, MenuOption[]>
+}
+
 /** Messages the web sends to TD. */
 export type ClientMessage =
   | HelloMessage
   | SnapshotRequestMessage
+  | MenusRequestMessage
   | UpdateMessage
   | PulseMessage
   | PingMessage
@@ -204,6 +256,7 @@ export type ServerMessage =
   | UpdateMessage
   | PongMessage
   | ErrorMessage
+  | MenusMessage
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
@@ -218,11 +271,13 @@ const KNOWN_TYPES = new Set([
   'welcome',
   'snapshot-request',
   'snapshot',
+  'menus-request',
   'update',
   'pulse',
   'ping',
   'pong',
   'error',
+  'menus',
   'rtc-offer',
   'rtc-answer',
   'rtc-ice',
@@ -241,6 +296,20 @@ function isParamMap(value: unknown): value is ParamMap {
       typeof v === 'string' ||
       typeof v === 'boolean' ||
       (Array.isArray(v) && v.every((n) => typeof n === 'number'))
+    if (!ok) return false
+  }
+  return true
+}
+
+function isMenuMap(value: unknown): value is Record<string, MenuOption[]> {
+  if (!isPlainObject(value)) return false
+  for (const options of Object.values(value)) {
+    if (!Array.isArray(options)) return false
+    // Both fields are required: a menu entry with no label has nothing to render
+    // in the dropdown, and one with no value can't be sent back as a menu key.
+    const ok = options.every(
+      (o) => isPlainObject(o) && typeof o.value === 'string' && typeof o.label === 'string',
+    )
     if (!ok) return false
   }
   return true
@@ -286,6 +355,8 @@ export function parse(raw: string): Message | null {
         : null
     case 'snapshot-request':
       return { type: 'snapshot-request' }
+    case 'menus-request':
+      return { type: 'menus-request' }
     case 'welcome':
       return typeof data.protocol === 'number'
         ? {
@@ -324,6 +395,8 @@ export function parse(raw: string): Message | null {
         ...(index !== undefined ? { sdpMLineIndex: index as number | null } : {}),
       }
     }
+    case 'menus':
+      return isMenuMap(data.menus) ? { type: 'menus', menus: data.menus } : null
     case 'streams':
       return isStreamList(data.streams) ? { type: 'streams', streams: data.streams } : null
     case 'error':

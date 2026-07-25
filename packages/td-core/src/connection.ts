@@ -57,6 +57,7 @@ import {
   PROTOCOL_VERSION,
   type ClientMessage,
   type ErrorMessage,
+  type MenuOption,
   type ParamMap,
   type ParamValue,
   type ServerMessage,
@@ -226,6 +227,25 @@ export interface TDConnection<
   pulse: (name: keyof Schema & string) => void
   /** Reactive: whether `name` is currently read-only (Phase 4.10). */
   isReadonly: (name: string) => boolean
+  /**
+   * Reactive: the menu options TD announced for `name`, or `undefined` if it
+   * announced none (Phase 6.2).
+   *
+   * Only meaningful for params whose backing TD par is a Menu, and only for
+   * projects that announce them — a `<Select>` with a web-authored `options`
+   * prop never consults this. It exists for menus that *can't* be authored in
+   * advance, an audio-device list being the motivating case.
+   */
+  menuOptions: (name: string) => MenuOption[] | undefined
+  /**
+   * Ask TD to re-read and re-announce its menus (Phase 6.2) — the "reload
+   * devices" action beside a TD-driven `<Select>`.
+   *
+   * Refreshes every announced menu, not one name: TD reads them as a set, and a
+   * per-name request would cost a wire field to save nothing. Dropped silently
+   * while disconnected, like any other send.
+   */
+  requestMenus: () => void
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void
   /**
@@ -277,6 +297,7 @@ export function createTDConnection<
   const [readonlyNames, setReadonlyNames] = createSignal<ReadonlySet<string>>(
     new Set(options.readonly ?? []),
   )
+  const [menus, setMenus] = createSignal<Record<string, MenuOption[]>>({})
   const entries = new Map<string, SignalEntry>()
   const listeners = new Set<(message: ServerMessage) => void>()
 
@@ -414,6 +435,16 @@ export function createTDConnection<
     return readonlyNames().has(name)
   }
 
+  /** The menu options TD announced for `name`, if any (Phase 6.2). */
+  function menuOptions(name: string): MenuOption[] | undefined {
+    return menus()[name]
+  }
+
+  /** Ask TD to re-read and re-announce its menus (Phase 6.2). */
+  function requestMenus() {
+    rawSend({ type: 'menus-request' })
+  }
+
   /** Mark `name` read-only from now on (runtime safety net for `param_not_writable`). */
   function markReadonly(name: string) {
     setReadonlyNames((prev) => {
@@ -494,11 +525,17 @@ export function createTDConnection<
       case 'error':
         handleError(message)
         break
+      case 'menus':
+        // Replaces the announced set wholesale rather than merging: a device
+        // that has been unplugged has to *disappear* from the dropdown, and a
+        // merge would leave it selectable forever.
+        setMenus(message.menus)
+        break
       // WebRTC signaling (`rtc-offer`/`rtc-answer`/`rtc-ice`/`streams`) is not
       // handled here — it's dispatched to subscribers below, so the connection
       // stays ignorant of peers.
-      // Client-only types (hello / snapshot-request / ping / pulse) are never
-      // expected inbound; ignored if they somehow arrive.
+      // Client-only types (hello / snapshot-request / menus-request / ping /
+      // pulse) are never expected inbound; ignored if they somehow arrive.
     }
 
     // Narrowed to the TD → web half of the union: the client-only types above
@@ -508,6 +545,7 @@ export function createTDConnection<
     if (
       message.type !== 'hello' &&
       message.type !== 'snapshot-request' &&
+      message.type !== 'menus-request' &&
       message.type !== 'ping' &&
       message.type !== 'pulse'
     ) {
@@ -532,10 +570,13 @@ export function createTDConnection<
   function handleError(error: ErrorMessage) {
     setLastError(error)
     if (error.code === 'param_not_writable' && error.ref) {
-      // Runtime safety net: TD silently no-ops a write to a non-CONSTANT par.
-      // Mark it read-only from here on (disables the control) and re-request a
-      // snapshot so the optimistic edit that just got ignored snaps back to
-      // TD's real value rather than "sticking" until an unrelated resync.
+      // Runtime safety net: TD refused the write because the backing par isn't
+      // in CONSTANT mode (it guards rather than applying — on 2025.33070 an
+      // unguarded write would flip the par to CONSTANT and detach its
+      // expression for good). Mark it read-only from here on (disables the
+      // control) and re-request a snapshot so the optimistic edit that never
+      // landed snaps back to TD's real value rather than "sticking" until an
+      // unrelated resync.
       markReadonly(error.ref)
       rawSend({ type: 'snapshot-request' })
     }
@@ -728,6 +769,8 @@ export function createTDConnection<
     signal,
     pulse: sendPulse,
     isReadonly,
+    menuOptions,
+    requestMenus,
     send: rawSend,
     subscribe,
     close,
