@@ -58,6 +58,11 @@ export interface MediaStreamLike {
   getTracks(): { stop(): void }[]
 }
 
+/** Constructor for a {@link MediaStreamLike}; the global one at runtime. */
+export interface MediaStreamLikeConstructor {
+  new (tracks: unknown[]): MediaStreamLike
+}
+
 /** ICE candidate as `addIceCandidate()` takes it; `null` = end-of-candidates. */
 export interface IceCandidateInit {
   candidate: string
@@ -122,6 +127,8 @@ export interface TDVideoStreamOptions {
   iceServers?: unknown[]
   /** `RTCPeerConnection` constructor. Defaults to the global; faked in tests. */
   RTCPeerConnection?: RTCPeerConnectionLikeConstructor
+  /** `MediaStream` constructor. Defaults to the global; faked in tests. */
+  MediaStream?: MediaStreamLikeConstructor
   /** Timer scheduler; defaults to the platform globals. Injected in tests. */
   scheduler?: TDScheduler
   /**
@@ -166,6 +173,9 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     options.RTCPeerConnection ??
     (globalThis as { RTCPeerConnection?: RTCPeerConnectionLikeConstructor })
       .RTCPeerConnection!
+  const Media: MediaStreamLikeConstructor | undefined =
+    options.MediaStream ??
+    (globalThis as { MediaStream?: MediaStreamLikeConstructor }).MediaStream
   const scheduler = options.scheduler ?? defaultScheduler
   const iceServers = options.iceServers ?? []
   const receivers = options.receivers ?? 1
@@ -357,20 +367,33 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
       console.debug('[td-core] ignoring track with no mid')
       return
     }
-    const media = event.streams?.[0] ?? wrapTrack(event.track)
+    const media = wrapTrack(event.track) ?? event.streams?.[0]
     if (!media) return
     setTracks((prev) => new Map(prev).set(mid, media))
   }
 
-  /** Fallback for a track TD sends without an associated stream. */
+  /**
+   * Give a track its own `MediaStream`, keyed by mid — deliberately *not*
+   * `event.streams[0]`.
+   *
+   * TD announces every track of a peer inside one stream
+   * (`TouchDesigner_webrtc1`), so the peer-level stream is the *same* N-track
+   * object on every mid — and a `<video>` renders only the first video track of
+   * whatever it is handed. Binding tiles to it makes an 8-stream wall show
+   * tile 1 eight times, with no error anywhere to say so. Wrapping each track
+   * keeps id → mid → picture honest, and is also the fallback for a track sent
+   * with no stream at all.
+   *
+   * This treats msid grouping as meaningless, which holds while media is
+   * video-only (v1). Pairing an audio track with its video would have to come
+   * through the `streams` announce map, not through the peer's msid.
+   */
   function wrapTrack(track: { stop(): void }): MediaStreamLike | undefined {
-    const Ctor = (globalThis as { MediaStream?: new (tracks: unknown[]) => MediaStreamLike })
-      .MediaStream
-    if (!Ctor) {
-      console.debug('[td-core] track has no stream and MediaStream is unavailable')
+    if (!Media) {
+      console.debug('[td-core] MediaStream is unavailable; falling back to the peer stream')
       return undefined
     }
-    return new Ctor([track])
+    return new Media([track])
   }
 
   /** Resolve a stream id to its announced `mid`, defaulting to the primary. */

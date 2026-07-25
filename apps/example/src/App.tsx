@@ -1,6 +1,6 @@
-import { Show } from 'solid-js'
+import { For, Show } from 'solid-js'
 import { createTDClient } from 'td-core'
-import { instances, type ExampleParams } from './td.config'
+import { instances, VIDEO_TILES, type ExampleParams } from './td.config'
 
 // One factory per TD instance, typed by that instance's param schema.
 const Example = createTDClient<ExampleParams>()
@@ -58,40 +58,58 @@ function StatusBar() {
 }
 
 /**
- * Video tile (Phase 5). `<Provider video>` opens one WebRTC peer for this
- * instance and multiplexes its signaling over the same socket; `<Video>` with no
- * `stream` prop binds the primary announced stream.
+ * The video wall (Phase 6.7) — every stream this instance announces, rendered
+ * at once. `<Provider video>` opens **one** WebRTC peer and every tile is a
+ * track on it, which is why the grid is driven by `video.streams()` (the id →
+ * mid map TD announces) rather than by a peer per tile.
  *
- * The overlay reads `streamStatus()` rather than the peer-wide `status()`: a
- * peer can be `connected` while *this* stream's track hasn't arrived, and
- * "no track yet" would otherwise be indistinguishable from a frozen last frame.
+ * The tile count is whatever TD announces, up to the `receivers` m-lines our
+ * offer carried. Rendering the list rather than a fixed eight is what makes a
+ * short announce visible as missing tiles instead of as silently black ones.
+ *
+ * Each overlay reads that stream's own `streamStatus(id)`, not the peer-wide
+ * `status()`: the peer reaches `connected` as soon as *any* track flows, so a
+ * tile still waiting for its own track would otherwise show a frozen black box
+ * with no explanation.
  */
-function VideoPanel() {
+function VideoWall() {
   const video = Example.useVideo()
-  const primary = () => video.streams()[0]
 
   return (
     <section>
-      <p>Video (Phase 5)</p>
-      <div class="video-tile">
-        <Example.Video />
-        <Show when={video.streamStatus() !== 'connected'}>
-          <div class="video-overlay">{video.streamStatus()}…</div>
-        </Show>
-      </div>
-      <p class="caption">
-        <Show
-          when={primary()}
-          fallback="No stream announced yet — the reference TD project doesn’t wire up the WebRTC DAT until Phase 6.4, so the offer goes unanswered."
+      <p>
+        Video wall (Phase 6.7) — {video.streams().length} of {VIDEO_TILES} streams
+        announced
+      </p>
+      <div class="video-grid">
+        <For
+          each={video.streams()}
+          fallback={
+            <p class="caption">
+              No streams announced yet — check that the TD project’s config sets{' '}
+              <code>WEBRTC</code> and <code>STREAMS</code>, and that its Web Server DAT
+              is up.
+            </p>
+          }
         >
           {(stream) => (
-            <>
-              Bound to <code>{stream().label ?? stream().id}</code> on mid{' '}
-              <code>{stream().mid}</code>.
-            </>
+            <figure>
+              <div class="video-tile">
+                {/* Selects by announced id: several tiles on one id would share
+                    a single decode, and a renegotiation that shifts mids rebinds
+                    here without remounting. */}
+                <Example.Video stream={stream.id} />
+                <Show when={video.streamStatus(stream.id) !== 'connected'}>
+                  <div class="video-overlay">{video.streamStatus(stream.id)}…</div>
+                </Show>
+              </div>
+              <figcaption class="caption">
+                {stream.label ?? stream.id} · mid <code>{stream.mid}</code>
+              </figcaption>
+            </figure>
           )}
-        </Show>
-      </p>
+        </For>
+      </div>
     </section>
   )
 }
@@ -105,8 +123,16 @@ export function App() {
       </p>
 
       {/* `video` is opt-in per provider — without it no RTCPeerConnection is
-          created at all, which matters once several instances are live. */}
-      <Example.Provider url={example.url} instance={example.id} video>
+          created at all, which matters once several instances are live.
+          `receivers` is how many recvonly video m-lines our offer carries, and
+          so the ceiling on how many tracks TD can attach when it answers: an
+          answerer cannot add m-lines, so a wall of 8 needs all 8 offered up
+          front or the surplus streams have nowhere to land. */}
+      <Example.Provider
+        url={example.url}
+        instance={example.id}
+        video={{ receivers: VIDEO_TILES }}
+      >
         <StatusBar />
 
         <section>
@@ -171,7 +197,7 @@ export function App() {
           </label>
         </section>
 
-        <VideoPanel />
+        <VideoWall />
       </Example.Provider>
     </main>
   )

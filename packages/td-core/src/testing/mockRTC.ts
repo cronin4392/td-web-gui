@@ -23,15 +23,39 @@ export class MockTrack {
   }
 }
 
-/** A faked `MediaStream` wrapping one or more {@link MockTrack}s. */
+/**
+ * A faked `MediaStream`. The constructor takes the track list, matching the
+ * real one, so it can be injected as `options.MediaStream` and exercise the
+ * same per-track wrapping the browser path uses.
+ */
 export class MockMediaStream implements MediaStreamLike {
-  constructor(
-    readonly id: string,
-    readonly tracks: MockTrack[] = [new MockTrack()],
-  ) {}
+  private static count = 0
+  readonly id = `mock-stream-${MockMediaStream.count++}`
+  readonly tracks: MockTrack[]
+  constructor(tracks: MockTrack[] = [new MockTrack()]) {
+    this.tracks = tracks
+  }
   getTracks(): MockTrack[] {
     return this.tracks
   }
+}
+
+/**
+ * Inject as `options.MediaStream`. Cast for the same reason
+ * {@link MockRTCPeerConnection} is: the structural interface takes `unknown[]`,
+ * while the mock wants its own track type.
+ */
+export const MockMediaStreamCtor = MockMediaStream as unknown as new (
+  tracks: unknown[],
+) => MediaStreamLike
+
+/**
+ * The one track a per-mid stream carries. Tests compare tracks rather than
+ * stream objects because the connection wraps each track in a stream of its
+ * own, so the object a test emitted is never the object it gets back.
+ */
+export function trackOf(media: MediaStreamLike | undefined): MockTrack | undefined {
+  return media?.getTracks()[0] as MockTrack | undefined
 }
 
 export class MockPeerConnection implements RTCPeerConnectionLike {
@@ -126,10 +150,20 @@ export class MockPeerConnection implements RTCPeerConnectionLike {
     this.onicecandidate?.({ candidate })
   }
 
+  /**
+   * The single stream TD announces every track in. Real TouchDesigner reports
+   * one msid per *peer*, not per track, so `ontrack` hands the same growing
+   * N-track object to every mid — reproduced here because trusting it is what
+   * made an 8-tile wall render tile 1 eight times.
+   */
+  readonly peerStream = new MockMediaStream([])
+
   /** Deliver an inbound track on `mid`, as `ontrack` would. */
-  emitTrack(mid: string, stream = new MockMediaStream(`stream-${mid}`)): MockMediaStream {
-    this.ontrack?.({ track: stream.getTracks()[0], streams: [stream], transceiver: { mid } })
-    return stream
+  emitTrack(mid: string): MockTrack {
+    const track = new MockTrack()
+    this.peerStream.tracks.push(track)
+    this.ontrack?.({ track, streams: [this.peerStream], transceiver: { mid } })
+    return track
   }
 
   /** Drive `connectionState` and fire the change event. */
