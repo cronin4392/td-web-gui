@@ -11,3 +11,11 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       `hasattr(value, 'path')` duck-typing. Will matter more once there are several of these.
 - [ ] Convert localStorage into a sqlite3 database for text-setter
 - [x] Add clear buttons to the right of each text1 text2
+- [ ] Add a pytest suite for the TD-side Python bridge (`td/webserver-callbacks.py`,
+      `td/parameter-execute.py`) — currently zero automated coverage vs. thorough vitest coverage on
+      the JS side. Needs lightweight fakes for TD's `op`/`Par`/`webserverDAT` since they aren't
+      importable outside TD. Cover at minimum: `broadcast_param_change`'s REGISTRY matching (including
+      the silent no-op when a par name/case doesn't match — the failure mode that made a real TD → web
+      broadcast bug hard to find), `onWebSocketReceiveText`'s `update`/`pulse`/`snapshot-request`
+      dispatch and error replies, and `_snapshot`/`_read`/`_write` round-tripping each wire type. Also
+      sweep the rest of `td/` for other Python that's currently untested and add coverage there too.
