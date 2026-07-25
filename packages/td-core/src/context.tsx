@@ -6,8 +6,10 @@
  * that instance's param map, so parameter `name`s autocomplete and typos are
  * compile errors *inside JSX*.
  *
- * There is a single module-level context holding the active connection.
- * `<Provider>` owns one connection and shares it via that context;
+ * There is a single module-level context holding the active connection, and a
+ * second one holding that provider's WebRTC peer when `<Provider video>` opts
+ * into video (Phase 5). `<Provider>` owns one connection (and at most one peer)
+ * and shares them via those contexts;
  * `createTDSignal(name)` binds to the nearest provider's connection. The
  * per-factory generic typing is a purely compile-time wrapper over this one
  * shared runtime context (see § "Type safety" in the proposal for why the
@@ -26,6 +28,11 @@ import {
   type TDConnection,
   type TDConnectionOptions,
 } from './connection'
+import {
+  createTDVideoStream,
+  type TDVideoStream,
+  type TDVideoStreamOptions,
+} from './video'
 import type { ParamValue } from './wire'
 import { Button, type ButtonProps } from './components/Button'
 import { Color, type ColorProps } from './components/Color'
@@ -36,9 +43,18 @@ import { TextInput, type TextInputProps } from './components/TextInput'
 import { Toggle, type ToggleProps } from './components/Toggle'
 import { Value, type ValueProps } from './components/Value'
 import { Vector, type VectorProps } from './components/Vector'
+import { Video, type VideoProps } from './components/Video'
 
 /** Shared runtime context: the nearest provider's connection. */
 const TDContext = createContext<TDConnection>()
+
+/**
+ * Shared runtime context: the nearest provider's WebRTC peer, when that
+ * provider opted into video. Separate from {@link TDContext} because video is
+ * opt-in — a provider with no `video` prop opens no peer at all, which matters
+ * when up to 8 instances are live.
+ */
+const TDVideoContext = createContext<TDVideoStream>()
 
 /** Read the nearest provider's connection, or throw if used outside one. */
 export function useTDConnection(): TDConnection {
@@ -49,6 +65,17 @@ export function useTDConnection(): TDConnection {
     )
   }
   return connection
+}
+
+/** Read the nearest provider's video peer, or throw if video wasn't enabled. */
+export function useTDVideoStream(): TDVideoStream {
+  const video = useContext(TDVideoContext)
+  if (!video) {
+    throw new Error(
+      '[td-core] no TD video peer in context — pass `video` to the <Provider>',
+    )
+  }
+  return video
 }
 
 /**
@@ -76,6 +103,12 @@ export interface TDProviderProps {
   readonly?: string[]
   /** Per-connection options forwarded to {@link createTDConnection}. */
   options?: TDConnectionOptions
+  /**
+   * Open a WebRTC peer for this instance (Phase 5), multiplexing its signaling
+   * over the same socket. Opt-in: without it no `RTCPeerConnection` is created,
+   * and `<Video>` throws. Pass an object to tune the peer.
+   */
+  video?: boolean | Omit<TDVideoStreamOptions, 'connection'>
   children?: JSX.Element
 }
 
@@ -100,9 +133,17 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
       ...props.options,
       readonly: props.readonly ?? props.options?.readonly,
     })
+    // Read once at setup, like `url`: swapping video on/off mid-life would mean
+    // tearing a peer down, which is what unmounting the provider already does.
+    const video = props.video
+      ? createTDVideoStream({
+          ...(typeof props.video === 'object' ? props.video : {}),
+          connection: connection as unknown as TDConnection,
+        })
+      : undefined
     return (
       <TDContext.Provider value={connection as unknown as TDConnection}>
-        {props.children}
+        <TDVideoContext.Provider value={video}>{props.children}</TDVideoContext.Provider>
       </TDContext.Provider>
     )
   }
@@ -164,6 +205,7 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     signal,
     pulse,
     useConnection: useTDConnection,
+    useVideo: useTDVideoStream,
     TextInput: TypedTextInput,
     NumberInput: TypedNumberInput,
     RangeInput: TypedRangeInput,
@@ -173,5 +215,8 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     Select: TypedSelect,
     Vector: TypedVector,
     Color: TypedColor,
+    // Not schema-typed: `<Video>` selects on a stream id TD announces at
+    // runtime, which isn't part of the param schema.
+    Video: (props: VideoProps): JSX.Element => Video(props),
   }
 }

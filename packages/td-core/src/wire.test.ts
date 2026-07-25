@@ -41,6 +41,56 @@ describe('parse', () => {
     expect(parse('{"type":"error"}')).toBeNull()
   })
 
+  it('parses the WebRTC signaling messages (5.1)', () => {
+    expect(parse('{"type":"rtc-offer","sdp":"v=0..."}')).toEqual({
+      type: 'rtc-offer',
+      sdp: 'v=0...',
+    })
+    expect(parse('{"type":"rtc-answer","sdp":"v=0..."}')).toEqual({
+      type: 'rtc-answer',
+      sdp: 'v=0...',
+    })
+    expect(
+      parse('{"type":"rtc-ice","candidate":"candidate:1 1 udp","sdpMid":"0","sdpMLineIndex":0}'),
+    ).toEqual({
+      type: 'rtc-ice',
+      candidate: 'candidate:1 1 udp',
+      sdpMid: '0',
+      sdpMLineIndex: 0,
+    })
+    expect(parse('{"type":"streams","streams":[{"id":"main","mid":"0","label":"Render A"}]}')).toEqual(
+      { type: 'streams', streams: [{ id: 'main', mid: '0', label: 'Render A' }] },
+    )
+    expect(parse('{"type":"streams","streams":[]}')).toEqual({ type: 'streams', streams: [] })
+  })
+
+  it('keeps end-of-candidates distinct from a missing candidate', () => {
+    // `candidate: null` is the end-of-gathering signal, so it must survive parse
+    // rather than being treated as a malformed frame.
+    expect(parse('{"type":"rtc-ice","candidate":null}')).toEqual({
+      type: 'rtc-ice',
+      candidate: null,
+    })
+    // An explicit null m-line association is preserved; an omitted one stays omitted.
+    expect(parse('{"type":"rtc-ice","candidate":"c","sdpMid":null,"sdpMLineIndex":null}')).toEqual({
+      type: 'rtc-ice',
+      candidate: 'c',
+      sdpMid: null,
+      sdpMLineIndex: null,
+    })
+    expect(parse('{"type":"rtc-ice"}')).toBeNull()
+  })
+
+  it('rejects structurally invalid signaling messages', () => {
+    expect(parse('{"type":"rtc-offer"}')).toBeNull()
+    expect(parse('{"type":"rtc-answer","sdp":42}')).toBeNull()
+    expect(parse('{"type":"rtc-ice","candidate":42}')).toBeNull()
+    expect(parse('{"type":"rtc-ice","candidate":"c","sdpMid":7}')).toBeNull()
+    expect(parse('{"type":"streams"}')).toBeNull()
+    expect(parse('{"type":"streams","streams":[{"id":"main"}]}')).toBeNull() // missing mid
+    expect(parse('{"type":"streams","streams":[{"id":1,"mid":"0"}]}')).toBeNull()
+  })
+
   it('accepts every wire-legal value shape in a params map', () => {
     const msg = parse(
       '{"type":"update","params":{"n":1.5,"s":"hi","b":true,"arr":[1,0,0,1]}}',
@@ -64,7 +114,6 @@ describe('parse', () => {
   })
 
   it('drops unknown message types', () => {
-    expect(parse('{"type":"rtc-offer","sdp":"..."}')).toBeNull()
     expect(parse('{"type":"totally-made-up"}')).toBeNull()
     expect(parse('{"protocol":1}')).toBeNull()
   })

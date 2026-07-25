@@ -42,6 +42,12 @@
  *    runtime safety net: an inbound `param_not_writable` error marks that name
  *    read-only from then on and re-requests a snapshot to revert whatever
  *    optimistic edit just got silently ignored by TD.
+ *
+ * ## Phase 5 additions
+ *  - **`subscribe(listener)`** (5.1/5.2) — WebRTC signaling is multiplexed over
+ *    this same socket, so `createTDVideoStream` observes inbound messages
+ *    through this hook and sends via `send()`. The connection itself stays
+ *    ignorant of peers: it forwards the signaling `type`s untouched.
  */
 
 import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js'
@@ -53,6 +59,7 @@ import {
   type ErrorMessage,
   type ParamMap,
   type ParamValue,
+  type ServerMessage,
 } from './wire'
 
 /**
@@ -221,6 +228,14 @@ export interface TDConnection<
   isReadonly: (name: string) => boolean
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void
+  /**
+   * Observe every parsed inbound message, *after* the connection's own handling
+   * of it. Added in Phase 5 so WebRTC signaling can ride this socket without the
+   * connection needing to know anything about peers; returns an unsubscribe fn.
+   * Malformed and unknown-`type` frames never reach listeners — they're dropped
+   * by `parse` first.
+   */
+  subscribe: (listener: (message: ServerMessage) => void) => () => void
   /** Close the socket, cancel all timers, and drop the routing table. */
   close: () => void
 }
@@ -263,6 +278,7 @@ export function createTDConnection<
     new Set(options.readonly ?? []),
   )
   const entries = new Map<string, SignalEntry>()
+  const listeners = new Set<(message: ServerMessage) => void>()
 
   let socket: WebSocketLike | null = null
   let disposed = false
@@ -478,8 +494,31 @@ export function createTDConnection<
       case 'error':
         handleError(message)
         break
-      // Client-only types (hello / snapshot-request / ping) are never expected
-      // inbound; ignored if they somehow arrive.
+      // WebRTC signaling (`rtc-offer`/`rtc-answer`/`rtc-ice`/`streams`) is not
+      // handled here — it's dispatched to subscribers below, so the connection
+      // stays ignorant of peers.
+      // Client-only types (hello / snapshot-request / ping / pulse) are never
+      // expected inbound; ignored if they somehow arrive.
+    }
+
+    // Narrowed to the TD → web half of the union: the client-only types above
+    // aren't `ServerMessage`s, and a subscriber should never have to consider
+    // them.
+
+    if (
+      message.type !== 'hello' &&
+      message.type !== 'snapshot-request' &&
+      message.type !== 'ping' &&
+      message.type !== 'pulse'
+    ) {
+      for (const listener of listeners) {
+        try {
+          listener(message)
+        } catch (error) {
+          // A throwing subscriber must not wedge the socket's read loop.
+          console.error('[td-core] message subscriber threw', error)
+        }
+      }
     }
   }
 
@@ -666,7 +705,13 @@ export function createTDConnection<
     }
     socket = null
     entries.clear() // drop routing table + per-param signals (3.7)
+    listeners.clear()
     setStatus('closed')
+  }
+
+  function subscribe(listener: (message: ServerMessage) => void): () => void {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
   }
 
   connect()
@@ -684,6 +729,7 @@ export function createTDConnection<
     pulse: sendPulse,
     isReadonly,
     send: rawSend,
+    subscribe,
     close,
   }
 }

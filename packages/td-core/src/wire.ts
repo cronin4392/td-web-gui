@@ -6,9 +6,10 @@
  * `snapshot-request`, `snapshot`, and `update`. Phase 3 (WebSocket hardening)
  * added the connection-liveness and error messages — `ping`/`pong` (app-level
  * heartbeat) and `error` (surfaced, non-fatal). Phase 4 adds `pulse` (momentary
- * params, web → TD only). The WebRTC signaling messages still arrive in a later
- * phase — `parse` drops those (and any future) `type`s rather than mis-decoding
- * them until then.
+ * params, web → TD only). Phase 5 adds the WebRTC signaling messages —
+ * `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams` — multiplexed over this
+ * same socket. Any *other* `type` is still dropped by `parse` rather than
+ * mis-decoded, which is what keeps older clients forward-compatible.
  *
  * See prds/TECH_PROPOSAL.md § "WebSocket Wire Format" for the full catalog.
  */
@@ -95,6 +96,62 @@ export interface UpdateMessage {
   params: ParamMap
 }
 
+// ── WebRTC signaling, both directions (Phase 5.1) ──────────────────────────
+//
+// Signaling is multiplexed over this same WebSocket — one connection to manage,
+// no second socket or extra TD component. Every signaling message is declared in
+// *both* direction unions: `td-core` offers on connect/rebuild while TD offers
+// on its own renegotiations (see `video.ts` § "Offer role"), so each side must be
+// able to both send and receive an offer/answer without a wire-format change.
+
+/** SDP offer. Sent by whichever side is initiating this negotiation. */
+export interface RTCOfferMessage {
+  type: 'rtc-offer'
+  sdp: string
+}
+
+/** SDP answer, replying to an {@link RTCOfferMessage}. */
+export interface RTCAnswerMessage {
+  type: 'rtc-answer'
+  sdp: string
+}
+
+/**
+ * One trickled ICE candidate, carrying the full descriptor
+ * `addIceCandidate()` needs — a bare candidate string can't be applied without
+ * its m-line association.
+ *
+ * `candidate: null` is **end-of-candidates**: the receiver forwards it as
+ * `addIceCandidate(null)`. This keeps trickle ICE symmetric in both directions
+ * and independent of which side offered.
+ */
+export interface RTCIceMessage {
+  type: 'rtc-ice'
+  candidate: string | null
+  sdpMid?: string | null
+  sdpMLineIndex?: number | null
+}
+
+/** One announced video track: which `mid` on the peer carries which stream id. */
+export interface StreamInfo {
+  /** Stable, web-facing stream id — what `<Video stream="...">` selects on. */
+  id: string
+  /** The `mid` of the transceiver carrying this stream on the current peer. */
+  mid: string
+  /** Optional human-readable label for UI. */
+  label?: string
+}
+
+/**
+ * The `id` → `mid` map for every track on the peer. Re-sent on **every**
+ * (re)negotiation, since a renegotiation can shift `mid`s — that's precisely why
+ * the mapping is explicit rather than assuming a fixed track order.
+ */
+export interface StreamsMessage {
+  type: 'streams'
+  streams: StreamInfo[]
+}
+
 // ── TD → web ────────────────────────────────────────────────────────────────
 
 /** Reply to `hello`: TD's protocol version plus optional instance metadata. */
@@ -135,6 +192,10 @@ export type ClientMessage =
   | UpdateMessage
   | PulseMessage
   | PingMessage
+  | RTCOfferMessage
+  | RTCAnswerMessage
+  | RTCIceMessage
+  | StreamsMessage
 
 /** Messages the web receives from TD. */
 export type ServerMessage =
@@ -143,6 +204,10 @@ export type ServerMessage =
   | UpdateMessage
   | PongMessage
   | ErrorMessage
+  | RTCOfferMessage
+  | RTCAnswerMessage
+  | RTCIceMessage
+  | StreamsMessage
 
 /** Every known message in either direction. */
 export type Message = ClientMessage | ServerMessage
@@ -158,6 +223,10 @@ const KNOWN_TYPES = new Set([
   'ping',
   'pong',
   'error',
+  'rtc-offer',
+  'rtc-answer',
+  'rtc-ice',
+  'streams',
 ])
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -175,6 +244,19 @@ function isParamMap(value: unknown): value is ParamMap {
     if (!ok) return false
   }
   return true
+}
+
+function isStreamList(value: unknown): value is StreamInfo[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (s) =>
+        isPlainObject(s) &&
+        typeof s.id === 'string' &&
+        typeof s.mid === 'string' &&
+        (s.label === undefined || typeof s.label === 'string'),
+    )
+  )
 }
 
 /**
@@ -222,6 +304,28 @@ export function parse(raw: string): Message | null {
       return { type: 'ping' }
     case 'pong':
       return { type: 'pong' }
+    case 'rtc-offer':
+      return typeof data.sdp === 'string' ? { type: 'rtc-offer', sdp: data.sdp } : null
+    case 'rtc-answer':
+      return typeof data.sdp === 'string' ? { type: 'rtc-answer', sdp: data.sdp } : null
+    case 'rtc-ice': {
+      // `null` is meaningful here (end-of-candidates), so `candidate` must be
+      // present-and-null rather than merely absent, and the two m-line fields
+      // keep an explicit `null` distinct from being omitted.
+      if (!(typeof data.candidate === 'string' || data.candidate === null)) return null
+      const mid = data.sdpMid
+      const index = data.sdpMLineIndex
+      if (mid !== undefined && mid !== null && typeof mid !== 'string') return null
+      if (index !== undefined && index !== null && typeof index !== 'number') return null
+      return {
+        type: 'rtc-ice',
+        candidate: data.candidate,
+        ...(mid !== undefined ? { sdpMid: mid as string | null } : {}),
+        ...(index !== undefined ? { sdpMLineIndex: index as number | null } : {}),
+      }
+    }
+    case 'streams':
+      return isStreamList(data.streams) ? { type: 'streams', streams: data.streams } : null
     case 'error':
       return typeof data.code === 'string'
         ? {
