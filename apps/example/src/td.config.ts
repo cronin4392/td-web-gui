@@ -23,6 +23,19 @@ export const instances = [
   { id: 'example', url: `ws://${host}:${port}` },
 ] as const satisfies readonly TDInstanceConfig[]
 
+/**
+ * How many video tiles the wall is built for (Phase 6.7) — the proposal's
+ * "up to 8 streams, all visible at once" target.
+ *
+ * Kept web-side because it sets `receivers`, the number of recvonly m-lines our
+ * SDP offer carries, and that has to be decided *before* TD answers: an answerer
+ * can't add m-lines, so anything TD announces beyond this count has nowhere to
+ * go. It must therefore be >= the TD project's `STREAMS` count
+ * (`td/config-example.py`), which is the one number the two sides must agree on
+ * — the ids themselves are discovered at runtime from the `streams` message.
+ */
+export const VIDEO_TILES = 8
+
 /** Param schema for the `example` instance — one param per bound control kind. */
 export interface ExampleParams {
   message: string

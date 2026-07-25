@@ -8,7 +8,12 @@ import { render } from 'solid-js/web'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTDClient } from '../context'
 import { createMockTD } from '../testing/mockTD'
-import { MockPeerConnection, MockRTCPeerConnection } from '../testing/mockRTC'
+import {
+  MockMediaStreamCtor,
+  MockPeerConnection,
+  MockRTCPeerConnection,
+  trackOf,
+} from '../testing/mockRTC'
 import { createManualScheduler } from '../testing/scheduler'
 
 let dispose: (() => void) | undefined
@@ -47,6 +52,7 @@ async function mount(ui: (TD: ReturnType<typeof createTDClient<Params>>) => any)
         options={{ WebSocket: td.WebSocket, scheduler: sched.scheduler }}
         video={{
           RTCPeerConnection: MockRTCPeerConnection,
+          MediaStream: MockMediaStreamCtor,
           scheduler: sched.scheduler,
           receivers: 2,
         }}
@@ -100,12 +106,12 @@ describe('<Video>', () => {
       ],
     })
     await settle()
-    expect(videoAt().srcObject).toBe(preview as unknown as MediaStream)
+    expect(trackOf(videoAt().srcObject as never)).toBe(preview)
 
     // A renegotiation moved `preview` onto mid 0 — the element follows the map.
     td.socket().serverSend({ type: 'streams', streams: [{ id: 'preview', mid: '0' }] })
     await settle()
-    expect(videoAt().srcObject).not.toBe(preview as unknown as MediaStream)
+    expect(trackOf(videoAt().srcObject as never)).not.toBe(preview)
   })
 
   it('defaults to the primary stream when no id is given', async () => {
@@ -114,7 +120,7 @@ describe('<Video>', () => {
 
     td.socket().serverSend({ type: 'streams', streams: [{ id: 'main', mid: '0' }] })
     await settle()
-    expect(videoAt().srcObject).toBe(main as unknown as MediaStream)
+    expect(trackOf(videoAt().srcObject as never)).toBe(main)
   })
 
   it('shares one decoded MediaStream across several tiles on the same id', async () => {
@@ -129,7 +135,7 @@ describe('<Video>', () => {
     td.socket().serverSend({ type: 'streams', streams: [{ id: 'main', mid: '0' }] })
     await settle()
 
-    expect(videoAt(0).srcObject).toBe(main as unknown as MediaStream)
+    expect(trackOf(videoAt(0).srcObject as never)).toBe(main)
     expect(videoAt(1).srcObject).toBe(videoAt(0).srcObject)
   })
 

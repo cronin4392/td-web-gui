@@ -10,7 +10,12 @@ import { createRoot } from 'solid-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTDConnection } from './connection'
 import { createMockTD, type MockTDHandle, type MockTDSocket } from './testing/mockTD'
-import { MockPeerConnection, MockRTCPeerConnection } from './testing/mockRTC'
+import {
+  MockMediaStreamCtor,
+  MockPeerConnection,
+  MockRTCPeerConnection,
+  trackOf,
+} from './testing/mockRTC'
 import { createManualScheduler, type ManualScheduler } from './testing/scheduler'
 import {
   createTDVideoStream,
@@ -63,6 +68,7 @@ async function setup(
     video = createTDVideoStream({
       connection,
       RTCPeerConnection: MockRTCPeerConnection,
+      MediaStream: MockMediaStreamCtor,
       scheduler: sched.scheduler,
       ...options,
     })
@@ -224,9 +230,9 @@ describe('streams mapping (5.3)', () => {
     await settle()
 
     expect(h.video.streams()).toHaveLength(2)
-    expect(h.video.stream('main')).toBe(main)
-    expect(h.video.stream('preview')).toBe(preview)
-    expect(h.video.stream()).toBe(main) // no id → the primary stream
+    expect(trackOf(h.video.stream('main'))).toBe(main)
+    expect(trackOf(h.video.stream('preview'))).toBe(preview)
+    expect(trackOf(h.video.stream())).toBe(main) // no id → the primary stream
     expect(h.video.stream('nope')).toBeUndefined() // never announced
     h.dispose()
   })
@@ -239,12 +245,12 @@ describe('streams mapping (5.3)', () => {
 
     h.td.socket().serverSend({ type: 'streams', streams: [{ id: 'main', mid: '0' }] })
     await settle()
-    expect(h.video.stream('main')).toBe(first)
+    expect(trackOf(h.video.stream('main'))).toBe(first)
 
     // TD renegotiated and re-sent the map with `main` now on mid 1.
     h.td.socket().serverSend({ type: 'streams', streams: [{ id: 'main', mid: '1' }] })
     await settle()
-    expect(h.video.stream('main')).toBe(second)
+    expect(trackOf(h.video.stream('main'))).toBe(second)
     h.dispose()
   })
 
@@ -256,6 +262,28 @@ describe('streams mapping (5.3)', () => {
 
     // What lets N <Video> tiles on one id share a single decode.
     expect(h.video.stream('main')).toBe(h.video.stream('main'))
+    h.dispose()
+  })
+
+  it('gives every mid its own picture when TD announces all tracks in one stream', async () => {
+    const h = await setup({ receivers: 8 })
+    const peer = MockPeerConnection.latest()
+    const tracks = Array.from({ length: 8 }, (_, i) => peer.emitTrack(String(i)))
+
+    h.td.socket().serverSend({
+      type: 'streams',
+      streams: tracks.map((_, i) => ({ id: `tile${i + 1}`, mid: String(i) })),
+    })
+    await settle()
+
+    // The 8-tile wall (6.7). TD reports one msid for the whole peer, so
+    // `event.streams[0]` is the same 8-track object on every mid — and a
+    // <video> plays only the first video track of what it's given, so binding
+    // to it silently renders tile 1 eight times.
+    const bound = tracks.map((_, i) => h.video.stream(`tile${i + 1}`))
+    expect(bound.map(trackOf)).toEqual(tracks)
+    expect(new Set(bound).size).toBe(8)
+    for (const media of bound) expect(media!.getTracks()).toHaveLength(1)
     h.dispose()
   })
 })
@@ -333,7 +361,7 @@ describe('WS-reconnect recovery + deferred renegotiation (5.6)', () => {
     const h = await setup()
     const peer = MockPeerConnection.latest()
     peer.setConnectionState('connected')
-    const stream = peer.emitTrack('0')
+    const track = peer.emitTrack('0')
 
     h.td.socket().close()
     h.sched.advance(250) // backoff, then a fresh handshake + snapshot
@@ -343,7 +371,7 @@ describe('WS-reconnect recovery + deferred renegotiation (5.6)', () => {
     // Media is its own transport — nothing was torn down.
     expect(MockPeerConnection.instances).toHaveLength(1)
     expect(peer.closed).toBe(false)
-    expect(stream.getTracks()[0]!.stopped).toBe(false)
+    expect(track.stopped).toBe(false)
     h.dispose()
   })
 
@@ -400,19 +428,19 @@ describe('teardown (5.8)', () => {
 
     expect(peer.closed).toBe(true)
     // Stopping the track is what frees the hardware decoder.
-    expect(main.getTracks()[0]!.stopped).toBe(true)
+    expect(main.stopped).toBe(true)
     expect(h.video.status()).toBe('closed')
   })
 
   it('stops the old tracks when a rebuild replaces the peer', async () => {
     const h = await setup()
     const first = MockPeerConnection.latest()
-    const stream = first.emitTrack('0')
+    const track = first.emitTrack('0')
 
     first.setConnectionState('failed')
     await settle()
 
-    expect(stream.getTracks()[0]!.stopped).toBe(true)
+    expect(track.stopped).toBe(true)
     h.dispose()
   })
 

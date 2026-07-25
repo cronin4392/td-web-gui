@@ -22,11 +22,18 @@ with one custom par per REGISTRY entry:
 	Position   XYZ     (Float) -> Positionx/Positiony/Positionz
 	Color      RGBA    (Float, 0-1) -> Colorr/Colorg/Colorb/Colora
 
-Video (Phase 5) additionally expects:
+Video (Phase 5/6.7) additionally expects:
 	webrtc1                       WebRTC DAT inside WebGuiServer, beside the
 	                              Web Server DAT's callbacks.
-	/project1/videostreamout1     Video Stream Out TOP, fed by whatever you want
-	                              to stream — through a Flip TOP, see below.
+	/project1/videowall           the eight-tile wall: a source (through a Flip
+	                              TOP, see below) → res_cap → level_tile1…8 →
+	                              videostreamout_tile1…8, one Video Stream Out
+	                              TOP per stream.
+
+All eight tiles ride the **one** peer this instance opens — a peer carries many
+tracks, and that is why `<Video>` selects on a stream id rather than on a
+connection. Per-tile tinting is deliberate: eight identical pictures would hide a
+mid-to-id mis-mapping, and a scrambled colour order will not.
 
 TD's WebRTC output arrives at the browser **mirrored in X**, even though the TD
 viewer shows the source the right way round. Feed the Video Stream Out TOP
@@ -46,8 +53,11 @@ from here:
 	                        Port = `op.WebGuiServer.par.Port`.
 	WebRTC DAT              Callbacks DAT = td/webrtc-callbacks.py's DAT;
 	                        ICE Servers = empty (browser and TD share a machine).
-	Video Stream Out TOP    Mode = WebRTC. Its WebRTC / connection / track pars
-	                        are set per-peer by the callbacks, not by hand.
+	Video Stream Out TOP    Mode = WebRTC, one per stream. Its WebRTC /
+	                        connection / track pars are set per-peer by the
+	                        callbacks, not by hand. FPS is a constant 30 rather
+	                        than the default `me.time.rate` expression, so eight
+	                        encoders don't each run at the project's 60.
 """
 
 # The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to
@@ -67,11 +77,23 @@ WEBRTC = 'webrtc1'
 # friendly stream id -> the Video Stream Out TOP carrying it.
 #   top:   absolute path to a Video Stream Out TOP in WebRTC mode.
 #   label: optional human-readable name, passed through to the browser.
-# The id is what `<Video stream="...">` selects on — `main` is what a bare
-# `<Video />` picks up, being the only announced stream. The mid pairing an id to
-# a track is derived from the negotiated SDP, not authored here.
+# The id is what `<Video stream="...">` selects on; the mid pairing an id to a
+# track is derived from the negotiated SDP, not authored here. A bare `<Video />`
+# takes the first entry, so `tile1` is the single-stream default.
+#
+# **Insertion order is load-bearing.** webrtc-callbacks zips this dict against the
+# video m-lines of the negotiated SDP in order, so reordering these entries
+# reassigns which tile each id names. Keep them in tile order.
+#
+# One TOP serves one peer — its WebRTC Connection par holds a single value — so
+# these eight are eight streams for ONE browser, not one stream for eight
+# browsers. Serving a second viewer simultaneously needs a second set of eight
+# TOPs; v1 is single-viewer and the callbacks warn when a second one negotiates.
+STREAM_COUNT = 8
 STREAMS = {
-	'main': {'top': '/project1/videostreamout1', 'label': 'Render A'},
+	'tile%d' % n: {'top': '/project1/videowall/videostreamout_tile%d' % n,
+				   'label': 'Tile %d' % n}
+	for n in range(1, STREAM_COUNT + 1)
 }
 
 # friendly wire name -> backing parameter.

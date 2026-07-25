@@ -5,7 +5,9 @@ body {
 }
 
 main {
-  max-width: 32rem;
+  /* Wide enough for the 8-tile wall to land on four columns; the controls above
+     it keep their own natural widths. */
+  max-width: 60rem;
 }
 
 section {
@@ -50,6 +52,22 @@ button {
 
 .status .error {
   color: #c0392b;
+}
+
+/* The wall: as many columns as fit at >=13rem, so 8 tiles reflow from 4x2 down
+   to a single column without a media query. */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.video-grid figure {
+  margin: 0;
+}
+
+.video-grid figcaption {
+  margin-top: 0.25rem;
 }
 
 /* td-core ships zero CSS, so the tile box and the "reconnecting" overlay are

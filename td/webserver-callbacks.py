@@ -239,7 +239,8 @@ def attach_streams(connection):
 	One TOP carries one connection, so a second browser connecting re-points the
 	same TOP and takes the stream away from the first. Serving several browsers
 	at once needs one Video Stream Out TOP per client; single-viewer is the v1
-	assumption (see prds/TECH_PROPOSAL.md "Video at Scale").
+	assumption (see prds/TECH_PROPOSAL.md "Video at Scale"), and _handle_rtc_offer
+	says so out loud when a second one negotiates.
 	"""
 	webrtc, _ = _webrtc()
 	if webrtc is None or connection not in client_by_peer:
@@ -315,6 +316,22 @@ def _handle_rtc_offer(client, sdp):
 		# is far harder to diagnose than being told up front.
 		print("webserver-callbacks: warning - WEBRTC is set but STREAMS is empty, "
 			  "so the peer will carry no video")
+
+	# Single-viewer is a v1 limit of the TOPs, not of the peer: each Video Stream
+	# Out TOP holds ONE connection, so attach_streams below re-points this
+	# project's TOPs at whoever negotiated last and the earlier browser's tiles
+	# freeze on their final frame. Newest-wins is the predictable half of that (a
+	# refresh always gets you video back); saying so is the other half, because
+	# the victim sees no error at all — its peer stays happily `connected`.
+	others = [c for c in peer_by_client if c != client]
+	if others:
+		print("webserver-callbacks: warning - %d other browser(s) already hold a "
+			  "video peer; one Video Stream Out TOP serves one connection, so "
+			  "this one takes the stream and theirs freezes. Serving both needs a "
+			  "second set of TOPs." % len(others))
+		_send(client, {'type': 'error', 'code': 'video_single_viewer',
+					   'message': 'another browser was streaming; video moved to '
+								  'this one and its tiles have frozen'})
 
 	_close_peer(client)
 	connection = webrtc.openConnection()
