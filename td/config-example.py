@@ -51,9 +51,10 @@ from here:
 """
 
 # The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to
-# find the module it broadcasts through. Resolved relative to that DAT, so give
-# an absolute path unless the two sit side by side inside WebGuiServer. TD op
-# names can't contain hyphens, so this won't literally be "webserver-callbacks".
+# find the module it broadcasts through. Resolved inside WebGuiServer by both
+# scripts, so a bare name is right when it sits in the component; use an absolute
+# path if it lives elsewhere. TD op names can't contain hyphens, so this won't
+# literally be "webserver-callbacks".
 CALLBACKS = 'webserver1_callbacks'
 
 # The WebRTC DAT, for video (Phase 5). A bare name because it sits inside

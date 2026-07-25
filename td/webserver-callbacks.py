@@ -398,10 +398,16 @@ def broadcast_param_change(par):
 	doesn't raise Value Change), but are skipped regardless since they hold no
 	synced state to broadcast.
 	"""
+	owner = par.owner
 	for name, entry in _registry().items():
 		if entry['type'] == 'pulse':
 			continue
-		if op(entry['op']) is not par.owner:
+		# Compared by id, not by `is`. TD hands out fresh Python wrapper objects
+		# for its internals (documented for Par: `p is p` is always False), so
+		# identity is not a safe way to ask "same operator". id is stable for the
+		# life of the node.
+		target = op(entry['op'])
+		if target is None or target.id != owner.id:
 			continue
 		matches = par.name.startswith(entry['par']) if entry['type'] == 'number[]' \
 			else par.name == entry['par']
@@ -433,6 +439,12 @@ def onWebSocketClose(dat: webserverDAT, client: str):
 
 def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 	_remember(dat)
+	# Re-register on every message, not just at onWebSocketOpen. Re-cooking this DAT
+	# (editing it, or a Sync to File reload) rebuilds the module and empties
+	# `clients` while the sockets stay open — broadcasts would then go to nobody
+	# while the browser kept talking to TD, which reads as "TD -> web is broken".
+	# The heartbeat ping restores the set within one interval.
+	clients.add(client)
 
 	try:
 		message = json.loads(data)

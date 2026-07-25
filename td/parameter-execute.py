@@ -44,14 +44,23 @@ def _config():
 
 
 def _callbacks():
-	dat = op(_config().CALLBACKS)
-	return dat.module if dat is not None else None
+	# Resolved from inside WebGuiServer, not from beside this DAT: the callbacks
+	# DAT lives in the component, while this DAT lives wherever the operators it
+	# watches are. webserver-callbacks.py resolves CALLBACKS the same way, so a
+	# bare name means the same thing in both scripts.
+	name = _config().CALLBACKS
+	dat = _webgui().op(name)
+	if dat is None:
+		# Raise rather than return None. A missing callbacks DAT means every
+		# TD-side edit is dropped on the floor, and the old silent return made
+		# that indistinguishable from a working bridge with nothing to say.
+		raise RuntimeError("parameter-execute: WebGuiServer has no DAT '%s' - "
+						   "check CALLBACKS in the config DAT" % name)
+	return dat.module
 
 
 def onValueChange(par: Par, prev: Any):
-	cb = _callbacks()
-	if cb is not None:
-		cb.broadcast_param_change(par)
+	_callbacks().broadcast_param_change(par)
 	return
 
 
