@@ -28,6 +28,11 @@ from here:
 # names can't contain hyphens, so this won't literally be "webserver-callbacks".
 CALLBACKS = 'webserver1_callbacks'
 
+# The WebRTC DAT, for video (Phase 5). None here because this project exposes
+# params only; set it (and STREAMS) to turn video on.
+WEBRTC = None
+STREAMS = {}
+
 # The eight external scene loaders. Each exposes the same pair of text pars; the
 # web app shows only the pair belonging to the loader `selectedLoader` points at.
 SCENE_IDS = 'ABCDEFGH'

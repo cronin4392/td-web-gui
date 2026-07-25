@@ -4,10 +4,11 @@
  * Public surface: the wire format, the standalone connection manager (Phase 3
  * adds reconnect/backoff, handshake watchdog, ping/pong heartbeat, outbound
  * throttle, backpressure, and error routing; Phase 4 adds `pulse` and
- * read-only params — all per-connection options), the schema-bound
+ * read-only params — all per-connection options; Phase 5 adds the WebRTC peer,
+ * whose signaling is multiplexed over the same socket), the schema-bound
  * factory/context layer, and the bound components (`TextInput`, `NumberInput`,
- * `RangeInput`, `Value`, `Toggle`, `Button`, `Select`, `Vector`, `Color`). The
- * factory (`createTDClient`) is the intended path for app UI; the
+ * `RangeInput`, `Value`, `Toggle`, `Button`, `Select`, `Vector`, `Color`,
+ * `Video`). The factory (`createTDClient`) is the intended path for app UI; the
  * connection/signal primitives stay public for non-component or advanced use.
  */
 
@@ -29,9 +30,14 @@ export {
   type PingMessage,
   type PongMessage,
   type PulseMessage,
+  type RTCAnswerMessage,
+  type RTCIceMessage,
+  type RTCOfferMessage,
   type ServerMessage,
   type SnapshotMessage,
   type SnapshotRequestMessage,
+  type StreamInfo,
+  type StreamsMessage,
   type UpdateMessage,
   type WelcomeMessage,
 } from './wire'
@@ -52,11 +58,24 @@ export {
 // Scheduler (injectable clock; default backed by the platform globals)
 export { defaultScheduler, type TDScheduler } from './scheduler'
 
+// WebRTC peer (Phase 5)
+export {
+  createTDVideoStream,
+  type IceCandidateInit,
+  type MediaStreamLike,
+  type RTCPeerConnectionLike,
+  type RTCPeerConnectionLikeConstructor,
+  type TDPeerStatus,
+  type TDVideoStream,
+  type TDVideoStreamOptions,
+} from './video'
+
 // Factory + context
 export {
   createTDClient,
   createTDSignal,
   useTDConnection,
+  useTDVideoStream,
   type TDProviderProps,
 } from './context'
 
@@ -70,3 +89,4 @@ export { TextInput, type TextInputProps } from './components/TextInput'
 export { Toggle, type ToggleProps } from './components/Toggle'
 export { Value, type ValueProps } from './components/Value'
 export { Vector, type VectorProps } from './components/Vector'
+export { Video, type VideoProps } from './components/Video'

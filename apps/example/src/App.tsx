@@ -57,6 +57,45 @@ function StatusBar() {
   )
 }
 
+/**
+ * Video tile (Phase 5). `<Provider video>` opens one WebRTC peer for this
+ * instance and multiplexes its signaling over the same socket; `<Video>` with no
+ * `stream` prop binds the primary announced stream.
+ *
+ * The overlay reads `streamStatus()` rather than the peer-wide `status()`: a
+ * peer can be `connected` while *this* stream's track hasn't arrived, and
+ * "no track yet" would otherwise be indistinguishable from a frozen last frame.
+ */
+function VideoPanel() {
+  const video = Example.useVideo()
+  const primary = () => video.streams()[0]
+
+  return (
+    <section>
+      <p>Video (Phase 5)</p>
+      <div class="video-tile">
+        <Example.Video />
+        <Show when={video.streamStatus() !== 'connected'}>
+          <div class="video-overlay">{video.streamStatus()}…</div>
+        </Show>
+      </div>
+      <p class="caption">
+        <Show
+          when={primary()}
+          fallback="No stream announced yet — the reference TD project doesn’t wire up the WebRTC DAT until Phase 6.4, so the offer goes unanswered."
+        >
+          {(stream) => (
+            <>
+              Bound to <code>{stream().label ?? stream().id}</code> on mid{' '}
+              <code>{stream().mid}</code>.
+            </>
+          )}
+        </Show>
+      </p>
+    </section>
+  )
+}
+
 export function App() {
   return (
     <main>
@@ -65,7 +104,9 @@ export function App() {
         Bound to instance <code>{example.id}</code> at <code>{example.url}</code>
       </p>
 
-      <Example.Provider url={example.url} instance={example.id}>
+      {/* `video` is opt-in per provider — without it no RTCPeerConnection is
+          created at all, which matters once several instances are live. */}
+      <Example.Provider url={example.url} instance={example.id} video>
         <StatusBar />
 
         <section>
@@ -129,6 +170,8 @@ export function App() {
             <Example.Color name="color" alpha />
           </label>
         </section>
+
+        <VideoPanel />
       </Example.Provider>
     </main>
   )

@@ -8,6 +8,14 @@ Speaks the WebSocket wire contract the web app expects:
 	update            -> apply param writes
 	pulse             -> fire a momentary param (par.pulse()), no reply
 	ping              -> pong
+	rtc-offer         -> drive the WebRTC DAT to answer (video, Phase 5)
+	rtc-answer        -> apply the browser's answer to a TD-initiated offer
+	rtc-ice           -> add a remote ICE candidate
+
+WebRTC signaling is multiplexed over this same socket — one connection to
+manage, no second port. The outbound half (answers, local ICE, the `streams`
+map) lives in td/webrtc-callbacks.py, which reaches back here through
+send_signaling() because this module is the one that owns the client sockets.
 
 Nothing here is project specific — drop this into any project unchanged.
 Everything project specific comes from the WebGuiServer component, reached by
@@ -32,6 +40,12 @@ PROTOCOL = 1
 
 # Open WebSocket client connections, used for broadcast.
 clients = set()
+
+# Live WebRTC peers, both directions. Signaling has to reach the one browser
+# that owns a peer rather than every client, and a closing socket has to take its
+# peer down with it, so the mapping is kept both ways.
+peer_by_client = {}
+client_by_peer = {}
 
 # Cached Web Server DAT so broadcast_param_change() can send from outside a
 # callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`.
@@ -150,6 +164,198 @@ def _broadcast(message):
 		_server.webSocketSendText(client, text)
 
 
+# ── WebRTC signaling (Phase 5) ────────────────────────────────────────────────
+
+def _webrtc():
+	"""The project's WebRTC DAT, as `(dat, problem)`.
+
+	`dat` is None when video isn't usable and `problem` says which of two very
+	different causes it was: video not configured at all, versus WEBRTC naming an
+	operator that isn't there. Those need opposite fixes, so collapsing both into
+	one "no video" error sends you looking in the wrong place.
+	"""
+	name = getattr(_config(), 'WEBRTC', None)
+	if not name:
+		return None, 'this project exposes no video - set WEBRTC in the config DAT'
+	dat = op(name)
+	if dat is None:
+		# Same trap as REGISTRY paths: these lookups run from inside WebGuiServer,
+		# so a bare name resolves against the component, not the project root.
+		hint = '' if name.startswith('/') else \
+			" - a bare name resolves inside WebGuiServer; use an absolute path if it lives elsewhere"
+		return None, "config WEBRTC names '%s', which doesn't exist%s" % (name, hint)
+	return dat, None
+
+
+def _streams():
+	return getattr(_config(), 'STREAMS', {})
+
+
+def _set_par(owner, name, value):
+	"""Set `owner.par.<name>`, reporting usefully if that parameter isn't there.
+
+	A missing par would otherwise fail silently and surface much later as a peer
+	that negotiates but carries no video, so the miss prints the operator's type
+	and its full parameter list — enough to spot a wrong operator or a renamed
+	par without a debugger.
+	"""
+	if hasattr(owner.par, name):
+		setattr(owner.par, name, value)
+		return True
+	print("webserver-callbacks: warning - %s (%s) has no par '%s'\n  its pars are: %s"
+		  % (owner.path, owner.OPType, name, sorted(p.name for p in owner.pars('*'))))
+	return False
+
+
+def _add_tracks(webrtc, connection):
+	"""Declare a video track per configured stream, before answering.
+
+	This is what puts the media property in the local SDP — the docs are explicit
+	that addTrack must precede createOffer/createAnswer. Skip it and the answer
+	still negotiates perfectly happily, but its video m-line comes back
+	`a=inactive`: the browser gets a live-but-muted receiver, a peer that reaches
+	`connected`, and no error on either side.
+
+	The stream id doubles as the track id, which is also the value the TOP's
+	`webrtcvideotrack` menu is later set to.
+	"""
+	for stream_id in _streams():
+		if not webrtc.addTrack(connection, stream_id, 'video'):
+			print("webserver-callbacks: warning - addTrack failed for '%s' on %s"
+				  % (stream_id, connection))
+
+
+def attach_streams(connection):
+	"""Point every configured Video Stream Out TOP at this peer's track.
+
+	Public because the deferred `run()` below has to name something.
+
+	Deferred by a frame: the TOP's WebRTC parameters are *menus* populated from
+	the DAT — setting `webrtc` fills the connection menu, and setting
+	`webrtcconnection` fills the track menu — so the values can't be selected
+	until the DAT has cooked and published them. This only governs which TOP
+	feeds pixels into the track; the SDP was already settled by _add_tracks.
+
+	One TOP carries one connection, so a second browser connecting re-points the
+	same TOP and takes the stream away from the first. Serving several browsers
+	at once needs one Video Stream Out TOP per client; single-viewer is the v1
+	assumption (see prds/TECH_PROPOSAL.md "Video at Scale").
+	"""
+	webrtc, _ = _webrtc()
+	if webrtc is None or connection not in client_by_peer:
+		return  # browser went away during the wait
+
+	for stream_id, info in _streams().items():
+		top = op(info['top'])
+		if top is None:
+			print("webserver-callbacks: warning - stream '%s' has no TOP at '%s'"
+				  % (stream_id, info['top']))
+			continue
+		# Lowercase: these are built-in pars. (Custom pars are capitalized — see
+		# REGISTRY — which is not the same convention.)
+		if str(top.par.mode.eval()).lower() != 'webrtc':
+			# Left as a warning rather than forced: the TOP's Mode is the user's
+			# authoring choice, and silently rewriting it would hide a mis-wire.
+			print("webserver-callbacks: warning - %s Mode is '%s', not 'webrtc'; "
+				  "it will negotiate but send no video"
+				  % (top.path, top.par.mode.eval()))
+		_set_par(top, 'webrtc', webrtc)
+		_set_par(top, 'webrtcconnection', connection)
+		# Audio is out of scope for v1, so only the video track is claimed.
+		_set_par(top, 'webrtcvideotrack', stream_id)
+
+
+def _attach_streams_next_frame(connection):
+	# run() executes its script detached from this module, so the callbacks DAT
+	# is addressed by absolute path rather than the config's bare name.
+	dat = op(_config().CALLBACKS)
+	if dat is None:
+		attach_streams(connection)  # no way to defer; try it inline
+		return
+	run('op(%r).module.attach_streams(%r)' % (dat.path, connection), delayFrames=1)
+
+
+def _close_peer(client):
+	connection = peer_by_client.pop(client, None)
+	if connection is None:
+		return
+	client_by_peer.pop(connection, None)
+	webrtc, _ = _webrtc()
+	if webrtc is not None:
+		# Without this a peer (and its encoder) leaks on every browser refresh.
+		webrtc.closeConnection(connection)
+
+
+def send_signaling(connection, message):
+	"""Send one signaling message to the browser owning `connection`.
+
+	Called by td/webrtc-callbacks.py, which has the WebRTC DAT's local SDP and
+	ICE but not the sockets. Silently dropped once the browser has gone — the
+	peer is on its way down with it.
+	"""
+	client = client_by_peer.get(connection)
+	if client is not None:
+		_send(client, message)
+
+
+def _handle_rtc_offer(client, sdp):
+	"""Answer a browser's offer.
+
+	The browser is the offerer on connect and on rebuild, so this is the normal
+	path. A rebuild arrives as a fresh offer on the same socket, so any previous
+	peer for this client is torn down first rather than left orphaned.
+	"""
+	webrtc, problem = _webrtc()
+	if webrtc is None:
+		_send(client, {'type': 'error', 'code': 'video_unavailable', 'message': problem})
+		print('webserver-callbacks: %s' % problem)
+		return
+	if not _streams():
+		# A peer with no tracks negotiates cleanly and then shows nothing, which
+		# is far harder to diagnose than being told up front.
+		print("webserver-callbacks: warning - WEBRTC is set but STREAMS is empty, "
+			  "so the peer will carry no video")
+
+	_close_peer(client)
+	connection = webrtc.openConnection()
+	peer_by_client[client] = connection
+	client_by_peer[connection] = client
+
+	# Order is load-bearing: tracks must exist before the answer is built, or its
+	# video m-line comes back `a=inactive`. Pointing the TOPs at those tracks is
+	# a separate, deferred step — it feeds pixels and doesn't touch the SDP.
+	_add_tracks(webrtc, connection)
+	webrtc.setRemoteDescription(connection, 'offer', sdp)
+	webrtc.createAnswer(connection)
+	_attach_streams_next_frame(connection)
+
+
+def _handle_rtc_answer(client, sdp):
+	"""Apply the browser's answer to an offer TD initiated (a track change)."""
+	webrtc, _ = _webrtc()
+	connection = peer_by_client.get(client)
+	if webrtc is None or connection is None:
+		return
+	webrtc.setRemoteDescription(connection, 'answer', sdp)
+
+
+def _handle_rtc_ice(client, message):
+	"""Add a remote ICE candidate.
+
+	`candidate: null` is end-of-candidates and carries no m-line association, so
+	it is dropped rather than forwarded — TD finishes checking on its own, and
+	there is no addIceCandidate(None) to call.
+	"""
+	webrtc, _ = _webrtc()
+	connection = peer_by_client.get(client)
+	candidate = message.get('candidate')
+	if webrtc is None or connection is None or not candidate:
+		return
+	# Argument order is the DAT's: candidate, line index, then mid.
+	webrtc.addIceCandidate(connection, candidate,
+						   message.get('sdpMLineIndex'), message.get('sdpMid'))
+
+
 def _write(name, value):
 	"""Apply a wire value to its backing parameter(s).
 
@@ -221,6 +427,7 @@ def onWebSocketOpen(dat: webserverDAT, client: str, uri: str):
 
 def onWebSocketClose(dat: webserverDAT, client: str):
 	clients.discard(client)
+	_close_peer(client)
 	return
 
 
@@ -273,6 +480,17 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 	elif mtype == 'ping':
 		_send(client, {'type': 'pong'})
 
+	elif mtype == 'rtc-offer':
+		_handle_rtc_offer(client, message.get('sdp'))
+
+	elif mtype == 'rtc-answer':
+		_handle_rtc_answer(client, message.get('sdp'))
+
+	elif mtype == 'rtc-ice':
+		_handle_rtc_ice(client, message)
+
+	# Unknown types are ignored, so a newer web client can add messages without
+	# breaking an older project.
 	return
 
 
