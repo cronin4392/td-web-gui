@@ -1,7 +1,7 @@
 /**
  * App state + persistence (TEXT_SELECTOR.md §§2-3, 5).
  *
- * `createTextSelectorStore()` is a factory (not a bare module singleton) so
+ * `createVjGuiStore()` is a factory (not a bare module singleton) so
  * tests can spin up isolated instances with a fake `persistence.save` /
  * `uiStorage`; the app itself owns exactly one instance for its lifetime.
  *
@@ -18,7 +18,7 @@ import { defaultLibrary, type Library, type PhraseTab } from './library'
 
 export type { PhraseTab }
 
-const UI_STORAGE_KEY = 'td-web-gui:text-selector:ui'
+const UI_STORAGE_KEY = 'td-web-gui:vj-gui:ui'
 const RECENT_LIMIT = 10
 const DEFAULT_DEBOUNCE_MS = 200
 
@@ -82,7 +82,7 @@ export interface CreateStoreOptions {
   debounceMs?: number
 }
 
-export interface TextSelectorStore {
+export interface VjGuiStore {
   state: AppState
 
   /** Feed a committed phrase (from either text input) into the recent list. */
@@ -111,7 +111,7 @@ export interface TextSelectorStore {
   dispose: () => void
 }
 
-export function createTextSelectorStore(options: CreateStoreOptions = {}): TextSelectorStore {
+export function createVjGuiStore(options: CreateStoreOptions = {}): VjGuiStore {
   const uiStorage = options.uiStorage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined)
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS
   const library = options.initial ?? defaultLibrary()
@@ -162,7 +162,7 @@ export function createTextSelectorStore(options: CreateStoreOptions = {}): TextS
     } catch (err) {
       if (!warnedWriteFailure) {
         warnedWriteFailure = true
-        console.warn('[text-selector] failed to persist library; continuing in-memory', err)
+        console.warn('[vj-gui] failed to persist library; continuing in-memory', err)
       }
     }
   }

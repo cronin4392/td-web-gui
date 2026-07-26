@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
 import tailwindcss from '@tailwindcss/vite'
-import { textSelectorDbPlugin } from './server/plugin'
+import { vjGuiDbPlugin } from './server/plugin'
 
 export default defineConfig({
-  plugins: [solid(), tailwindcss(), textSelectorDbPlugin()],
+  plugins: [solid(), tailwindcss(), vjGuiDbPlugin()],
   server: {
     // The SQLite file (+ its -wal/-shm journals) is rewritten on every store
     // mutation. Without this, Vite's watcher sees those writes as project

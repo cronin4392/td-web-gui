@@ -2,7 +2,7 @@ import { createMemo, onCleanup, Show, type JSX } from 'solid-js'
 import { escapeNewlines } from 'td-core'
 import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
 import { TDClient, type SceneTextParamName } from './td'
-import { RECENT_TAB_ID, createTextSelectorStore } from './store'
+import { RECENT_TAB_ID, createVjGuiStore } from './store'
 import { saveLibrary } from './library-api'
 import type { Library } from './library'
 import { TextField } from './components/TextField'
@@ -10,7 +10,7 @@ import { RecentPanel } from './components/RecentPanel'
 import { TabStrip } from './components/TabStrip'
 import { PhraseList } from './components/PhraseList'
 
-const textSelector = instances[0]
+const vjGui = instances[0]
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
@@ -18,23 +18,23 @@ export interface AppProps {
 }
 
 export function App(props: AppProps): JSX.Element {
-  const store = createTextSelectorStore({ initial: props.library, persistence: { save: saveLibrary } })
+  const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } })
   onCleanup(() => store.dispose())
 
   return (
     <main class="flex h-screen flex-col px-2 pt-2">
-      <TDClient.Provider url={textSelector.url} instance={textSelector.id}>
-        <TextSelectorBody store={store} />
+      <TDClient.Provider url={vjGui.url} instance={vjGui.id}>
+        <VjGuiBody store={store} />
       </TDClient.Provider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
-        Bound to instance <code>{textSelector.id}</code> at <code>{textSelector.url}</code>
+        Bound to instance <code>{vjGui.id}</code> at <code>{vjGui.url}</code>
       </p>
     </main>
   )
 }
 
-function TextSelectorBody(props: { store: ReturnType<typeof createTextSelectorStore> }): JSX.Element {
+function VjGuiBody(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
   const connection = TDClient.useConnection()

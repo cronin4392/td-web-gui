@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Library } from './library'
-import { createTextSelectorStore, type CreateStoreOptions } from './store'
+import { createVjGuiStore, type CreateStoreOptions } from './store'
 
 class FakeStorage implements Storage {
   private map = new Map<string, string>()
@@ -34,7 +34,7 @@ class FakeStorage implements Storage {
 let stores: { dispose: () => void }[] = []
 
 function makeStore(options: CreateStoreOptions = {}) {
-  const store = createTextSelectorStore({ debounceMs: 20, ...options })
+  const store = createVjGuiStore({ debounceMs: 20, ...options })
   stores.push(store)
   return store
 }
@@ -367,7 +367,7 @@ describe('persistence', () => {
 
   it('an activeTabId with no matching tab falls back to the first tab', () => {
     const uiStorage = new FakeStorage()
-    uiStorage.setItem('td-web-gui:text-selector:ui', 'nonexistent-id')
+    uiStorage.setItem('td-web-gui:vj-gui:ui', 'nonexistent-id')
     const store = makeStore({ uiStorage })
     expect(store.state.activeTabId).toBe(store.state.tabs[0]?.id)
   })

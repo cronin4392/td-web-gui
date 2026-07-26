@@ -59,7 +59,7 @@ function mount(middlewares: Connect.Server, db: DatabaseSync): void {
   })
 }
 
-export function textSelectorDbPlugin(): Plugin {
+export function vjGuiDbPlugin(): Plugin {
   let db: DatabaseSync | undefined
 
   function attach(server: ViteDevServer | PreviewServer): void {
@@ -72,7 +72,7 @@ export function textSelectorDbPlugin(): Plugin {
   }
 
   return {
-    name: 'text-selector-db',
+    name: 'vj-gui-db',
     configureServer: attach,
     configurePreviewServer: attach,
   }

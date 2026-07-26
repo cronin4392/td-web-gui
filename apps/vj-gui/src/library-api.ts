@@ -22,7 +22,7 @@ export async function fetchLibrary(): Promise<Library> {
     if (!isLibrary(body)) throw new Error('response failed shape validation')
     return body
   } catch (err) {
-    console.warn('[text-selector] failed to load library from server, starting with defaults', err)
+    console.warn('[vj-gui] failed to load library from server, starting with defaults', err)
     return defaultLibrary()
   }
 }

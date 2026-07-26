@@ -16,7 +16,7 @@ This file covers working on it.
 | [`packages/td-core`](packages/td-core) | The library — the deliverable. Ships the TouchDesigner-side Python in [`touchdesigner/`](packages/td-core/touchdesigner) and its docs in [`docs/`](packages/td-core/docs). |
 | [`apps/example`](apps/example) | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. |
 | [`td/`](td) | Reference TouchDesigner project (`Example.toe`) driving the example app. |
-| `apps/text-selector` | A scratch app. Not distributed, not maintained. |
+| `apps/vj-gui` | A scratch app. Not distributed, not maintained. |
 
 ## Prerequisites
 

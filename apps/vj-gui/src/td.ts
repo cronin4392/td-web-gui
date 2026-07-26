@@ -5,9 +5,9 @@
  */
 
 import { createTDClient } from 'td-core'
-import type { TextSelectorParams } from './td.config'
+import type { VjGuiParams } from './td.config'
 
-export const TDClient = createTDClient<TextSelectorParams>()
+export const TDClient = createTDClient<VjGuiParams>()
 
-export type TextSelectorParamName = keyof TextSelectorParams & string
+export type VjGuiParamName = keyof VjGuiParams & string
 export type { SceneId, SceneTextParamName } from './td.config'
