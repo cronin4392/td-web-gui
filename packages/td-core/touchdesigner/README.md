@@ -1,14 +1,20 @@
 # TouchDesigner side
 
-The other half of the bridge. Three project-agnostic Python files you drop into
+The other half of the bridge. Four project-agnostic Python files you drop into
 any project unchanged, plus a config template you edit.
 
 | File | Loaded into | Edit? |
 |---|---|---|
 | [`webserver-callbacks.py`](webserver-callbacks.py) | Web Server DAT's Callbacks DAT | Never |
-| [`parameter-execute.py`](parameter-execute.py) | A Parameter Execute DAT | Never |
+| [`webgui-server-ext.py`](webgui-server-ext.py) | A Text DAT named `WebGuiServerExt`, wired as the component's extension | Never |
+| [`parameter-execute.py`](parameter-execute.py) | Nothing by hand — the extension generates the DATs that load it | Never |
 | [`webrtc-callbacks.py`](webrtc-callbacks.py) | WebRTC DAT's Callbacks DAT — video only | Never |
 | [`config-template.py`](config-template.py) | A Text DAT named `config` | **Yes** — copy it into your project |
+
+You never create a Parameter Execute DAT yourself. `WebGuiServerExt` reads the
+config's `REGISTRY` and generates one per operator it references, each watching
+exactly that operator's registered parameters. Add a registry entry and the
+watcher follows.
 
 Everything project-specific lives in your config: which operators and parameters
 to expose, and which TOPs carry which video streams. The three scripts find it

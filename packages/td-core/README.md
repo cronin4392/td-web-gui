@@ -71,14 +71,14 @@ same pass as your own components.
 ### 1. Set up TouchDesigner
 
 The package ships the TouchDesigner half of the bridge in
-[`touchdesigner/`](touchdesigner/) — three project-agnostic Python files you drop
+[`touchdesigner/`](touchdesigner/) — four project-agnostic Python files you drop
 in unchanged, plus a config template you edit.
 
 **→ [Full walkthrough: docs/touchdesigner-setup.md](docs/touchdesigner-setup.md)**
 
 In short: a Base COMP with the global OP shortcut `WebGuiServer`, holding a Web
-Server DAT and the callbacks; a Parameter Execute DAT watching your operators;
-and a config mapping friendly names to parameters.
+Server DAT, the callbacks, and an extension that generates the Parameter Execute
+DATs watching your operators; and a config mapping friendly names to parameters.
 
 ```python
 # your-config.py
@@ -200,7 +200,7 @@ New to the project? [TouchDesigner setup](docs/touchdesigner-setup.md), then
 
 | | |
 |---|---|
-| TouchDesigner | Developed and tested against **2025.33070**. Needs a Web Server DAT and a Parameter Execute DAT; video additionally needs a WebRTC DAT. Older builds are untested. |
+| TouchDesigner | Developed and tested against **2025.33070**. Needs a Web Server DAT and the generated Parameter Execute DATs; video additionally needs a WebRTC DAT. Older builds are untested. |
 | Solid.js | ^1.9.0 |
 | Browsers | Desktop Chrome and Firefox |
 | Video | NVIDIA GPU on Windows — the Video Stream Out TOP requires NVIDIA's hardware encoder. GeForce cards cap the machine at 8 encoder sessions. |

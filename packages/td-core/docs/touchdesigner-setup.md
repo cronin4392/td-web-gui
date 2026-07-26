@@ -3,15 +3,15 @@
 Everything you build in TouchDesigner to make a `td-core` web UI talk to your
 project. Budget about fifteen minutes the first time.
 
-The whole TD side is **four Python files and three operators**. Three of the
-files are project-agnostic — you drop them in unchanged, forever. The fourth,
+The whole TD side is **five Python files and three operators**. Four of the
+files are project-agnostic — you drop them in unchanged, forever. The fifth,
 your config, is the only one you edit.
 
 - [What you are building](#what-you-are-building)
 - [1. Create the WebGuiServer component](#1-create-the-webguiserver-component)
 - [2. Add the DATs](#2-add-the-dats)
 - [3. Write your config](#3-write-your-config)
-- [4. Add the Parameter Execute DAT](#4-add-the-parameter-execute-dat)
+- [4. Wire up the extension](#4-wire-up-the-extension)
 - [5. Verify](#5-verify)
 - [Video](#video)
 - [Multiple TD instances](#multiple-td-instances)
@@ -24,17 +24,24 @@ op.WebGuiServer                    ← a Base COMP with a global OP shortcut
 ├── Identifier      (String par)   ← names this instance to the web app
 ├── Port            (Int par)      ← the Web Server DAT's port
 ├── Config File     (File par)     ← path to your config .py
+├── Td Core Dir     (Folder par)   ← this touchdesigner/ folder on this machine
 │
 ├── config                  Text DAT   ← your config, loaded from Config File
+├── WebGuiServerExt         Text DAT   ← webgui-server-ext.py    (unchanged)
 ├── webserver1_callbacks    Text DAT   ← webserver-callbacks.py  (unchanged)
 ├── webserver1              Web Server DAT
 │
+├── parexec_…               Parameter Execute DAT  ┐ generated, one per operator
+├── parexec_…               Parameter Execute DAT  ┘ your REGISTRY references
+│
 ├── webrtc1_callbacks       Text DAT   ← webrtc-callbacks.py     (unchanged)   ┐ video
 └── webrtc1                 WebRTC DAT                                          ┘ only
-
-anywhere in your project:
-    parexec1                Parameter Execute DAT  ← parameter-execute.py (unchanged)
 ```
+
+The `parexec_…` DATs are **generated**. You never create or configure one —
+`WebGuiServerExt` derives them from your registry, names them after the operator
+each watches, and keeps them in step as the registry changes. They carry a
+`webgui-generated` tag, which is the only thing the extension will ever delete.
 
 Your UI parameters live wherever you already keep them — the bridge reaches them
 by absolute path from the registry, so nothing has to move.
@@ -62,29 +69,46 @@ which is what lets them be dropped in unchanged no matter where you put it.
 > This is the single most common setup mistake. Without the shortcut, every
 > script raises `no global OP shortcut 'WebGuiServer'` on its first call.
 
-Add three custom parameters to the component:
+Add four custom parameters to the component:
 
 | Parameter | Name | Type | Purpose |
 |---|---|---|---|
 | Identifier | `Identifier` | String | Name reported to the web app in `welcome`. Advisory only — the web app's own config `id` wins. |
 | Port | `Port` | Int | The Web Server DAT's port. `9980` is the convention. |
 | Config File | `Configfile` | File | Path to your project's config `.py`. |
+| Td Core Dir | `Tdcoredir` | Folder | Absolute path to this package's `touchdesigner/` folder on this machine. The callbacks DATs sync against files in it, and the generated Parameter Execute DATs resolve `parameter-execute.py` inside it. Set once per checkout, so no file parameter depends on how deep your `.toe` sits relative to the package. |
 
 ## 2. Add the DATs
 
-Inside the component:
+Inside the component.
 
-**`config`** — a **Text DAT** named exactly `config`. On its File page set
-`File` to `op.WebGuiServer.par.Configfile` and turn on **Sync to File**. The
-scripts read your registry back out of this DAT's compiled module, so the name
-`config` is load-bearing.
+**Every DAT that loads a file from this package resolves it through
+`Tdcoredir`**, as an expression rather than a typed-in path:
 
-**`webserver1_callbacks`** — a **Text DAT** holding
+```python
+op.WebGuiServer.par.Tdcoredir.eval() + '/webserver-callbacks.py'
+```
+
+Set `File` that way on each DAT below and turn on **Sync to File**. One folder
+par then locates every script, so moving the checkout — or opening the project
+on another machine — is a one-field fix instead of one per DAT. The generated
+Parameter Execute DATs get the same expression automatically.
+
+**`config`** — a **Text DAT** named exactly `config`. This one is the exception:
+set `File` to `op.WebGuiServer.par.Configfile` (your config lives in your
+project, not in this package) and turn on **Sync to File**. The scripts read your
+registry back out of this DAT's compiled module, so the name `config` is
+load-bearing.
+
+**`WebGuiServerExt`** — a **Text DAT** named exactly `WebGuiServerExt`, loading
+[`touchdesigner/webgui-server-ext.py`](../touchdesigner/webgui-server-ext.py).
+The name matches the extension class it defines, which is the convention TD
+expects. Step 4 wires it up as the component's extension.
+
+**`webserver1_callbacks`** — a **Text DAT** loading
 [`touchdesigner/webserver-callbacks.py`](../touchdesigner/webserver-callbacks.py).
-Point its `File` parameter at the file and turn on **Sync to File** so edits
-land without a copy-paste. Any name works as long as it matches `CALLBACKS` in
-your config; TD operator names can't contain hyphens, so it won't literally be
-`webserver-callbacks`.
+Any name works as long as it matches `CALLBACKS` in your config; TD operator
+names can't contain hyphens, so it won't literally be `webserver-callbacks`.
 
 **`webserver1`** — a **Web Server DAT**:
 
@@ -142,29 +166,64 @@ The registry's names must match the keys of your TypeScript schema on the web
 side. Nothing checks that for you — see
 [protocol.md § Keeping the two sides in sync](protocol.md#keeping-the-two-sides-in-sync).
 
-## 4. Add the Parameter Execute DAT
+## 4. Wire up the extension
 
-This is what pushes TD-side edits back to the browser. Without it, the web can
-write to TD but never sees a change made in TD — a bridge that looks half broken.
+The extension is what pushes TD-side edits back to the browser. Without it,
+nothing watches your operators: the web can write to TD but never sees a change
+made in TD — a bridge that looks half broken.
 
-Create a **Parameter Execute DAT** anywhere (near the operators it watches reads
-best). Load
-[`touchdesigner/parameter-execute.py`](../touchdesigner/parameter-execute.py)
-into it, again with **Sync to File** on.
+On the component's **Extensions** page:
 
-| Parameter | Value |
+| Field | Value |
 |---|---|
-| `Active` | On |
-| `OPs` | Every operator your registry references, space-separated. Patterns work: `/GUI/Scene* /GUI/GUI` |
-| `Value Change` | On |
-| `Custom` | On |
+| `Extension` (the sequence count) | **`1`** |
+| `Extension 1 Object` | `me.op('WebGuiServerExt').module.WebGuiServerExt(me)` |
+| `Extension 1 Name` | `WebGuiServerExt` |
+| `Promote Extension 1` | On |
 
-Turn on `Built-In` as well if you registered any built-in parameters (an Audio
-Device In CHOP's `device`, say).
+Then pulse `Re-Init Extensions`.
 
-Edits that arrive *from* the web flow through here too — the callbacks set
-`par.val`, which fires this DAT — so there is one broadcast path for both
-directions rather than two that can disagree.
+Three of those are easy to get wrong, and all three fail *silently* — no error,
+just an extension that never loads:
+
+- **The sequence count starts at `0`.** The `Extension 1` fields exist and accept
+  values while zero blocks are active, so a fully filled-in page does nothing
+  until you set the count to `1`.
+- **`me.op(...)`, not `op(...)`.** The Object field is evaluated with the
+  component's *parent* as context, so a bare `op('WebGuiServerExt')` looks
+  outside the component and resolves to `None`.
+- **The Name field is required.** Left blank, the extension is built but never
+  registered, so nothing is promoted.
+
+That's the whole step. On init the extension reads your registry and generates
+one Parameter Execute DAT per operator it references, with `OPs`, `Parameters`,
+`Custom`, and `Built-In` all derived — including expanding a `number[]` entry to
+its ParGroup components, which is the one part that is easy to get wrong by hand
+and fails silently when you do.
+
+To pick up a registry change without restarting, pulse a rebuild from the
+textport:
+
+```python
+op.WebGuiServer.Rebuild()
+```
+
+`Rebuild()` is idempotent and diff-based — it compares the registry against the
+DATs that are live at that moment and applies only the difference, so calling it
+when nothing has changed writes nothing. It deliberately caches no "already
+built" state, because storage survives a TDN import that deletes children, and a
+remembered flag would outlive the DATs it described.
+
+Edits that arrive *from* the web flow through these DATs too — the callbacks set
+`par.val`, which fires them — so there is one broadcast path for both directions
+rather than two that can disagree.
+
+> **Why one DAT per operator.** A Parameter Execute DAT's `OPs` and `Parameters`
+> fields form a cross product, so a single DAT covering every operator watches
+> every registered parameter *name* on every one of them. Custom names rarely
+> collide across operators; built-in ones (`file`, `index`, `device`) collide
+> constantly, and `Built-In` is a per-DAT toggle. Splitting per operator keeps
+> each watch to exact pairs and scopes `Built-In` to the operators that need it.
 
 ## 5. Verify
 
@@ -178,7 +237,11 @@ all; every failure mode below prints a specific warning.
 | `operator '...' not found - REGISTRY paths should be absolute` | A registry path is missing its leading `/`. |
 | `operator '...' has no par '...'` | Wrong case (`intensity` vs `Intensity`), or the par doesn't exist. |
 | `has no ParGroup '...'` | A `number[]` entry names a component (`Colorr`) instead of the group (`Color`). |
-| Web can write, but TD-side changes never appear | Step 4 — the Parameter Execute DAT is missing, inactive, or its `OPs` doesn't cover that operator. |
+| Web can write, but TD-side changes never appear | Step 4 — the extension isn't wired, so no `parexec_…` DATs were generated. Check the component for them. |
+| No `parexec_…` DATs at all | The extension isn't wired, or `config` can't be read. `Rebuild()` leaves the network alone when the registry is unreadable rather than deleting every watcher. |
+| `Tdcoredir is empty - generated DATs have no callback code` | Step 1 — the `Td Core Dir` par isn't set. |
+| Extension page filled in, but `op.WebGuiServer.Rebuild()` says no attribute | Step 4 — the `Extension` sequence count is still `0`, the Object field uses `op(...)` instead of `me.op(...)`, or the Name field is blank. All three fail silently. |
+| One operator's changes never appear, others do | Its `parexec_…` DAT is missing or its registry entry names an operator that doesn't exist. Run `op.WebGuiServer.Rebuild()` and re-read the textport warnings. |
 
 More in [troubleshooting.md](troubleshooting.md).
 
@@ -197,8 +260,9 @@ many streams one project can serve. Quadro / RTX Pro cards have no session limit
 
 ### Wiring
 
-**`webrtc1_callbacks`** — a Text DAT holding
-[`touchdesigner/webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py).
+**`webrtc1_callbacks`** — a Text DAT loading
+[`touchdesigner/webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py),
+via the same `Tdcoredir` expression as the other package scripts (step 2).
 
 **`webrtc1`** — a **WebRTC DAT**:
 

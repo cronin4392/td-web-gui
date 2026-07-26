@@ -1,16 +1,21 @@
 """
 td-core project config — copy this file into your project and edit it.
 
-This is the ONE file you write per project. The other three scripts in this
+This is the ONE file you write per project. The other four scripts in this
 folder are project-agnostic and are dropped in unchanged:
 
 	webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
-	parameter-execute.py     Parameter Execute DAT     (TD -> web broadcast)
+	webgui-server-ext.py     WebGuiServer extension    (generates the watchers below)
+	parameter-execute.py     Parameter Execute DATs    (TD -> web broadcast)
 	webrtc-callbacks.py      WebRTC DAT callbacks      (outbound video signaling)
 
-All three find this file through the WebGuiServer component's `Config File`
+All four find this file through the WebGuiServer component's `Config File`
 parameter, which loads it into a Text DAT named `config` inside the component.
 They read it back as `op.WebGuiServer.op('config').module`.
+
+REGISTRY below is the whole of the setup for TD -> web: the extension generates
+one Parameter Execute DAT per operator you name here, so there is no watcher to
+create or keep in sync by hand.
 
 The instance name the web app sees comes from WebGuiServer's `Identifier`
 parameter, not from anything in here.

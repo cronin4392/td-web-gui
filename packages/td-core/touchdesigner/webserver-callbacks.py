@@ -144,6 +144,22 @@ def _pars(entry):
 	return [par]
 
 
+def par_names(entry):
+	"""The names of the pars backing a registry entry.
+
+	Public because WebGuiServerExt needs it to fill each generated Parameter
+	Execute DAT's Parameters field, and that has to agree with what this module
+	broadcasts on. A 'number[]' entry names a ParGroup rather than a par, so the
+	names it yields ('Colorr', 'Colorg', ...) are not the name in the registry —
+	a second implementation of that expansion is exactly how a watcher ends up
+	watching a par that doesn't exist.
+
+	Empty when the operator or par isn't in this project; the caller decides what
+	to do about it (the warning has already been printed).
+	"""
+	return [p.name for p in _pars(entry)]
+
+
 # ── wire-type coercion ────────────────────────────────────────────────────────
 #
 # The wire speaks only clean JSON types — bool / number / string / number[] —

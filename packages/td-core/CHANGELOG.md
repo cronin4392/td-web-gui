@@ -12,6 +12,27 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ## [Unreleased]
 
+### Added
+
+- `touchdesigner/webgui-server-ext.py` — a `WebGuiServerExt` extension for the
+  `WebGuiServer` component that generates one Parameter Execute DAT per operator
+  the config's `REGISTRY` references, replacing the hand-configured DAT of
+  setup step 4. Each generated DAT watches exactly that operator's registered
+  parameters, with `Custom` / `Built-In` set per operator rather than globally.
+  Call `Rebuild()` to reconcile; it is idempotent and writes nothing when the
+  registry already matches what is live.
+- `webserver-callbacks.par_names(entry)` — public accessor for the parameter
+  names backing a registry entry, so the generated watchers and the broadcast
+  path share one implementation of `number[]` ParGroup expansion.
+
+### Changed
+
+- Generated DATs get their `File` as the expression
+  `op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'`, matching how
+  the hand-placed callbacks DATs resolve their own sources. No new parameter is
+  needed to locate the callback code, and repointing `Tdcoredir` moves every DAT
+  at once rather than waiting for the next `Rebuild()`.
+
 ## [0.1.0] — 2026-07-25
 
 First public release. Wire protocol version **1**.
