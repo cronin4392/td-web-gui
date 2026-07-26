@@ -1,5 +1,5 @@
 /**
- * `<Video>` behavior (Phase 5.4): stream selection through the provider's peer,
+ * `<Video>` behavior: stream selection through the provider's peer,
  * the `muted autoplay playsinline` defaults with prop passthrough, and several
  * tiles on one stream id sharing a single decoded `MediaStream`.
  */

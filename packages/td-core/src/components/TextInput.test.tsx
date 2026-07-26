@@ -1,5 +1,5 @@
 /**
- * `commitOn` behavior (TEXT_SELECTOR.md §6): nothing sent while typing, commit
+ * `commitOn` behavior: nothing sent while typing, commit
  * on form submit, commit on blur, Escape reverts silently, no-op on unchanged
  * value, `commitOn="input"` unregressed. Plus `multiline`: textarea rendering
  * and newline ↔ `\n` translation at the wire boundary.
@@ -241,7 +241,7 @@ describe('TextInput commitOn="input" (unregressed)', () => {
     ])
   })
 
-  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+  it('disables when bound to a read-only param', async () => {
     const { input } = await setup({ text1: 'hi' }, { commitOn: 'input', readonly: ['text1'] })
     expect(input.disabled).toBe(true)
   })

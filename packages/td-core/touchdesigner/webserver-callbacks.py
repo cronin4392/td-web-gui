@@ -9,7 +9,7 @@ Speaks the WebSocket wire contract the web app expects:
 	update            -> apply param writes
 	pulse             -> fire a momentary param (par.pulse()), no reply
 	ping              -> pong
-	rtc-offer         -> drive the WebRTC DAT to answer (video, Phase 5)
+	rtc-offer         -> drive the WebRTC DAT to answer (video)
 	rtc-answer        -> apply the browser's answer to a TD-initiated offer
 	rtc-ice           -> add a remote ICE candidate
 
@@ -27,7 +27,7 @@ Param-scoped failures reply with an `error` carrying the offending name as
 
 WebRTC signaling is multiplexed over this same socket — one connection to
 manage, no second port. The outbound half (answers, local ICE, the `streams`
-map) lives in td/webrtc-callbacks.py, which reaches back here through
+map) lives in webrtc-callbacks.py, which reaches back here through
 send_signaling() because this module is the one that owns the client sockets.
 
 Nothing here is project specific — drop this into any project unchanged.
@@ -37,12 +37,12 @@ its global OP shortcut:
 	Identifier    names this instance to the web app.
 	Config File   loaded into op.WebGuiServer.op('config'); its REGISTRY maps
 	              friendly wire names to (operator, parameter, wire-type), the
-	              single place type info lives. See td/config.py.
+	              single place type info lives. See config-template.py.
 
 TD-side param edits are pushed back to the browser by a Parameter Execute DAT
-that calls broadcast_param_change() — see td/parameter-execute.py.
+that calls broadcast_param_change() — see parameter-execute.py.
 
-See prds/TECH_PROPOSAL.md "WebSocket Wire Format" for the full message catalog.
+See docs/protocol.md for the full message catalog.
 """
 from typing import Any, Dict
 
@@ -351,7 +351,7 @@ def _report(client, name, problem):
 	_send(client, {'type': 'error', 'code': code, 'message': detail, 'ref': name})
 
 
-# ── WebRTC signaling (Phase 5) ────────────────────────────────────────────────
+# ── WebRTC signaling ──────────────────────────────────────────────────────────
 
 def _webrtc():
 	"""The project's WebRTC DAT, as `(dat, problem)`.
@@ -426,7 +426,7 @@ def attach_streams(connection):
 	One TOP carries one connection, so a second browser connecting re-points the
 	same TOP and takes the stream away from the first. Serving several browsers
 	at once needs one Video Stream Out TOP per client; single-viewer is the v1
-	assumption (see prds/TECH_PROPOSAL.md "Video at Scale"), and _handle_rtc_offer
+	assumption (see docs/touchdesigner-setup.md § Video), and _handle_rtc_offer
 	says so out loud when a second one negotiates.
 	"""
 	webrtc, _ = _webrtc()
@@ -477,7 +477,7 @@ def _close_peer(client):
 def send_signaling(connection, message):
 	"""Send one signaling message to the browser owning `connection`.
 
-	Called by td/webrtc-callbacks.py, which has the WebRTC DAT's local SDP and
+	Called by webrtc-callbacks.py, which has the WebRTC DAT's local SDP and
 	ICE but not the sockets. Silently dropped once the browser has gone — the
 	peer is on its way down with it.
 	"""

@@ -1,5 +1,5 @@
 /**
- * Vector behavior (Phase 4.7): group of numeric inputs bound to a `number[]`
+ * Vector behavior: group of numeric inputs bound to a `number[]`
  * ParGroup, sends the whole array (throttled by default), hold-last-valid /
  * never-NaN / clamp per component like `<NumberInput>`, and editing any one
  * component suppresses TD echoes for the whole param (4.9's shared model

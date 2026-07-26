@@ -1,19 +1,32 @@
 /**
- * td-core — reusable Solid.js library for talking to TouchDesigner.
+ * td-core — Solid.js library for building web UIs that control TouchDesigner.
  *
- * Public surface: the wire format, the standalone connection manager (Phase 3
- * adds reconnect/backoff, handshake watchdog, ping/pong heartbeat, outbound
- * throttle, backpressure, and error routing; Phase 4 adds `pulse` and
- * read-only params — all per-connection options; Phase 5 adds the WebRTC peer,
- * whose signaling is multiplexed over the same socket), the schema-bound
- * factory/context layer, and the bound components (`TextInput`, `NumberInput`,
- * `RangeInput`, `Value`, `Toggle`, `Button`, `Select`, `Vector`, `Color`,
- * `Video`). The factory (`createTDClient`) is the intended path for app UI; the
- * connection/signal primitives stay public for non-component or advanced use.
+ * The public surface, in the order most apps meet it:
+ *
+ *  - **`createTDClient<Schema>()`** — the intended path for app UI. Returns a
+ *    schema-bound bundle (typed `Provider`, controls, and `signal` helper) so
+ *    parameter names autocomplete and typos are compile errors inside JSX.
+ *  - **Bound components** — `TextInput`, `NumberInput`, `RangeInput`, `Value`,
+ *    `Toggle`, `Button`, `Select`, `Vector`, `Color`, `Video`. Exported unbound
+ *    here for use without the schema typing; both forms are the same component.
+ *  - **`createTDConnection(url)`** — the connection manager the provider wraps.
+ *    Handshake, reconnect/backoff, handshake watchdog, ping/pong heartbeat,
+ *    outbound throttle, backpressure, read-only params, and error routing, all
+ *    as per-connection options. Usable standalone with zero context.
+ *  - **`createTDVideoStream(config)`** — the WebRTC peer, whose signaling is
+ *    multiplexed over that same socket.
+ *  - **The wire format** — message types plus `parse`, for code that handles
+ *    raw messages through `connection.subscribe()`.
+ *
+ * See docs/api.md for the full reference and docs/protocol.md for the wire
+ * contract.
  */
 
-/** Library version marker. */
-export const version = '0.0.0'
+/**
+ * Library version. Distinct from `PROTOCOL_VERSION`, which only changes on a
+ * breaking wire change (see ./wire).
+ */
+export const version = '0.1.0'
 
 // Wire format
 export {
@@ -58,7 +71,7 @@ export {
 // Scheduler (injectable clock; default backed by the platform globals)
 export { defaultScheduler, type TDScheduler } from './scheduler'
 
-// WebRTC peer (Phase 5)
+// WebRTC peer
 export {
   createTDVideoStream,
   type IceCandidateInit,

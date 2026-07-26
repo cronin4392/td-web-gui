@@ -1,5 +1,5 @@
 /**
- * RangeInput behavior (Phase 2.4/2.5 + 3.4): optimistic send-on-change with
+ * RangeInput behavior: optimistic send-on-change with
  * rAF-coalesced throttling by default, focus-driven echo suppression, and
  * TD-side reflection while idle. A slider's value is always a valid in-range
  * number, so there's no empty/NaN/clamp handling to test (cf. NumberInput).
@@ -114,7 +114,7 @@ describe('RangeInput', () => {
     expect(input.value).toBe('0.9')
   })
 
-  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+  it('disables when bound to a read-only param', async () => {
     const { input } = await setup({ level: 0.5 }, {}, { readonly: ['level'] })
     expect(input.disabled).toBe(true)
   })

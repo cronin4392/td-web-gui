@@ -3,51 +3,57 @@
  * factory/provider layer wraps. Usable standalone with zero context (e.g. from
  * non-component code).
  *
- * ## Phase 2 core (the minimal end-to-end path)
+ * ## Core
  *  - Open the socket, run the handshake (`hello` → `welcome` →
  *    `snapshot-request` → apply `snapshot`), apply inbound `update`s, send local
  *    edits, expose a reactive `status` signal.
  *  - **Lazy signal allocation** — `signal(name)` creates-or-returns one signal
  *    per name; the routing table maps name → signal; an inbound update for an
- *    unbound name is a map miss, dropped with no allocation.
+ *    unbound name is a map miss, dropped with no allocation. Params are a
+ *    broadcast bus, so dispatch cost has to scale with what the app *uses*.
  *  - **Focus-based echo suppression** — each signal tracks an active-editor
- *    count; inbound TD updates for a name are suppressed while its count `> 0`.
+ *    count; inbound TD updates for a name are suppressed while its count `> 0`,
+ *    so a local edit wins for as long as the user is making it.
  *
- * ## Phase 3 hardening (per-connection options, sane defaults)
- *  - **Reconnect + backoff** (3.1) — on an unexpected drop, reconnect with
+ * ## Resilience (per-connection options, sane defaults)
+ *  - **Reconnect + backoff** — on an unexpected drop, reconnect with
  *    exponential backoff + jitter, re-running the full handshake + snapshot
  *    resync each time.
- *  - **Handshake watchdog** (3.2) — require `welcome` **and** `snapshot` within
- *    a window of `onopen`; otherwise abandon the attempt into backoff.
- *  - **`ping`/`pong` heartbeat** (3.3) — probe an *established* session; a
- *    missing `pong` forces a reconnect.
- *  - **Outbound throttle** (3.4) — `setValue(v, { throttle: true })` coalesces
- *    update sends to one rAF-aligned message per frame.
- *  - **Backpressure** (3.5) — skip `update`s while `bufferedAmount` is over a
+ *  - **Handshake watchdog** — require `welcome` **and** `snapshot` within a
+ *    window of `onopen`; otherwise abandon the attempt into backoff. A socket
+ *    opening is not the same as TD being ready to talk.
+ *  - **`ping`/`pong` heartbeat** — probe an *established* session; a missing
+ *    `pong` forces a reconnect.
+ *  - **Teardown** — `close()` cancels every timer, closes the socket, and drops
+ *    the routing table; registered on `onCleanup` when owned.
+ *
+ * ## Send path
+ *  - **Outbound throttle** — `setValue(v, { throttle: true })` coalesces update
+ *    sends to one rAF-aligned message per frame. The local write stays immediate.
+ *  - **Backpressure** — skip `update`s while `bufferedAmount` is over a
  *    high-water mark; flip a `congested` flag; sustained congestion forces a
  *    reconnect.
- *  - **Disconnected sends + errors** (3.6) — updates written while not open are
- *    dropped (debug-logged), never queued; inbound `error` messages route to
- *    `onError` / the `lastError` signal without tearing down the socket.
- *  - **Teardown** (3.7) — `close()` cancels every timer, closes the socket, and
- *    drops the routing table; registered on `onCleanup` when owned.
+ *  - **Disconnected sends + errors** — updates written while not open are
+ *    dropped (debug-logged), never queued; queuing would only fight the snapshot
+ *    resync that follows reconnect. Inbound `error` messages route to `onError` /
+ *    the `lastError` signal without tearing down the socket.
+ *  - **`pulse(name)`** — fires a momentary TD parameter. Throttle-exempt (always
+ *    sent immediately) but still honors the disconnected-drop and backpressure
+ *    rules; holds no state, so it bypasses the routing table entirely.
  *
- * ## Phase 4 additions
- *  - **`pulse(name)`** (4.3) — fires a momentary TD parameter. Throttle-exempt
- *    (always sent immediately) but still honors the disconnected-drop and
- *    backpressure rules; holds no state, so it bypasses the routing table
- *    entirely.
- *  - **Read-only params** (4.10) — a statically-declared `readonly` name set
- *    (authored beside the schema, forwarded from `<Provider readonly>`) plus a
- *    runtime safety net: an inbound `param_not_writable` error marks that name
- *    read-only from then on and re-requests a snapshot to revert whatever
- *    optimistic edit just got silently ignored by TD.
+ * ## Parameter modes
+ *  - **Read-only params** — a statically-declared `readonly` name set (authored
+ *    beside the schema, forwarded from `<Provider readonly>`) plus a runtime
+ *    safety net: an inbound `param_not_writable` error marks that name read-only
+ *    from then on and re-requests a snapshot to revert whatever optimistic edit
+ *    TD just refused. See docs/design-notes.md § "Parameter modes" for why TD
+ *    refuses rather than attempts the write.
  *
- * ## Phase 5 additions
- *  - **`subscribe(listener)`** (5.1/5.2) — WebRTC signaling is multiplexed over
- *    this same socket, so `createTDVideoStream` observes inbound messages
- *    through this hook and sends via `send()`. The connection itself stays
- *    ignorant of peers: it forwards the signaling `type`s untouched.
+ * ## Video
+ *  - **`subscribe(listener)`** — WebRTC signaling is multiplexed over this same
+ *    socket, so `createTDVideoStream` observes inbound messages through this hook
+ *    and sends via `send()`. The connection itself stays ignorant of peers: it
+ *    forwards the signaling `type`s untouched.
  */
 
 import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js'
@@ -75,7 +81,7 @@ export type TDStatus = 'connecting' | 'open' | 'synced' | 'closed'
 export interface TDSendOptions {
   /**
    * Coalesce this send with any other throttled writes in the same animation
-   * frame into a single `update` message (Phase 3.4). The optimistic local
+   * frame into a single `update` message. The optimistic local
    * write still happens immediately; only the wire send is deferred to the frame
    * boundary. Defaults to `false` (send immediately).
    */
@@ -97,7 +103,7 @@ export interface TDBinding<T extends ParamValue = ParamValue> {
   /** Release the active-editing mark (blur / drag-end). */
   endEdit: () => void
   /**
-   * Reactive: whether this name is currently read-only (Phase 4.10) — either
+   * Reactive: whether this name is currently read-only — either
    * statically declared via `<Provider readonly>`, or marked so at runtime by
    * an inbound `param_not_writable` error. Bound controls disable on this.
    */
@@ -119,7 +125,7 @@ interface SignalEntry {
 export interface WebSocketLike {
   readonly OPEN: number
   readyState: number
-  /** Bytes buffered but not yet sent; read by the backpressure check (3.5). */
+  /** Bytes buffered but not yet sent; read by the backpressure check. */
   readonly bufferedAmount?: number
   send(data: string): void
   close(): void
@@ -135,11 +141,11 @@ export interface WebSocketLikeConstructor {
  * A param schema constrained so every value is a {@link ParamValue}. Written as
  * a self-referential mapped type rather than `Record<string, ParamValue>` so
  * that plain `interface` declarations (which lack an index signature) satisfy
- * it — the proposal's `interface MixerParams { … }` style.
+ * it — the `interface MixerParams { … }` style apps actually write.
  */
 export type ParamSchema<Schema> = { [K in keyof Schema]: ParamValue }
 
-/** Reconnect backoff timing (Phase 3.1). */
+/** Reconnect backoff timing. */
 export interface BackoffOptions {
   /** First retry delay before jitter (ms). Default 500. */
   min?: number
@@ -147,7 +153,7 @@ export interface BackoffOptions {
   max?: number
 }
 
-/** App-level heartbeat timing (Phase 3.3). */
+/** App-level heartbeat timing. */
 export interface HeartbeatOptions {
   /** Interval between `ping`s once synced (ms). Default 5000. */
   interval?: number
@@ -155,7 +161,7 @@ export interface HeartbeatOptions {
   timeout?: number
 }
 
-/** Backpressure thresholds (Phase 3.5). */
+/** Backpressure thresholds. */
 export interface BackpressureOptions {
   /** `bufferedAmount` above which `update`s are skipped (bytes). Default 1 MiB. */
   highWaterMark?: number
@@ -173,7 +179,7 @@ export interface TDConnectionOptions {
   WebSocket?: WebSocketLikeConstructor
   /**
    * Timer / animation-frame scheduler. Defaults to the platform globals;
-   * injected in tests to drive the Phase 3 timing paths deterministically.
+   * injected in tests to drive the timing paths deterministically.
    */
   scheduler?: TDScheduler
   /**
@@ -181,20 +187,20 @@ export interface TDConnectionOptions {
    * fatal — the socket stays up regardless.
    */
   onError?: (error: ErrorMessage) => void
-  /** Auto-reconnect on unexpected drop (Phase 3.1). Default `true`. */
+  /** Auto-reconnect on unexpected drop. Default `true`. */
   reconnect?: boolean
-  /** Reconnect backoff timing (Phase 3.1). */
+  /** Reconnect backoff timing. */
   backoff?: BackoffOptions
-  /** Handshake watchdog window in ms (Phase 3.2). Default 5000. */
+  /** Handshake watchdog window in ms. Default 5000. */
   handshakeTimeout?: number
-  /** Heartbeat timing (Phase 3.3), or `false` to disable the heartbeat. */
+  /** Heartbeat timing, or `false` to disable the heartbeat. */
   heartbeat?: HeartbeatOptions | false
-  /** Backpressure thresholds (Phase 3.5). */
+  /** Backpressure thresholds. */
   backpressure?: BackpressureOptions
   /** Jitter source for backoff. Defaults to `Math.random`; injected in tests. */
   random?: () => number
   /**
-   * Names to statically declare read-only (Phase 4.10) — authored beside the
+   * Names to statically declare read-only — authored beside the
    * schema, forwarded from `<Provider readonly>`. Bound controls render
    * disabled and warn in dev; never sent over the wire.
    */
@@ -208,11 +214,11 @@ export interface TDConnection<
   /** Reactive connection status. */
   status: Accessor<TDStatus>
   /**
-   * Reactive backpressure flag (Phase 3.5): `true` while `update` sends are
+   * Reactive backpressure flag: `true` while `update` sends are
    * being skipped because the socket's send buffer is over the high-water mark.
    */
   congested: Accessor<boolean>
-  /** The most recent inbound `error` message, if any (Phase 3.6). */
+  /** The most recent inbound `error` message, if any. */
   lastError: Accessor<ErrorMessage | undefined>
   /**
    * Create-or-return the shared binding for `name` (lazy allocation). All
@@ -220,16 +226,16 @@ export interface TDConnection<
    */
   signal: <K extends keyof Schema & string>(name: K) => TDBinding<Schema[K]>
   /**
-   * Fire a momentary TD parameter (Phase 4.3). Immediate, throttle-exempt;
+   * Fire a momentary TD parameter. Immediate, throttle-exempt;
    * still dropped (debug-logged) while disconnected or backpressured. Holds no
    * state — there is nothing to read back.
    */
   pulse: (name: keyof Schema & string) => void
-  /** Reactive: whether `name` is currently read-only (Phase 4.10). */
+  /** Reactive: whether `name` is currently read-only. */
   isReadonly: (name: string) => boolean
   /**
    * Reactive: the menu options TD announced for `name`, or `undefined` if it
-   * announced none (Phase 6.2).
+   * announced none.
    *
    * Only meaningful for params whose backing TD par is a Menu, and only for
    * projects that announce them — a `<Select>` with a web-authored `options`
@@ -238,7 +244,7 @@ export interface TDConnection<
    */
   menuOptions: (name: string) => MenuOption[] | undefined
   /**
-   * Ask TD to re-read and re-announce its menus (Phase 6.2) — the "reload
+   * Ask TD to re-read and re-announce its menus — the "reload
    * devices" action beside a TD-driven `<Select>`.
    *
    * Refreshes every announced menu, not one name: TD reads them as a set, and a
@@ -250,8 +256,9 @@ export interface TDConnection<
   send: (message: ClientMessage) => void
   /**
    * Observe every parsed inbound message, *after* the connection's own handling
-   * of it. Added in Phase 5 so WebRTC signaling can ride this socket without the
-   * connection needing to know anything about peers; returns an unsubscribe fn.
+   * of it. WebRTC signaling rides this socket, so a peer observes messages here
+   * without the connection needing to know anything about peers; returns an
+   * unsubscribe fn.
    * Malformed and unknown-`type` frames never reach listeners — they're dropped
    * by `parse` first.
    */
@@ -260,9 +267,9 @@ export interface TDConnection<
   close: () => void
 }
 
-// Phase 3 timing defaults. All overridable per-connection so a slower/remote
-// deployment can loosen them without a protocol change (see § "Connection
-// resilience" — "Timing constants are configurable with sane defaults").
+// Timing defaults. All overridable per-connection so a slower/remote
+// deployment can loosen them without a protocol change. See docs/api.md
+// § "options" for the full table.
 const DEFAULT_BACKOFF_MIN = 500
 const DEFAULT_BACKOFF_MAX = 10_000
 const DEFAULT_HANDSHAKE_TIMEOUT = 5_000
@@ -435,12 +442,12 @@ export function createTDConnection<
     return readonlyNames().has(name)
   }
 
-  /** The menu options TD announced for `name`, if any (Phase 6.2). */
+  /** The menu options TD announced for `name`, if any. */
   function menuOptions(name: string): MenuOption[] | undefined {
     return menus()[name]
   }
 
-  /** Ask TD to re-read and re-announce its menus (Phase 6.2). */
+  /** Ask TD to re-read and re-announce its menus. */
   function requestMenus() {
     rawSend({ type: 'menus-request' })
   }
@@ -459,7 +466,7 @@ export function createTDConnection<
    * Fire a momentary parameter. Same disconnected-drop / backpressure rules as
    * `sendUpdate`, but never throttled — a pulse is a discrete event, not a
    * sampled value, so buffering it a frame would add latency and risk
-   * coalescing or dropping distinct presses (see § "Outbound throttle").
+   * coalescing or dropping distinct presses.
    */
   function sendPulse(name: string) {
     if (!socket || socket.readyState !== socket.OPEN) {
@@ -745,7 +752,7 @@ export function createTDConnection<
       // ignore
     }
     socket = null
-    entries.clear() // drop routing table + per-param signals (3.7)
+    entries.clear() // drop routing table + per-param signals
     listeners.clear()
     setStatus('closed')
   }
@@ -759,7 +766,7 @@ export function createTDConnection<
 
   // Automatic teardown when used inside a component tree; harmless/skipped when
   // standalone (no owner). Each provider owns its own connection, so this tears
-  // down only this instance (3.7).
+  // down only this instance.
   if (getOwner()) onCleanup(close)
 
   return {

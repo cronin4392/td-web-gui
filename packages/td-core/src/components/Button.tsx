@@ -1,6 +1,6 @@
 /**
  * `<Button mode="pulse|hold|toggle">` — three related but distinct wire
- * behaviors sharing one rendered `<button>` (Phase 4.3/4.4/4.5).
+ * behaviors sharing one rendered `<button>`.
  *
  * **`mode="pulse"`** (default) — fires a TD **pulse** (momentary) parameter.
  * Pulses are fire-and-forget events, not values: each click sends a dedicated
@@ -25,7 +25,7 @@
  *
  * Only `pulse` bypasses `createTDSignal`; `hold`/`toggle` disable (and
  * dev-warn) on a read-only param the same as every other bound control
- * (Phase 4.10) — `pulse` has no synced value to protect, so it isn't guarded
+ * — `pulse` has no synced value to protect, so it isn't guarded
  * the same way.
  */
 

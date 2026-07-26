@@ -1,5 +1,5 @@
 /**
- * Phase 5 WebRTC tests (5.7), driven against the faked `RTCPeerConnection` and
+ * WebRTC tests, driven against the faked `RTCPeerConnection` and
  * the mock TD server so every signaling and recovery path runs without real
  * media: offer/answer + trickle ICE (5.2), the `streams` id→mid map (5.3),
  * connectionState-driven rebuild (5.5), WS-reconnect recovery and deferred

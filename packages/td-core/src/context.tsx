@@ -1,5 +1,5 @@
 /**
- * Factory + context layer (Phase 2.3).
+ * Factory + context layer.
  *
  * `createTDClient<Schema>()` returns a schema-bound bundle — a typed `Provider`,
  * the control/display components, and the `signal` helper — all generic over
@@ -8,7 +8,7 @@
  *
  * There is a single module-level context holding the active connection, and a
  * second one holding that provider's WebRTC peer when `<Provider video>` opts
- * into video (Phase 5). `<Provider>` owns one connection (and at most one peer)
+ * into video. `<Provider>` owns one connection (and at most one peer)
  * and shares them via those contexts;
  * `createTDSignal(name)` binds to the nearest provider's connection. The
  * per-factory generic typing is a purely compile-time wrapper over this one
@@ -96,7 +96,7 @@ export interface TDProviderProps {
   /** Config `id` for this instance; authoritative over `welcome` metadata. */
   instance?: string
   /**
-   * Param names to declare read-only (Phase 4.10) — authored beside the
+   * Param names to declare read-only — authored beside the
    * schema, e.g. an expression-driven par. Bound controls render disabled and
    * warn in dev; never sent over the wire (see § "Parameter modes").
    */
@@ -104,7 +104,7 @@ export interface TDProviderProps {
   /** Per-connection options forwarded to {@link createTDConnection}. */
   options?: TDConnectionOptions
   /**
-   * Open a WebRTC peer for this instance (Phase 5), multiplexing its signaling
+   * Open a WebRTC peer for this instance, multiplexing its signaling
    * over the same socket. Opt-in: without it no `RTCPeerConnection` is created,
    * and `<Video>` throws. Pass an object to tune the peer.
    */

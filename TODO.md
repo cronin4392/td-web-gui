@@ -7,12 +7,12 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       it references, instead of creating them by hand in the TD GUI.
 - [x] Add x (delete) button to recent phrases
 - [ ] Add an explicit `'op'` wire type to `REGISTRY` (`td/config.py`) for OP-reference custom pars
-      (e.g. `selectedLoader`), instead of detecting them in `_read` (`td/webserver-callbacks.py`) via
+      (e.g. `selectedLoader`), instead of detecting them in `_read` (`packages/td-core/touchdesigner/webserver-callbacks.py`) via
       `hasattr(value, 'path')` duck-typing. Will matter more once there are several of these.
 - [ ] Convert localStorage into a sqlite3 database for text-setter
 - [x] Add clear buttons to the right of each text1 text2
-- [ ] Add a pytest suite for the TD-side Python bridge (`td/webserver-callbacks.py`,
-      `td/parameter-execute.py`) — currently zero automated coverage vs. thorough vitest coverage on
+- [ ] Add a pytest suite for the TD-side Python bridge (`packages/td-core/touchdesigner/webserver-callbacks.py`,
+      `packages/td-core/touchdesigner/parameter-execute.py`) — currently zero automated coverage vs. thorough vitest coverage on
       the JS side. Needs lightweight fakes for TD's `op`/`Par`/`webserverDAT` since they aren't
       importable outside TD. Cover at minimum: `broadcast_param_change`'s REGISTRY matching (including
       the silent no-op when a par name/case doesn't match — the failure mode that made a real TD → web

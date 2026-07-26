@@ -1,5 +1,5 @@
 /**
- * NumberInput edge cases (Phase 2.4 § "Invalid / empty numeric input"):
+ * NumberInput edge cases — invalid / empty numeric input:
  * never send NaN, hold-last-valid while empty/unparseable, clamp to min/max,
  * snap back on blur.
  */
@@ -99,7 +99,7 @@ describe('NumberInput', () => {
     expect(input.value).toBe('42')
   })
 
-  it('disables when bound to a read-only param (Phase 4.10)', async () => {
+  it('disables when bound to a read-only param', async () => {
     const { input } = await setup({ level: 5 }, {}, { readonly: ['level'] })
     expect(input.disabled).toBe(true)
   })

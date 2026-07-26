@@ -1,5 +1,5 @@
 /**
- * Toggle behavior (Phase 4.2): bidirectional bool checkbox, optimistic write +
+ * Toggle behavior: bidirectional bool checkbox, optimistic write +
  * send-on-change, focus-driven echo suppression, read-only disabling (4.10).
  */
 

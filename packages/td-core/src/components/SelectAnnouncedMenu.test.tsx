@@ -1,5 +1,5 @@
 /**
- * TD-announced menu options (Phase 6.2) — the `menus` message and `<Select>`
+ * TD-announced menu options — the `menus` message and `<Select>`
  * without an `options` prop.
  *
  * The motivating case is an audio-device list: its keys are machine-specific

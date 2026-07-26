@@ -1,6 +1,6 @@
 /**
  * `<Vector>` — a group of numeric inputs bound to a non-color multi-component
- * `number[]` ParGroup (XYZ position, UV, size, …) (Phase 4.7). This is the
+ * `number[]` ParGroup (XYZ position, UV, size, …). This is the
  * generic case of the array wire shape: `<Color>` is its color-specialized
  * sibling and `<NumberInput>` the single-component scalar case.
  *
@@ -11,8 +11,8 @@
  * array as one `update` (throttled by default, like a drag), since the wire
  * shape has no notion of a single component in isolation. Editing any one
  * sub-input marks the *whole* binding as being edited, suppressing TD echoes
- * for every component until that input blurs (Phase 4.9's shared-signal
- * model, applied here within a single param).
+ * for every component until that input blurs — the shared-signal model,
+ * applied here within a single param.
  */
 
 import { createEffect, Index, splitProps, type JSX } from 'solid-js'

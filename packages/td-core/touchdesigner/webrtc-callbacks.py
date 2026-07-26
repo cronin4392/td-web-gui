@@ -7,13 +7,13 @@ control data already uses. Inbound signaling travels the other way — the Web
 Server DAT receives it and drives the WebRTC DAT — so the two files split like
 this:
 
-	td/webserver-callbacks.py   browser -> TD   (rtc-offer / rtc-answer / rtc-ice in)
-	td/webrtc-callbacks.py      TD -> browser   (rtc-offer / rtc-answer / rtc-ice /
-	                                             streams out)
+	webserver-callbacks.py   browser -> TD   (rtc-offer / rtc-answer / rtc-ice in)
+	webrtc-callbacks.py      TD -> browser   (rtc-offer / rtc-answer / rtc-ice /
+	                                          streams out)
 
 Nothing here is project specific — drop this into any project unchanged. The
 stream map comes from the config DAT the WebGuiServer component loads; see
-td/config.py.
+config-template.py.
 
 Offer role: the **browser** offers, on first connect and on every rebuild, using
 recvonly transceivers. So onAnswer carries the normal path; onOffer only fires
@@ -27,7 +27,7 @@ Set by hand, since they're parameters rather than values read from the config:
 	Video Stream Out TOP  Mode = WebRTC; WebRTC = the WebRTC DAT; WebRTC
 	                      Connection = the connection id; Track = the track name.
 
-See prds/TECH_PROPOSAL.md "WebSocket Wire Format" for the message catalog.
+See docs/protocol.md for the message catalog.
 """
 
 from typing import Any

@@ -3,7 +3,7 @@ Project configuration for the TD Web GUI bridge — the reference project
 (td/Example.toe, driving apps/example). One registry entry per control kind in
 that app, so every control there has a working backing par.
 
-The param map lives here. td/webserver-callbacks.py and td/parameter-execute.py
+The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
 are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
 
 Setup: point the WebGuiServer component's Config File par at this file — it
@@ -27,7 +27,7 @@ plus, for the TD-announced-menu demo:
 	                              built-in `device` menu is used — the CHOP is
 	                              there to own a menu the web cannot author.
 
-Video (Phase 5/6.7) additionally expects:
+Video additionally expects:
 	webrtc1                       WebRTC DAT inside WebGuiServer, beside the
 	                              Web Server DAT's callbacks.
 	/project1/videowall           the eight-tile wall: a source (through a Flip
@@ -56,7 +56,7 @@ from here:
 	                        `reset` never needs to broadcast.)
 	Web Server DAT          Callbacks DAT = the callbacks DAT named below;
 	                        Port = `op.WebGuiServer.par.Port`.
-	WebRTC DAT              Callbacks DAT = td/webrtc-callbacks.py's DAT;
+	WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;
 	                        ICE Servers = empty (browser and TD share a machine).
 	Video Stream Out TOP    Mode = WebRTC, one per stream. Its WebRTC /
 	                        connection / track pars are set per-peer by the
@@ -72,7 +72,7 @@ from here:
 # literally be "webserver-callbacks".
 CALLBACKS = 'webserver1_callbacks'
 
-# The WebRTC DAT, for video (Phase 5). A bare name because it sits inside
+# The WebRTC DAT, for video. A bare name because it sits inside
 # WebGuiServer alongside the callbacks DAT — these lookups run from in there, so
 # a bare name resolves against the component. Set to None in a project with no
 # video: the signaling branches then reply with an error instead of raising, and

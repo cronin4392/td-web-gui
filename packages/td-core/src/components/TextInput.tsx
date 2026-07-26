@@ -1,12 +1,10 @@
 /**
- * `<TextInput>` — text input bound to a TD string parameter (Phase 2.4;
- * `commitOn` added for the text-selector app, see TEXT_SELECTOR.md §6;
- * `multiline` likewise).
+ * `<TextInput>` — text input bound to a TD string parameter.
  *
  * **`commitOn="input"` (default)** — optimistic local write + send-on-change:
  * each keystroke updates the shared signal immediately and sends an `update`,
  * so the UI never waits a round-trip. Focus drives echo suppression
- * (Phase 2.5) — while focused, TD's echo of the just-sent value (and any other
+ * — while focused, TD's echo of the just-sent value (and any other
  * inbound update for this param) is ignored, so the value/cursor never jumps
  * out from under the user.
  *
@@ -23,7 +21,7 @@
  *    committed value, a blur immediately after Escape can't re-send.
  *  - A commit equal to the last committed value is a no-op — no `update`, no
  *    `onCommit`.
- *  - Because echo suppression (Phase 2.5) keeps `binding.value()` pinned to
+ *  - Because echo suppression keeps `binding.value()` pinned to
  *    the last committed value for as long as this input is focused, that
  *    accessor doubles as "last committed" with no separate signal needed.
  *

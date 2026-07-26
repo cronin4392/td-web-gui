@@ -1,5 +1,5 @@
 /**
- * Mock TD WebSocket server (Phase 2.6) — a deterministic, in-memory stand-in
+ * Mock TD WebSocket server — a deterministic, in-memory stand-in
  * for a TouchDesigner Web Server DAT, used to exercise the wire contract in CI
  * without a live `.toe`.
  *
@@ -36,7 +36,7 @@ export class MockTDSocket {
 
   /**
    * Bytes queued but not yet transmitted. Real `WebSocket` exposes this; the
-   * backpressure path (Phase 3.5) reads it. Tests set it to simulate a socket
+   * backpressure path reads it. Tests set it to simulate a socket
    * TD has stopped draining.
    */
   bufferedAmount = 0
@@ -125,14 +125,14 @@ export interface MockTDOptions {
   /** Params returned in the `snapshot` reply to `snapshot-request`. */
   snapshot?: Record<string, unknown>
   /**
-   * Menu options announced for menu-backed params (Phase 6.2). Sent **before**
+   * Menu options announced for menu-backed params. Sent **before**
    * the snapshot, which is the order the real callbacks use — a `<Select>` that
    * got its value first would briefly have no option matching it.
    */
   menus?: Record<string, { value: string; label: string }[]>
   /**
    * When `false`, the server opens the socket but never replies to `hello` /
-   * `snapshot-request` — used to exercise the handshake watchdog (Phase 3.2).
+   * `snapshot-request` — used to exercise the handshake watchdog.
    * Defaults to `true`.
    */
   autoHandshake?: boolean

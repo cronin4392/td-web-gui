@@ -1,5 +1,5 @@
 /**
- * Multiple components bound to the same param name (Phase 4.9) — verifies the
+ * Multiple components bound to the same param name — verifies the
  * shared-signal model already implied by lazy allocation (2.2) and
  * focus-based echo suppression (2.5): every binder of a name shares one
  * signal and one active-editor count, so an optimistic write from any one of

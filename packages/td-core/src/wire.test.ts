@@ -129,7 +129,7 @@ describe('parse', () => {
     expect(parse('{"type":"pulse","name":42}')).toBeNull() // wrong name type
   })
 
-  it('parses a menus announcement (Phase 6.2)', () => {
+  it('parses a menus announcement', () => {
     // A real TD audio-device key, not a tidied-up one: it carries braces, dots,
     // pipes and parentheses, and any encoding that mangled it would send back a
     // device id TD no longer recognises.

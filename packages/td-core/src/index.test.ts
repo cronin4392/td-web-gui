@@ -6,7 +6,7 @@ describe('td-core public surface', () => {
     expect(typeof td.version).toBe('string')
   })
 
-  it('exports the Phase 2 API', () => {
+  it('exports the core API', () => {
     expect(typeof td.parse).toBe('function')
     expect(td.PROTOCOL_VERSION).toBe(1)
     expect(typeof td.createTDConnection).toBe('function')

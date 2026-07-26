@@ -1,6 +1,6 @@
 /**
  * Manual scheduler for tests — a deterministic {@link TDScheduler} whose virtual
- * clock and animation frames are advanced by the test, so Phase 3's timing paths
+ * clock and animation frames are advanced by the test, so the timing paths
  * (backoff, watchdog, heartbeat, congestion, throttle) run without real delays.
  *
  * `advance(ms)` fires every timer due within the window in chronological order,

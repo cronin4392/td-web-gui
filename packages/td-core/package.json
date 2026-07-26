@@ -1,11 +1,36 @@
 {
   "name": "td-core",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Reusable Solid.js library for talking to TouchDesigner over WebSocket + WebRTC.",
+  "version": "0.1.0",
+  "description": "Solid.js library for building web UIs that control TouchDesigner — bidirectional parameters over WebSocket and real-time video over WebRTC.",
+  "keywords": [
+    "touchdesigner",
+    "solid-js",
+    "solidjs",
+    "websocket",
+    "webrtc",
+    "gui",
+    "control-surface",
+    "creative-coding",
+    "vj"
+  ],
+  "license": "MIT",
+  "author": "Stephen Cronin",
+  "homepage": "https://github.com/cronin4392/td-web-gui/tree/main/packages/td-core#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cronin4392/td-web-gui.git",
+    "directory": "packages/td-core"
+  },
+  "bugs": {
+    "url": "https://github.com/cronin4392/td-web-gui/issues"
+  },
   "type": "module",
+  "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "docs",
+    "touchdesigner",
+    "CHANGELOG.md"
   ],
   "types": "./dist/index.d.ts",
   "exports": {
@@ -13,13 +38,15 @@
       "solid": "./dist/index.jsx",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.jsx"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "peerDependencies": {
     "solid-js": "^1.9.0"
