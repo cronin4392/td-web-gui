@@ -21,3 +21,4 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       sweep the rest of `td/` for other Python that's currently untested and add coverage there too.
 - [ ] Add a TouchDesigner tag and/or comment to each op that's connected and what param is connected. Automatically keep them up to date.
 - [ ] Add a component that will read in performance metrics from a TD instance. FPS, GPU memory, dropped frames, etc. It should be configurable to what metrics to show
+- [ ] Investigate not using the VideoStreamOutTOP because it limits this to Nvidia cards
