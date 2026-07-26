@@ -14,8 +14,7 @@ This file covers working on it.
 | | |
 |---|---|
 | [`packages/td-core`](packages/td-core) | The library — the deliverable. Ships the TouchDesigner-side Python in [`touchdesigner/`](packages/td-core/touchdesigner) and its docs in [`docs/`](packages/td-core/docs). |
-| [`apps/example`](apps/example) | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. |
-| [`td/`](td) | Reference TouchDesigner project (`Example.toe`) driving the example app. |
+| [`apps/example`](apps/example) | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. Ships its reference TouchDesigner project in [`td/`](apps/example/td) (`Example.toe`). |
 | `apps/vj-gui` | A scratch app. Not distributed, not maintained. |
 
 ## Prerequisites
@@ -46,16 +45,19 @@ Workspace-wide: `pnpm build`, `pnpm test`, `pnpm typecheck`.
 ## Running end-to-end
 
 1. `pnpm --filter td-core build`
-2. Open [`td/Example.toe`](td) in TouchDesigner
+2. Open [`apps/example/td/Example.toe`](apps/example/td) in TouchDesigner
 3. `pnpm --filter example dev`
 
-`td/config-example.py` is the reference project's registry; it expects a
+`apps/example/td/config-example.py` is the reference project's registry; it expects a
 `/project1/params` Base COMP with one custom parameter per entry, plus the video
 wall under `/project1/videowall`. The file's docstring lists exactly what.
 
 The TouchDesigner callbacks the reference project loads live in the package now
 (`packages/td-core/touchdesigner/`), so the `.toe` consumes them the same way a
-user's project would.
+user's project would. `WebGuiServer`'s **TD Core Dir** parameter points at that
+folder on disk — it's a per-machine absolute path (not derived from the `.toe`'s
+location, since a project isn't guaranteed to sit anywhere near the package), so
+set it once after cloning.
 
 ## Testing
 

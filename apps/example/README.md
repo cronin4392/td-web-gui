@@ -11,8 +11,11 @@ pnpm --filter td-core build     # the example imports td-core from its built dis
 pnpm --filter example dev
 ```
 
-Then open `td/Example.toe` in TouchDesigner. The app connects to
-`ws://localhost:9980` by default; override with `VITE_TD_HOST` / `VITE_TD_PORT`.
+Then open `td/Example.toe` in TouchDesigner. On first open, set `WebGuiServer`'s
+**TD Core Dir** parameter to the absolute path of `packages/td-core/touchdesigner`
+on your machine — the callback DATs sync against files there, and that path isn't
+derived from where the `.toe` lives. The app connects to `ws://localhost:9980` by
+default; override with `VITE_TD_HOST` / `VITE_TD_PORT`.
 
 Parameters work with the `.toe` alone. The video wall additionally needs an
 NVIDIA GPU on Windows — see

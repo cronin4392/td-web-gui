@@ -31,7 +31,7 @@ export const instances = [
  * SDP offer carries, and that has to be decided *before* TD answers: an answerer
  * can't add m-lines, so anything TD announces beyond this count has nowhere to
  * go. It must therefore be >= the TD project's `STREAMS` count
- * (`td/config-example.py`), which is the one number the two sides must agree on
+ * (`td/config-example.py`, alongside this app), which is the one number the two sides must agree on
  * — the ids themselves are discovered at runtime from the `streams` message.
  */
 export const VIDEO_TILES = 8
