@@ -12,12 +12,14 @@ Backing operators this project expects:
 	/GUI/ExternalScenes/SceneA … SceneH   custom pars `Text` (String), `Text2` (String)
 	/GUI/GUI                              custom par `Selectedloader`
 
+The Parameter Execute DATs are NOT set by hand. WebGuiServerExt generates one per
+operator named above, straight out of REGISTRY — adding an entry here is the whole
+of the work, and `op.WebGuiServer.Rebuild()` picks up a change without a restart.
+Generating them also narrows the watch: the old hand-written `Scene*` pattern
+matched any scene, registered or not.
+
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
-	Parameter Execute DAT   OPs = `/GUI/ExternalScenes/Scene* /GUI/GUI`
-	                        (space-separated pattern — one Parameter Execute DAT
-	                        can watch several operators), Value Change and Custom
-	                        enabled.
 	Web Server DAT          Callbacks DAT = the callbacks DAT named below;
 	                        Port = `op.WebGuiServer.par.Port`.
 """

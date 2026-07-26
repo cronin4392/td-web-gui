@@ -49,11 +49,16 @@ the mirror comes back (forum.derivative.ca/t/stunned-by-webrtcpanel/293915).
 Flipping at the encoder has no such failure mode, and fixes every consumer of the
 stream rather than one styled element in one browser state.
 
+The Parameter Execute DATs are NOT set by hand. WebGuiServerExt generates one per
+operator named above, straight out of REGISTRY. This project exercises both
+toggle paths: `/project1/params` holds only custom pars, while
+`/project1/audiodevicein_demo` holds the built-in `device`, so the generated DATs
+get `Custom` and `Built-In` respectively rather than both globally. Pulse entries
+are skipped entirely — pulses raise On Pulse, not Value Change, so `reset` needs
+no watcher.
+
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
-	Parameter Execute DAT   OPs = `/project1/params`, Value Change and Custom
-	                        enabled. (Pulse pars don't raise Value Change, so
-	                        `reset` never needs to broadcast.)
 	Web Server DAT          Callbacks DAT = the callbacks DAT named below;
 	                        Port = `op.WebGuiServer.par.Port`.
 	WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;

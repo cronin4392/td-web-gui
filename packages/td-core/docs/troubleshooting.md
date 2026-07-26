@@ -128,14 +128,21 @@ parameters.
 Editing in the browser moves the parameter in TD, but editing in TD does nothing
 in the browser.
 
-**This is almost always the Parameter Execute DAT.** Check, in order:
+**This is almost always the generated Parameter Execute DATs.** They're the
+`parexec_…` DATs inside `WebGuiServer`, one per operator your registry
+references. Check, in order:
 
-1. It exists and is `Active`.
-2. Its `OPs` parameter covers the operator. Space-separated, patterns allowed:
-   `/GUI/Scene* /GUI/GUI`.
-3. `Value Change` is on.
-4. `Custom` is on — and `Built-In` too, if you registered any built-in
-   parameters.
+1. There is one for the operator in question. If the component has none at all,
+   the extension isn't wired — see setup step 4.
+2. Run `op.WebGuiServer.Rebuild()` and re-read the textport. It reconciles
+   against the live network and warns about registry entries it can't resolve.
+3. The registry entry names an operator that exists, spelled absolutely. An
+   entry pointing at a missing operator generates a watcher that watches nothing.
+4. `Td Core Dir` on the component is set. Empty, and the generated DATs can't
+   resolve `parameter-execute.py`, so they have no callback code to run.
+
+Don't hand-edit a `parexec_…` DAT's parameters to fix this — `Rebuild()`
+overwrites them. Fix the registry entry instead.
 
 **Textport: `WebGuiServer has no DAT '...' - check CALLBACKS in the config DAT`**
 

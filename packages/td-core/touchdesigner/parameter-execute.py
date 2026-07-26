@@ -11,13 +11,16 @@ Nothing here is project specific — drop this into any project unchanged. The
 name of the callbacks DAT comes from CALLBACKS in the config DAT, which the
 WebGuiServer component loads from its Config File par; see config-template.py.
 
-Set on this DAT itself, since they're parameters rather than values that can be
-read from the config DAT:
-	OPs            every operator the config's REGISTRY references, space
-	               separated — one Parameter Execute DAT can watch several at
-	               once (e.g. `/GUI/ExternalScenes/Scene* /GUI/GUI`).
-	Value Change   enabled.
-	Custom         enabled.
+You do not load this file into a DAT by hand, and you do not configure one.
+WebGuiServerExt generates one Parameter Execute DAT per operator the REGISTRY
+references and sets each one's OPs, Parameters, Custom, Built-In, and Value
+Change from the registry. It is resolved inside the component's Td Core Dir par,
+and the generated DATs sync their text from it — so editing this file hot-reloads
+all of them at once.
+
+Deliberately implemented here: only onValueChange. Pulses raise On Pulse rather
+than Value Change and carry no state to broadcast, so pulse entries get no watcher
+at all — see webgui-server-ext.py.
 """
 
 from typing import Any, List
