@@ -31,10 +31,19 @@ inside JSX, where you actually write it.
 
 ## Why
 
-TouchDesigner's own panel components are excellent inside TD. This is for the
-other case: a control surface on a tablet or second monitor, an operator UI that
-outlives the network it drives, or anything where you'd rather write HTML and CSS
-than build a UI out of Container COMPs.
+Every TouchDesigner project of any size ends up needing a control surface.
+Building one out of Container COMPs and panel widgets is the native answer. This
+is a different one: **build the UI as a web page.**
+
+You get CSS for layout, the browser's input widgets, your own editor and version
+control, and a UI that's a separate artifact from the network it drives —
+friendly parameter names on the wire mean operators can be renamed or moved
+without touching the UI.
+
+The browser runs alongside TouchDesigner **on the same machine** — that
+assumption is baked in, and there's no authentication. Serving the UI to another
+device would mean revisiting the bind address, TLS, and auth together; see
+[design-notes.md § Security model](docs/design-notes.md#security-model).
 
 What you get over hand-rolling a WebSocket:
 
