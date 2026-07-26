@@ -40,10 +40,7 @@ control, and a UI that's a separate artifact from the network it drives —
 friendly parameter names on the wire mean operators can be renamed or moved
 without touching the UI.
 
-The browser runs alongside TouchDesigner **on the same machine** — that
-assumption is baked in, and there's no authentication. Serving the UI to another
-device would mean revisiting the bind address, TLS, and auth together; see
-[design-notes.md § Security model](docs/design-notes.md#security-model).
+The browser runs alongside TouchDesigner on the same machine.
 
 What you get over hand-rolling a WebSocket:
 
