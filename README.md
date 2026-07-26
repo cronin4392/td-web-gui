@@ -1,46 +1,79 @@
-# TD Web GUI
+# td-web-gui
 
-Web UI that communicates bidirectionally with TouchDesigner — control data (text, numbers, messages) over WebSocket and real-time video over WebRTC.
+Development workspace for **[`td-core`](packages/td-core)** — a Solid.js library
+for building web UIs that control [TouchDesigner](https://derivative.ca/), with
+bidirectional parameters over WebSocket and real-time video over WebRTC.
 
-This is a pnpm workspace monorepo:
+**→ [Package README and documentation](packages/td-core#readme)**
 
-- [`packages/td-core`](packages/td-core) — the reusable Solid.js library (the deliverable).
-- [`apps/example`](apps/example) — example Solid app that consumes `td-core` end-to-end.
+If you're here to *use* the library, everything you need is in that package.
+This file covers working on it.
 
-See [prds/TECH_PROPOSAL.md](prds/TECH_PROPOSAL.md) for the design and [prds/TASKS.md](prds/TASKS.md) for the implementation plan.
+## Layout
+
+| | |
+|---|---|
+| [`packages/td-core`](packages/td-core) | The library — the deliverable. Ships the TouchDesigner-side Python in [`touchdesigner/`](packages/td-core/touchdesigner) and its docs in [`docs/`](packages/td-core/docs). |
+| [`apps/example`](apps/example) | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. |
+| [`td/`](td) | Reference TouchDesigner project (`Example.toe`) driving the example app. |
+| `apps/text-selector` | A scratch app. Not distributed, not maintained. |
 
 ## Prerequisites
 
-- **Node.js** ≥ 24 (`apps/text-selector`'s persistence uses the built-in `node:sqlite` module)
+- **Node.js** ≥ 24
 - **pnpm** (`npm install -g pnpm`)
+- **TouchDesigner** 2025.33070 to run anything end-to-end
 
 ## Commands
-
-Run from the repo root.
 
 ```sh
 pnpm install                      # install all workspace dependencies
 
-pnpm --filter td-core build       # build the library -> packages/td-core/dist (JSX-preserving + .d.ts)
-pnpm --filter td-core test        # run the td-core test suite once
-pnpm --filter td-core test:watch  # run td-core tests in watch mode
+pnpm --filter td-core build       # build the library -> dist/ (JSX-preserving + .d.ts)
+pnpm --filter td-core test        # run the test suite once
+pnpm --filter td-core test:watch  # watch mode
+pnpm --filter td-core typecheck   # type-check without emitting
 
-pnpm --filter example dev         # start the example app dev server (Vite)
+pnpm --filter example dev         # start the example app (Vite)
 pnpm --filter example build       # production-build the example app
-
-pnpm --filter text-selector dev   # start the text-selector app (Vite + its SQLite-backed /api/library)
 ```
 
-`apps/text-selector`'s phrase library lives in a SQLite file at `apps/text-selector/data/text-selector.db`
-(gitignored, created on first run; override the path with `TEXT_SELECTOR_DB`) — see
-[prds/TEXT_SELECTOR.md § Storage](prds/TEXT_SELECTOR.md#5-storage).
+Workspace-wide: `pnpm build`, `pnpm test`, `pnpm typecheck`.
 
-> The example app imports `td-core` from its built `dist/`, so run `pnpm --filter td-core build` before `pnpm --filter example dev`.
+> The example app imports `td-core` from its built `dist/`, so run
+> `pnpm --filter td-core build` before `pnpm --filter example dev`.
 
-Workspace-wide shortcuts:
+## Running end-to-end
 
-```sh
-pnpm build       # build every package
-pnpm test        # test every package
-pnpm typecheck   # type-check every package
-```
+1. `pnpm --filter td-core build`
+2. Open [`td/Example.toe`](td) in TouchDesigner
+3. `pnpm --filter example dev`
+
+`td/config-example.py` is the reference project's registry; it expects a
+`/project1/params` Base COMP with one custom parameter per entry, plus the video
+wall under `/project1/videowall`. The file's docstring lists exactly what.
+
+The TouchDesigner callbacks the reference project loads live in the package now
+(`packages/td-core/touchdesigner/`), so the `.toe` consumes them the same way a
+user's project would.
+
+## Testing
+
+`td-core` is tested against an in-memory TouchDesigner — a stub WebSocket server
+and a faked `RTCPeerConnection` — so the full wire contract runs in CI without a
+live `.toe`. The reference project is the manual check for what can't be faked:
+real WebRTC media, and reconnect on a `.toe` reload.
+
+The TouchDesigner-side Python currently has **no automated coverage**; see
+[TODO.md](TODO.md).
+
+## Design documentation
+
+The library's design rationale is documented formally in the package:
+
+- [Wire protocol](packages/td-core/docs/protocol.md)
+- [Design notes](packages/td-core/docs/design-notes.md) — including TouchDesigner
+  behavior that contradicts the obvious assumption
+
+`prds/` holds the original planning documents. They are historical, superseded by
+the docs above, and slated for removal.

@@ -1,5 +1,5 @@
 /**
- * `createTDVideoStream(config)` — the WebRTC peer for one TD instance (Phase 5).
+ * `createTDVideoStream(config)` — the WebRTC peer for one TD instance.
  *
  * v1 media is **video, TD → web only**. One peer per instance carries *all* of
  * that instance's video tracks (rather than a peer per stream), which keeps
@@ -28,7 +28,7 @@
  * offers are therefore handled for the whole life of the peer, and a collision
  * with our own offer is resolved by the browser yielding (rollback + answer).
  * `offerRole: 'td'` flips the initial role in one option if the reference
- * WebRTC DAT (Phase 6) turns out to insist on offering first.
+ * WebRTC DAT turns out to insist on offering first.
  */
 
 import { createSignal, getOwner, onCleanup, type Accessor } from 'solid-js'

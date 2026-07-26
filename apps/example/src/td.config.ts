@@ -1,13 +1,13 @@
 /**
- * TD instance configuration for the example app (Phase 2.7).
+ * TD instance configuration for the example app.
  *
  * The instance list lives in the consuming app, not in `td-core` — the library
  * stays config-agnostic and just receives URLs. Host/port are overridable via
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The typed param schema for each instance lives beside this config; in Phase 2
- * we expose a single instance with a text and a number param.
+ * The typed param schema for each instance lives beside this config. This app
+ * exposes a single instance with one param per bound control kind.
  */
 
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
@@ -24,8 +24,8 @@ export const instances = [
 ] as const satisfies readonly TDInstanceConfig[]
 
 /**
- * How many video tiles the wall is built for (Phase 6.7) — the proposal's
- * "up to 8 streams, all visible at once" target.
+ * How many video tiles the wall is built for — the "up to 8 streams, all
+ * visible at once" target.
  *
  * Kept web-side because it sets `receivers`, the number of recvonly m-lines our
  * SDP offer carries, and that has to be decided *before* TD answers: an answerer
@@ -48,7 +48,7 @@ export interface ExampleParams {
   position: number[]
   color: number[]
   /**
-   * Audio input device (Phase 6.2). Typed as a plain `string` like `blendmode`
+   * Audio input device. Typed as a plain `string` like `blendmode`
    * — the difference is entirely in where the *options* come from. `blendmode`'s
    * are hardcoded in `App.tsx`; these can't be, because the keys are
    * machine-specific device GUIDs that change when hardware is plugged in. TD

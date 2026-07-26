@@ -1,5 +1,5 @@
 /**
- * `<Select>` — dropdown bound to a TD Menu parameter (Phase 4.6).
+ * `<Select>` — dropdown bound to a TD Menu parameter.
  *
  * The wire value is the menu's string **key**, matching `par.eval()` on a Menu
  * par (keys survive TD-side menu reordering where indices wouldn't).
@@ -9,7 +9,7 @@
  * 1. **The `options` prop** — web-authored `{ value, label }[]`, the default and
  *    the no-introspection stance (see § "Type safety"). Keeping it in sync with
  *    TD's menu is the app's responsibility, same as the typed schema itself.
- * 2. **TD's announced menu** (Phase 6.2) — used when `options` is omitted. Some
+ * 2. **TD's announced menu** — used when `options` is omitted. Some
  *    menus genuinely cannot be authored ahead of time: an audio-device list
  *    depends on the machine TD runs on and changes when hardware is plugged in.
  *    For those, TD announces the options over the `menus` message and the
@@ -36,7 +36,7 @@ export interface SelectProps
   name: string
   /**
    * Web-authored menu options; wire value is `option.value` (the menu key).
-   * Omit to use the options TD announces for this param (Phase 6.2) — required
+   * Omit to use the options TD announces for this param — required
    * for menus whose contents only TD knows.
    */
   options?: SelectOption[]

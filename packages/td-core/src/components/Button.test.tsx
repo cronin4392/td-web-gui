@@ -1,5 +1,5 @@
 /**
- * Button behavior across its three modes (Phase 4.3/4.4/4.5):
+ * Button behavior across its three modes:
  *  - `pulse` (default): fire-and-forget `pulse` message, no synced state.
  *  - `hold`: momentary bool, pointer-capture + keyboard press/release, can't
  *    get stranded `true` (pointercancel/lostpointercapture/window blur release).

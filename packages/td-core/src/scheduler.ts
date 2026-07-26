@@ -1,8 +1,8 @@
 /**
  * `TDScheduler` — the small slice of timer + animation-frame scheduling the
- * connection needs, stated as an injectable interface (Phase 3).
+ * connection needs, stated as an injectable interface.
  *
- * The Phase 3 hardening features are all timing-driven — reconnect backoff, the
+ * The resilience features are all timing-driven — reconnect backoff, the
  * handshake watchdog, the ping/pong heartbeat, sustained-congestion detection,
  * and the rAF-aligned outbound throttle. Rather than reach for the globals
  * directly (which makes those paths untestable without real wall-clock delays),

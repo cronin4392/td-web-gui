@@ -9,7 +9,7 @@ changes.
 
 Nothing here is project specific — drop this into any project unchanged. The
 name of the callbacks DAT comes from CALLBACKS in the config DAT, which the
-WebGuiServer component loads from its Config File par; see td/config.py.
+WebGuiServer component loads from its Config File par; see config-template.py.
 
 Set on this DAT itself, since they're parameters rather than values that can be
 read from the config DAT:

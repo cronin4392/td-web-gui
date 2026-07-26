@@ -1,5 +1,5 @@
 /**
- * Select behavior (Phase 4.6): dropdown bound to a TD Menu param, wire value
+ * Select behavior: dropdown bound to a TD Menu param, wire value
  * is the menu's string key, bidirectional, read-only disabling (4.10).
  */
 

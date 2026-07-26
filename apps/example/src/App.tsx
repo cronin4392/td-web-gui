@@ -14,7 +14,7 @@ const blendModes = [
 ]
 
 /**
- * Connection-state readout (Phase 3). Reads the reactive `status`, `congested`,
+ * Connection-state readout. Reads the reactive `status`, `congested`,
  * and `lastError` off the nearest provider's connection — the same surface the
  * reconnect/backoff, heartbeat, and backpressure logic drives — so the UI can
  * show a live "reconnecting…" / "congested" indicator instead of silently
@@ -58,7 +58,7 @@ function StatusBar() {
 }
 
 /**
- * Audio device picker (Phase 6.2) — a `<Select>` whose options come from
+ * Audio device picker — a `<Select>` whose options come from
  * TouchDesigner rather than from this app.
  *
  * Every other control here binds a param whose *options* (if any) are authored
@@ -93,7 +93,7 @@ function AudioDevicePicker() {
 }
 
 /**
- * The video wall (Phase 6.7) — every stream this instance announces, rendered
+ * The video wall — every stream this instance announces, rendered
  * at once. `<Provider video>` opens **one** WebRTC peer and every tile is a
  * track on it, which is why the grid is driven by `video.streams()` (the id →
  * mid map TD announces) rather than by a peer per tile.
@@ -113,7 +113,7 @@ function VideoWall() {
   return (
     <section>
       <p>
-        Video wall (Phase 6.7) — {video.streams().length} of {VIDEO_TILES} streams
+        Video wall — {video.streams().length} of {VIDEO_TILES} streams
         announced
       </p>
       <div class="video-grid">
@@ -182,7 +182,7 @@ export function App() {
             Intensity
             <Example.NumberInput name="intensity" min={0} max={1} step={0.01} />
           </label>
-          {/* Slider sends are rAF-throttled by default (Phase 3.4); the readout
+          {/* Slider sends are rAF-throttled by default; the readout
               still tracks every optimistic move. */}
           <Example.RangeInput name="intensity" min={0} max={1} step={0.01} />
           <p>
@@ -198,7 +198,7 @@ export function App() {
         </section>
 
         <section>
-          <p>Button modes (Phase 4.3/4.4/4.5)</p>
+          <p>Button modes</p>
           {/* Fire-and-forget: sends a `pulse` message, holds no state. */}
           <Example.Button name="reset" mode="pulse">
             Reset (pulse)

@@ -1,8 +1,8 @@
 /**
- * Faked `RTCPeerConnection` (Phase 5.7) — a deterministic stand-in for the
+ * Faked `RTCPeerConnection` — a deterministic stand-in for the
  * browser's peer connection, so the signaling and rebuild paths are testable in
  * CI. Real media can't be meaningfully faked; that stays a manual check against
- * the reference TD project (Phase 6.8).
+ * the reference TD project.
  *
  * It implements only the {@link RTCPeerConnectionLike} slice `video.ts` uses,
  * and gives the test script over the peer's side of the exchange: fire ICE
@@ -15,7 +15,7 @@ import type {
   RTCPeerConnectionLike,
 } from '../video'
 
-/** A faked track that records whether `stop()` was called (Phase 5.8). */
+/** A faked track that records whether `stop()` was called. */
 export class MockTrack {
   stopped = false
   stop(): void {

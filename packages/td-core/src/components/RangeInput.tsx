@@ -1,5 +1,5 @@
 /**
- * `<RangeInput>` — range slider bound to a TD number parameter (Phase 2.4).
+ * `<RangeInput>` — range slider bound to a TD number parameter.
  *
  * Same optimistic local write + send-on-change + focus-driven echo suppression
  * as `<TextInput>`. Unlike `<NumberInput>`, a slider's value is always a valid
@@ -8,7 +8,7 @@
  * unlike a text field, there's no cursor to fight while TD echoes flow in.
  *
  * A slider is a high-frequency control, so its wire sends are **throttled by
- * default** (Phase 3.4): the optimistic signal write is still immediate (the
+ * default**: the optimistic signal write is still immediate (the
  * thumb and any bound readout move without waiting), but the `update` messages
  * coalesce to one per animation frame. Pass `throttle={false}` to opt out (send
  * on every input event) for a low-frequency use.

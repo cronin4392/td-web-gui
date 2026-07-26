@@ -1,8 +1,8 @@
 /**
- * Integration test (Phase 2.6) — the full hello→welcome→snapshot→update flow
+ * Integration test — the full hello→welcome→snapshot→update flow
  * exercised end-to-end through the factory/provider/component layer against the
  * mock TD server, plus a malformed-message case and focus-based echo
- * suppression (Phase 2.5) observed through real DOM events.
+ * suppression observed through real DOM events.
  */
 
 import { render } from 'solid-js/web'

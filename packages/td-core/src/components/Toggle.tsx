@@ -1,10 +1,10 @@
 /**
- * `<Toggle>` — checkbox bound to a TD bool parameter (Phase 4.2).
+ * `<Toggle>` — checkbox bound to a TD bool parameter.
  *
  * Same optimistic-write + send-on-change + focus-driven echo suppression as
  * the other controls; a checkbox is a discrete control, so unlike `<Range>`
  * there's no throttle. Disables (and dev-warns) when bound to a read-only
- * param — see § "Parameter modes" / Phase 4.10.
+ * param — see docs/design-notes.md § "Parameter modes".
  */
 
 import { splitProps, type JSX } from 'solid-js'

@@ -1,5 +1,5 @@
 /**
- * `<NumberInput>` — numeric input bound to a TD number parameter (Phase 2.4).
+ * `<NumberInput>` — numeric input bound to a TD number parameter.
  *
  * Invalid/empty-input rules (see § "Invalid / empty numeric input"):
  *  - While the field is empty or unparseable, hold the last valid value in the

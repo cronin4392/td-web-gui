@@ -1,7 +1,7 @@
 """
 Project configuration for the TD Web GUI bridge — the scene-loader GUI.
 
-The param map lives here. td/webserver-callbacks.py and td/parameter-execute.py
+The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
 are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
 
 Setup: point the WebGuiServer component's Config File par at this file — it

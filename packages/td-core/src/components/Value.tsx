@@ -1,5 +1,5 @@
 /**
- * `<Value>` — read-only readout of a TD parameter (Phase 2.4).
+ * `<Value>` — read-only readout of a TD parameter.
  *
  * Subscribes to inbound updates only; never sends and never participates in
  * focus/echo logic. Works for scalars and arrays, with an optional `format`

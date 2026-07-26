@@ -1,5 +1,5 @@
 /**
- * Phase 3 (WebSocket hardening) integration tests, driven against the mock TD
+ * Connection-resilience integration tests, driven against the mock TD
  * server with a manual scheduler so every timing path is deterministic:
  * reconnect + backoff (3.1), handshake watchdog (3.2), ping/pong heartbeat
  * (3.3), backpressure/congestion (3.5), disconnected-send drops + error routing

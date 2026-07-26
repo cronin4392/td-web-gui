@@ -1,6 +1,6 @@
 /**
  * `<Video>` — renders one WebRTC stream from the nearest provider's peer
- * (Phase 5.4).
+ *.
  *
  * `stream` selects by the id TD announced; omitting it takes the primary
  * stream, so a single-stream app never has to name one. Several `<Video>`

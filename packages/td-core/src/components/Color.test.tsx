@@ -1,5 +1,5 @@
 /**
- * Color behavior (Phase 4.8): `<Vector>`'s color-specialized sibling — a
+ * Color behavior: `<Vector>`'s color-specialized sibling — a
  * native `<input type="color">` (hex) for RGB plus an optional 0-1 alpha
  * slider, both mapping to/from the `[r,g,b(,a)]` 0-1 float array TD expects.
  * Throttled by default like `<Vector>`/`<Range>`.

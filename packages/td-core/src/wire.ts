@@ -2,21 +2,30 @@
  * Wire format — the typed JSON discriminated-union envelope spoken over the
  * WebSocket between the web UI and TouchDesigner.
  *
- * Phase 2 covered the control-data subset: `hello`, `welcome`,
- * `snapshot-request`, `snapshot`, and `update`. Phase 3 (WebSocket hardening)
- * added the connection-liveness and error messages — `ping`/`pong` (app-level
- * heartbeat) and `error` (surfaced, non-fatal). Phase 4 adds `pulse` (momentary
- * params, web → TD only). Phase 5 adds the WebRTC signaling messages —
- * `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams` — multiplexed over this
- * same socket. Phase 6.2 adds `menus`, the one deliberate piece of TD → web
- * introspection (see {@link MenusMessage}). Any *other* `type` is still dropped
- * by `parse` rather than mis-decoded, which is what keeps older clients
- * forward-compatible.
+ * Five groups of messages ride this one socket:
  *
- * See prds/TECH_PROPOSAL.md § "WebSocket Wire Format" for the full catalog.
+ *  - **Control data** — `hello`/`welcome`, `snapshot-request`/`snapshot`, and
+ *    `update` (symmetric: the web sends edits, TD broadcasts changes).
+ *  - **Liveness and errors** — `ping`/`pong` (app-level heartbeat, since browser
+ *    JS can't observe the WS protocol's own frames) and `error` (surfaced,
+ *    never fatal).
+ *  - **Momentary params** — `pulse`, web → TD only, carrying no value.
+ *  - **WebRTC signaling** — `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams`,
+ *    multiplexed here so video needs no second socket or TD component.
+ *  - **Menus** — the one deliberate piece of TD → web introspection, for menus
+ *    the web cannot author ahead of time (see {@link MenusMessage}).
+ *
+ * Any *other* `type` is dropped by {@link parse} rather than mis-decoded, which
+ * is what keeps older clients forward-compatible.
+ *
+ * See docs/protocol.md for the full catalog.
  */
 
-/** Bumped only on breaking wire changes (see § "Versioned handshake"). */
+/**
+ * Bumped only on breaking wire changes — adding a message type or a parameter
+ * is forward-compatible and does not need one. On mismatch the connection warns
+ * and proceeds best-effort rather than rejecting.
+ */
 export const PROTOCOL_VERSION = 1
 
 /**
@@ -76,7 +85,7 @@ export interface PingMessage {
 }
 
 /**
- * Asks TD to re-read and re-announce its menus (Phase 6.2). Answered with a
+ * Asks TD to re-read and re-announce its menus. Answered with a
  * {@link MenusMessage}.
  *
  * Exists because menu *contents* changing has no TD-side event to broadcast
@@ -97,7 +106,7 @@ export interface MenusRequestMessage {
  * Fires a momentary TD parameter (`par.pulse()`), web → TD only. Unlike
  * `update`, a pulse carries no value and holds no synced state — it's a
  * fire-and-forget event, excluded from snapshot/echo logic and throttle-exempt
- * (sent immediately; still subject to backpressure, see § "Outbound throttle").
+ * (sent immediately; still subject to backpressure — see ./connection).
  */
 export interface PulseMessage {
   type: 'pulse'
@@ -116,7 +125,7 @@ export interface UpdateMessage {
   params: ParamMap
 }
 
-// ── WebRTC signaling, both directions (Phase 5.1) ──────────────────────────
+// ── WebRTC signaling, both directions ─────────────────────────────────────
 //
 // Signaling is multiplexed over this same WebSocket — one connection to manage,
 // no second socket or extra TD component. Every signaling message is declared in
@@ -223,7 +232,7 @@ export interface MenuOption {
  * hand-written `options` array in sync isn't merely tedious, it's impossible.
  *
  * Kept a **separate message rather than folded into `snapshot`** (see the
- * proposal's § "Parameter modes"): `snapshot` stays a flat `{name: value}` map
+ * docs/design-notes.md § "Parameter modes"): `snapshot` stays a flat `{name: value}` map
  * in both directions, and menus can be re-announced on their own when a device
  * list changes without resending every value.
  *
@@ -334,8 +343,8 @@ function isStreamList(value: unknown): value is StreamInfo[] {
  * Returns `null` — rather than throwing — for malformed JSON, non-object
  * payloads, an unknown/missing `type`, or a structurally invalid known type.
  * The connection drops nulls and keeps processing the next message, so a single
- * bad frame never tears down the socket (see § "Error & malformed-message
- * handling").
+ * bad frame never tears down the socket (see docs/protocol.md § "Forward
+ * compatibility").
  */
 export function parse(raw: string): Message | null {
   let data: unknown
