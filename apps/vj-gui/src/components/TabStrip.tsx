@@ -13,11 +13,11 @@
  */
 
 import { For, Show, createSignal, type JSX } from 'solid-js'
-import { RECENT_TAB_ID, type TextSelectorStore } from '../store'
+import { RECENT_TAB_ID, type VjGuiStore } from '../store'
 import { TAB_MIME, adjustReorderTarget, hasDragMime } from '../dnd'
 
 export interface TabStripProps {
-  store: TextSelectorStore
+  store: VjGuiStore
 }
 
 export function TabStrip(props: TabStripProps): JSX.Element {

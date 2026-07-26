@@ -5,12 +5,12 @@
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
-import type { PhraseTab, TextSelectorStore } from '../store'
+import type { PhraseTab, VjGuiStore } from '../store'
 import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from '../dnd'
 import { PhraseChip } from './PhraseChip'
 
 export interface PhraseListProps {
-  store: TextSelectorStore
+  store: VjGuiStore
   tab: PhraseTab
   onApply: (phrase: string) => void
 }

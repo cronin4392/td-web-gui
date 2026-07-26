@@ -31,7 +31,7 @@ importers:
         specifier: ^2.11.0
         version: 2.11.12(solid-js@1.9.13)(vite@6.4.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0))
 
-  apps/text-selector:
+  apps/vj-gui:
     dependencies:
       solid-js:
         specifier: ^1.9.7

@@ -6,11 +6,11 @@
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
-import { RECENT_TAB_ID, type TextSelectorStore } from '../store'
+import { RECENT_TAB_ID, type VjGuiStore } from '../store'
 import { PhraseChip } from './PhraseChip'
 
 export interface RecentPanelProps {
-  store: TextSelectorStore
+  store: VjGuiStore
   onApply: (phrase: string) => void
 }
 

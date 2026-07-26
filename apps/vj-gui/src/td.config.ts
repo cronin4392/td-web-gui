@@ -1,5 +1,5 @@
 /**
- * TD instance configuration for the text-selector app.
+ * TD instance configuration for the vj-gui app.
  *
  * The instance list lives in the consuming app, not in `td-core` — the library
  * stays config-agnostic and just receives URLs. Host/port are overridable via
@@ -20,7 +20,7 @@ const host = import.meta.env.VITE_TD_HOST ?? 'localhost'
 const port = import.meta.env.VITE_TD_PORT ?? '9980'
 
 export const instances = [
-  { id: 'text-selector', url: `ws://${host}:${port}` },
+  { id: 'vj-gui', url: `ws://${host}:${port}` },
 ] as const satisfies readonly TDInstanceConfig[]
 
 /** The eight external scene loaders, matching `SCENE_IDS` in `td/config.py`. */
@@ -31,10 +31,10 @@ export type SceneId = (typeof sceneIds)[number]
 export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`
 
 /**
- * Param schema for the `text-selector` instance: a `text1`/`text2` pair per
+ * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
  * scene loader, plus the loader selection that decides which pair the UI shows.
  */
-export interface TextSelectorParams extends Record<SceneTextParamName, string> {
+export interface VjGuiParams extends Record<SceneTextParamName, string> {
   /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
   selectedLoader: string
 }
