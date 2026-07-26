@@ -40,8 +40,6 @@ control, and a UI that's a separate artifact from the network it drives —
 friendly parameter names on the wire mean operators can be renamed or moved
 without touching the UI.
 
-The browser runs alongside TouchDesigner on the same machine.
-
 What you get over hand-rolling a WebSocket:
 
 - **Typed parameters.** One schema, checked in JSX.
@@ -210,7 +208,8 @@ New to the project? [TouchDesigner setup](docs/touchdesigner-setup.md), then
 Parameters work on any platform TouchDesigner runs on; only video carries the
 NVIDIA/Windows requirement.
 
-**This is built for a closed, single-machine system.** There is no
+**This is built for a closed, single-machine system** — the browser, the web
+app, and every TouchDesigner instance run on the same box. There is no
 authentication, and the Web Server DAT is meant to be bound to `127.0.0.1`. See
 [design-notes.md § Security model](docs/design-notes.md#security-model) before
 exposing any of it to a network.
