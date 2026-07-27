@@ -10,7 +10,7 @@
 
 import type { JSX } from 'solid-js';
 import { hasPhraseDragData, readPhraseDragData } from '../dnd';
-import { TDClient, type SceneTextParamName } from '../td';
+import { GuiClient, type SceneTextParamName } from '../td';
 
 export interface TextFieldProps {
   /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
@@ -37,7 +37,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
       >
         Clear
       </button>
-      <TDClient.TextInput
+      <GuiClient.TextInput
         id={props.name}
         name={props.name}
         commitOn="enter"

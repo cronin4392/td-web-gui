@@ -6,8 +6,21 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The typed param schema for each instance lives beside this config, along with
- * the scene-loader naming contract it shares with `td/config.py`.
+ * The page drives **three** TouchDesigner processes, of **two** kinds:
+ *
+ *   - the GUI project (`td/config.py`), which owns the scene-loader selection
+ *     and the eight loaders' text params — one of a kind, one schema;
+ *   - the scene projects (`td/scene-config.py`), one process per live scene.
+ *
+ * The two scene processes run the same project, so they publish the same wire
+ * names and share one schema, one read-only set, and one TD-side config file.
+ * That is the opposite of `apps/example`, where the two instances deliberately
+ * differ; here symmetry is the point, and duplicating the schema per scene
+ * would only create two things to keep in sync.
+ *
+ * Sharing the names is safe because a wire name is scoped to its instance: both
+ * scenes publish a plain `level`, and which one a control reads is decided by
+ * the `<Provider>` it renders inside, not by the name.
  */
 
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
@@ -17,10 +30,30 @@ export interface TDInstanceConfig {
 }
 
 const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
-const port = import.meta.env.VITE_TD_PORT ?? '9980';
 
-export const instances = [
-  { id: 'vj-gui', url: `ws://${host}:${port}` },
+/**
+ * One port per instance. Separate variables rather than a base + offset: the
+ * ports are whatever each `.toe`'s WebGuiServer `Port` par says, and nothing
+ * makes them contiguous.
+ */
+const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '9980';
+const sceneAPort = import.meta.env.VITE_TD_PORT_SCENE_A ?? '4007';
+const sceneBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
+
+/**
+ * The GUI project. `id` matches its WebGuiServer `Identifier` par — the
+ * `welcome` message carries that back, and the provider treats the config value
+ * as authoritative when they disagree.
+ */
+export const guiInstance = {
+  id: 'vj-gui',
+  url: `ws://${host}:${guiPort}`,
+} as const satisfies TDInstanceConfig;
+
+/** The scene projects, in display order. Same schema, one `<Provider>` each. */
+export const sceneInstances = [
+  { id: 'sceneA', url: `ws://${host}:${sceneAPort}` },
+  { id: 'sceneB', url: `ws://${host}:${sceneBPort}` },
 ] as const satisfies readonly TDInstanceConfig[];
 
 /** The eight external scene loaders, matching `SCENE_IDS` in `td/config.py`. */
@@ -37,10 +70,28 @@ export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
 export interface VjGuiParams extends Record<SceneTextParamName, string> {
   /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
   selectedLoader: string;
-  sceneACpuCookTime: number;
-  sceneALevel: number;
-  sceneAPerformance: string[][];
 }
+
+/**
+ * Param schema shared by **both** scene instances — the TS half of the contract
+ * with `td/scene-config.py`, which is likewise one file for both processes.
+ *
+ * All readouts today (`READOUTS` in that file), so every name here is in
+ * {@link sceneReadonly}. The registry is empty, so nothing on a scene is
+ * web-writable yet.
+ */
+export interface SceneParams {
+  cpuCookTime: number;
+  level: number;
+  performance: string[][];
+}
+
+/** Scene readout names, declared read-only so their controls render disabled. */
+export const sceneReadonly = [
+  'cpuCookTime',
+  'level',
+  'performance',
+] as const satisfies readonly (keyof SceneParams)[];
 
 /** Wire name of a scene's text param — the TS half of the naming contract above. */
 export function sceneTextParam<N extends 1 | 2>(
@@ -61,10 +112,3 @@ export function sceneIdFromLoaderPath(path: string | undefined): SceneId | undef
   const id = path.slice(LOADER_PATH_PREFIX.length);
   return sceneIds.find((scene) => scene === id);
 }
-
-/** Readout names, declared read-only so their controls render disabled. */
-export const readonlyParams = [
-  'sceneACpuCookTime',
-  'sceneAPerformance',
-  'sceneALevel',
-] as const satisfies readonly (keyof VjGuiParams)[];

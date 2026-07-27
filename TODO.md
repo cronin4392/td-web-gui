@@ -23,3 +23,4 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [ ] Investigate not using the VideoStreamOutTOP because it limits this to Nvidia cards
 - [ ] Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes
 - [ ] If an input doesn't have a value yet in web show something, maybe skeleton state?
+- [ ] Automatically create videostreamoutTOP inside the WebGuiServer based on config. Then handle the flip x in there.

@@ -1,7 +1,14 @@
-import { createMemo, onCleanup, Show, type JSX } from 'solid-js';
+import { createMemo, For, onCleanup, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
-import { instances, readonlyParams, sceneIdFromLoaderPath, sceneTextParam } from './td.config';
-import { TDClient, type SceneTextParamName } from './td';
+import {
+  guiInstance,
+  sceneInstances,
+  sceneIdFromLoaderPath,
+  sceneReadonly,
+  sceneTextParam,
+  type TDInstanceConfig,
+} from './td.config';
+import { GuiClient, SceneClient, type SceneTextParamName } from './td';
 import { RECENT_TAB_ID, createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
@@ -9,8 +16,6 @@ import { TextField } from './components/TextField';
 import { RecentPanel } from './components/RecentPanel';
 import { TabStrip } from './components/TabStrip';
 import { PhraseList } from './components/PhraseList';
-
-const vjGui = instances[0];
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
@@ -23,57 +28,82 @@ export function App(props: AppProps): JSX.Element {
 
   return (
     <main class="flex h-screen flex-col px-2 pt-2">
-      <TDClient.Provider
-        url={vjGui.url}
-        instance={vjGui.id}
-        video={true}
-        readonly={[...readonlyParams]}
-      >
-        <VideoSceneA />
+      {/* Eight columns for the eight loaders this grows into; two are live. */}
+      <div class="grid shrink-0 grid-cols-8 gap-2">
+        <For each={sceneInstances}>{(scene) => <ScenePanel instance={scene} />}</For>
+      </div>
+      {/* The GUI project is a separate process from the scenes, so its params
+          live behind their own provider — the text selector is the only thing
+          bound to it. */}
+      <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id}>
         <TextSelector store={store} />
-      </TDClient.Provider>
+      </GuiClient.Provider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
-        Bound to instance <code>{vjGui.id}</code> at <code>{vjGui.url}</code>
+        Bound to{' '}
+        {[guiInstance, ...sceneInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
       </p>
     </main>
   );
 }
 
-function VideoSceneA(): JSX.Element {
-  const video = TDClient.useVideo();
+/**
+ * One scene instance — its video tile and its performance readouts, behind its
+ * own provider. Rendered once per entry in `sceneInstances`, so each scene gets
+ * its own socket, its own WebRTC peer, and its own reconnect clock; drop one
+ * scene's `.toe` and only that tile goes dark.
+ *
+ * The body is a separate component because `useVideo()` reads the nearest
+ * provider from context, and the provider isn't in context until inside it.
+ */
+function ScenePanel(props: { instance: TDInstanceConfig }): JSX.Element {
   return (
-    <div class="grid grid-cols-8">
-      <div>
-        <Show when={video.stream('scene')} keyed>
-          {(_stream) => (
-            <figure>
-              <div class="video-tile">
-                <TDClient.Video stream="scene" />
-                <Show when={video.streamStatus('scene') !== 'connected'}>
-                  <div class="video-overlay">{video.streamStatus('scene')}…</div>
-                </Show>
-              </div>
-            </figure>
-          )}
-        </Show>
-        <TDClient.RangeInput name="sceneALevel" min={0} max={1} step={0.01} readOnly />
-        <fieldset>
-          <label>CPU Cooktime </label>
-          <TDClient.Value name="sceneACpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
-        </fieldset>
-        {/* TODO: Table not getting data after load */}
-        {/* <TDClient.Table name="sceneAPerformance" header /> */}
-      </div>
-    </div>
+    <SceneClient.Provider
+      url={props.instance.url}
+      instance={props.instance.id}
+      video={true}
+      readonly={[...sceneReadonly]}
+    >
+      <SceneBody label={props.instance.id} />
+    </SceneClient.Provider>
+  );
+}
+
+/**
+ * The same markup for every scene — its names come from the one `SceneParams`
+ * schema, and the provider above decides which process answers them.
+ */
+function SceneBody(props: { label: string }): JSX.Element {
+  const video = SceneClient.useVideo();
+  return (
+    <figure class="m-0">
+      <Show when={video.stream('scene')} keyed>
+        {(_stream) => (
+          <div class="video-tile">
+            <SceneClient.Video stream="scene" />
+            <Show when={video.streamStatus('scene') !== 'connected'}>
+              <div class="video-overlay">{video.streamStatus('scene')}…</div>
+            </Show>
+          </div>
+        )}
+      </Show>
+      <figcaption class="text-xs text-neutral-500">{props.label}</figcaption>
+      <SceneClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
+      <fieldset>
+        <label>CPU Cooktime </label>
+        <SceneClient.Value name="cpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
+      </fieldset>
+      {/* TODO: Table not getting data after load */}
+      {/* <SceneClient.Table name="performance" header /> */}
+    </figure>
   );
 }
 
 function TextSelector(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
-  const connection = TDClient.useConnection();
-  const selectedLoader = TDClient.signal('selectedLoader');
+  const connection = GuiClient.useConnection();
+  const selectedLoader = GuiClient.signal('selectedLoader');
 
   /** Which loader's text params the fields are bound to, per TD's `selectedLoader`. */
   const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()));
@@ -111,7 +141,7 @@ function TextSelector(props: { store: ReturnType<typeof createVjGuiStore> }): JS
         fallback={
           <p class="mt-4 shrink-0 text-sm text-neutral-500">
             Waiting for a scene loader — <code>selectedLoader</code> is{' '}
-            <TDClient.Value name="selectedLoader" />
+            <GuiClient.Value name="selectedLoader" />
           </p>
         }
       >
