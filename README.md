@@ -22,6 +22,9 @@ This file covers working on it.
 - **Node.js** ≥ 24
 - **pnpm** (`npm install -g pnpm`)
 - **TouchDesigner** 2025.33070 to run anything end-to-end
+- **[Ruff](https://docs.astral.sh/ruff/)** (`pip install ruff`) to format the
+  TouchDesigner-side Python (`pnpm format` runs it alongside Prettier, and the
+  pre-commit hook calls `pnpm format` automatically)
 
 ## Commands
 

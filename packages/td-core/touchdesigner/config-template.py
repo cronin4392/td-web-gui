@@ -4,12 +4,12 @@ td-core project config — copy this file into your project and edit it.
 This is the ONE file you write per project. The other six scripts in this
 folder are project-agnostic and are dropped in unchanged:
 
-	webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
-	webgui-server-ext.py     WebGuiServer extension    (generates the watchers below)
-	parameter-execute.py     Parameter Execute DATs    (TD -> web param broadcast)
-	chop-execute.py          CHOP Execute DATs         (TD -> web readout broadcast)
-	dat-execute.py           DAT Execute DATs          (TD -> web readout broadcast)
-	webrtc-callbacks.py      WebRTC DAT callbacks      (outbound video signaling)
+        webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
+        webgui-server-ext.py     WebGuiServer extension    (generates the watchers below)
+        parameter-execute.py     Parameter Execute DATs    (TD -> web param broadcast)
+        chop-execute.py          CHOP Execute DATs         (TD -> web readout broadcast)
+        dat-execute.py           DAT Execute DATs          (TD -> web readout broadcast)
+        webrtc-callbacks.py      WebRTC DAT callbacks      (outbound video signaling)
 
 All of them find this file through the WebGuiServer component's `Config File`
 parameter, which loads it into a Text DAT named `config` inside the component.
@@ -34,7 +34,7 @@ See docs/touchdesigner-setup.md for the full walkthrough.
 # when the DAT sits in the component. Use an absolute path if it lives elsewhere.
 # TD operator names can't contain hyphens, so this won't literally be
 # "webserver-callbacks".
-CALLBACKS = 'webserver1_callbacks'
+CALLBACKS = "webserver1_callbacks"
 
 
 # ── Parameters ───────────────────────────────────────────────────────────────
@@ -74,14 +74,14 @@ CALLBACKS = 'webserver1_callbacks'
 # side. Nothing checks that for you — see docs/protocol.md § Keeping the two
 # sides in sync.
 REGISTRY = {
-	# 'message':   {'op': '/project1/params', 'par': 'Message',   'type': 'string'},
-	# 'intensity': {'op': '/project1/params', 'par': 'Intensity', 'type': 'number'},
-	# 'enabled':   {'op': '/project1/params', 'par': 'Enabled',   'type': 'bool'},
-	# 'reset':     {'op': '/project1/params', 'par': 'Reset',     'type': 'pulse'},
-	# 'position':  {'op': '/project1/params', 'par': 'Position',  'type': 'number[]'},
-	# 'color':     {'op': '/project1/params', 'par': 'Color',     'type': 'number[]'},
-	# 'fps':       {'op': '/project1/info',   'par': 'Fps',       'type': 'number',
-	#               'writable': False},
+    # 'message':   {'op': '/project1/params', 'par': 'Message',   'type': 'string'},
+    # 'intensity': {'op': '/project1/params', 'par': 'Intensity', 'type': 'number'},
+    # 'enabled':   {'op': '/project1/params', 'par': 'Enabled',   'type': 'bool'},
+    # 'reset':     {'op': '/project1/params', 'par': 'Reset',     'type': 'pulse'},
+    # 'position':  {'op': '/project1/params', 'par': 'Position',  'type': 'number[]'},
+    # 'color':     {'op': '/project1/params', 'par': 'Color',     'type': 'number[]'},
+    # 'fps':       {'op': '/project1/info',   'par': 'Fps',       'type': 'number',
+    #               'writable': False},
 }
 
 
@@ -136,11 +136,11 @@ REGISTRY = {
 # need that resolution, resample or filter the CHOP in TD rather than reaching
 # for a knob here.
 READOUTS = {
-	# 'fps':    {'op': '/project1/perf_stats',  'chan': 'fps'},
-	# 'level':  {'op': '/project1/audio_bands', 'chan': ['low', 'mid', 'high']},
-	# 'playing':{'op': '/project1/transport',   'chan': 'playing', 'type': 'bool'},
-	# 'track':  {'op': '/project1/nowplaying',  'row': 'title', 'col': 1},
-	# 'cues':   {'op': '/project1/cue_table',   'type': 'string[][]'},
+    # 'fps':    {'op': '/project1/perf_stats',  'chan': 'fps'},
+    # 'level':  {'op': '/project1/audio_bands', 'chan': ['low', 'mid', 'high']},
+    # 'playing':{'op': '/project1/transport',   'chan': 'playing', 'type': 'bool'},
+    # 'track':  {'op': '/project1/nowplaying',  'row': 'title', 'col': 1},
+    # 'cues':   {'op': '/project1/cue_table',   'type': 'string[][]'},
 }
 
 
@@ -171,5 +171,5 @@ WEBRTC = None
 # stream for N browsers. See docs/touchdesigner-setup.md § Video for the
 # single-viewer limit.
 STREAMS = {
-	# 'main': {'top': '/project1/videostreamout1', 'label': 'Main'},
+    # 'main': {'top': '/project1/videostreamout1', 'label': 'Main'},
 }

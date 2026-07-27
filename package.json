@@ -11,8 +11,10 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write . && pnpm format:py",
+    "format:check": "prettier --check . && pnpm format:py:check",
+    "format:py": "ruff format .",
+    "format:py:check": "ruff format --check .",
     "prepare": "husky install"
   },
   "devDependencies": {

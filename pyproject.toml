@@ -1,0 +1,52 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [".venv", "node_modules", "dist"]
+# Only format actual Python files -- ruff's Markdown code-fence formatting
+# (default-on via *.md in file-resolver.include) isn't idempotent, which
+# makes `format --check` flaky against docs like prds/TECH_PROPOSAL.md.
+include = ["*.py", "*.pyi"]
+
+# TouchDesigner injects these names into the execution namespace of
+# extension/callback DAT scripts; they're never imported, so Ruff can't
+# see them without this list.
+builtins = [
+    "op",
+    "ops",
+    "opex",
+    "parent",
+    "parentexec",
+    "me",
+    "mod",
+    "project",
+    "root",
+    "app",
+    "monitors",
+    "Menu",
+    "UI",
+    "ui",
+    "tdu",
+    "td",
+    "runs",
+    "absTime",
+    "ipar",
+    "args",
+    "arg",
+    "iop",
+    "ext",
+    "parameterexecuteDAT",
+    "chopexecuteDAT",
+    "datexecuteDAT",
+    "panelexecuteDAT",
+    "extensionexecuteDAT",
+    "keyboardinDAT",
+    "mouseinDAT",
+    "oscinDAT",
+    "oscoutDAT",
+    "webserverDAT",
+    "webSocketDAT",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
