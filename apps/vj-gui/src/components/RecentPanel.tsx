@@ -5,23 +5,23 @@
  * store-managed (most-recently-committed first), not user-arranged.
  */
 
-import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
-import { RECENT_TAB_ID, type VjGuiStore } from '../store'
-import { PhraseChip } from './PhraseChip'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import { RECENT_TAB_ID, type VjGuiStore } from '../store';
+import { PhraseChip } from './PhraseChip';
 
 export interface RecentPanelProps {
-  store: VjGuiStore
-  onApply: (phrase: string) => void
+  store: VjGuiStore;
+  onApply: (phrase: string) => void;
 }
 
 export function RecentPanel(props: RecentPanelProps): JSX.Element {
-  const [filter, setFilter] = createSignal('')
+  const [filter, setFilter] = createSignal('');
 
   const rows = createMemo(() => {
-    const q = filter().trim().toLowerCase()
-    const recent = props.store.state.recent
-    return q ? recent.filter((phrase) => phrase.toLowerCase().includes(q)) : recent
-  })
+    const q = filter().trim().toLowerCase();
+    const recent = props.store.state.recent;
+    return q ? recent.filter((phrase) => phrase.toLowerCase().includes(q)) : recent;
+  });
 
   return (
     <div
@@ -61,5 +61,5 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
         </Show>
       </ul>
     </div>
-  )
+  );
 }

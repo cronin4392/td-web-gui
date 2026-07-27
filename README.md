@@ -6,16 +6,16 @@ bidirectional parameters over WebSocket and real-time video over WebRTC.
 
 **→ [Package README and documentation](packages/td-core#readme)**
 
-If you're here to *use* the library, everything you need is in that package.
+If you're here to _use_ the library, everything you need is in that package.
 This file covers working on it.
 
 ## Layout
 
-| | |
-|---|---|
-| [`packages/td-core`](packages/td-core) | The library — the deliverable. Ships the TouchDesigner-side Python in [`touchdesigner/`](packages/td-core/touchdesigner) and its docs in [`docs/`](packages/td-core/docs). |
-| [`apps/example`](apps/example) | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. Ships its reference TouchDesigner project in [`td/`](apps/example/td) (`Example.toe`). |
-| `apps/vj-gui` | A scratch app. Not distributed, not maintained. |
+|                                        |                                                                                                                                                                                                |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/td-core`](packages/td-core) | The library — the deliverable. Ships the TouchDesigner-side Python in [`touchdesigner/`](packages/td-core/touchdesigner) and its docs in [`docs/`](packages/td-core/docs).                     |
+| [`apps/example`](apps/example)         | Example Solid app exercising every control and an 8-tile video wall. Distributed alongside the package. Ships its reference TouchDesigner project in [`td/`](apps/example/td) (`Example.toe`). |
+| `apps/vj-gui`                          | A scratch app. Not distributed, not maintained.                                                                                                                                                |
 
 ## Prerequisites
 

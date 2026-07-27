@@ -8,19 +8,19 @@
  * line break, and `td-core` carries the breaks to TD as `\n` escapes.
  */
 
-import type { JSX } from 'solid-js'
-import { hasPhraseDragData, readPhraseDragData } from '../dnd'
-import { TDClient, type SceneTextParamName } from '../td'
+import type { JSX } from 'solid-js';
+import { hasPhraseDragData, readPhraseDragData } from '../dnd';
+import { TDClient, type SceneTextParamName } from '../td';
 
 export interface TextFieldProps {
   /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
-  name: SceneTextParamName
-  label: string
-  commitRecent: (phrase: string) => void
+  name: SceneTextParamName;
+  label: string;
+  commitRecent: (phrase: string) => void;
   /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s (always Text 1) `onApply`. */
-  applyPhrase: (name: SceneTextParamName, phrase: string) => void
+  applyPhrase: (name: SceneTextParamName, phrase: string) => void;
   /** Clear this field's TD text param. */
-  onClear: (name: SceneTextParamName) => void
+  onClear: (name: SceneTextParamName) => void;
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
@@ -48,15 +48,15 @@ export function TextField(props: TextFieldProps): JSX.Element {
         aria-label={props.label}
         class="block w-full resize-y border border-neutral-600 bg-neutral-800 px-2 py-1 pr-16 text-sm text-neutral-100 placeholder:text-neutral-500"
         onDragOver={(event) => {
-          if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault()
+          if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault();
         }}
         onDrop={(event) => {
-          const payload = readPhraseDragData(event.dataTransfer!)
-          if (!payload) return
-          event.preventDefault()
-          props.applyPhrase(props.name, payload.phrase)
+          const payload = readPhraseDragData(event.dataTransfer!);
+          if (!payload) return;
+          event.preventDefault();
+          props.applyPhrase(props.name, payload.phrase);
         }}
       />
     </form>
-  )
+  );
 }

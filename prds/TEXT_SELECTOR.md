@@ -12,7 +12,7 @@ that says "Text 1"/"Text 2" means the selected loader's pair.
 
 Today `apps/text-selector` is two bare `<TextInput>`s bound to `text1` / `text2`
 ([App.tsx](../apps/text-selector/src/App.tsx)). Every keystroke goes to TD, and every phrase must be
-retyped. The operator's real workflow is *recall*, not composition: the same phrases get sent over
+retyped. The operator's real workflow is _recall_, not composition: the same phrases get sent over
 and over, in a live setting where a half-typed word must never reach the render.
 
 ## Goals
@@ -25,7 +25,7 @@ and over, in a live setting where a half-typed word must never reach the render.
 
 - Syncing the phrase library to TD — the library never reaches the WebSocket wire (see
   [§5](#5-storage) for where it does live: a local SQLite file, not TD).
-- Dragging phrases *between* tabs (tabs are not drop targets for phrases).
+- Dragging phrases _between_ tabs (tabs are not drop targets for phrases).
 - Multi-instance / video. This app talks to one TD instance and sends two strings.
 - A keyboard equivalent for drag-reordering (see [Accessibility](#accessibility)).
 
@@ -127,9 +127,9 @@ the form is open** — it's a toggle, not a one-way reveal. Rules:
 **Phrase row** — a full-width draggable button showing the phrase, with an `×` delete pinned to the
 row's **trailing (right) edge**.
 
-- **Click → commits to Text 1** immediately: sets the input *and* sends the TD `update` in one
+- **Click → commits to Text 1** immediately: sets the input _and_ sends the TD `update` in one
   action, and pushes onto the recent list. Phrase buttons are one-click triggers, not fillers.
-- **Drag → drop on Text 1 or Text 2** commits to *that* input, same as a click.
+- **Drag → drop on Text 1 or Text 2** commits to _that_ input, same as a click.
 - **`×` deletes** the phrase from this tab. No confirm — a single phrase is cheap to retype, and a
   confirm on every row would be noise.
 - **Drag-reorder** within the list, with a drop-indicator line at the insertion point.
@@ -147,21 +147,24 @@ added phrases still land at the top. One order per list, always. Sort is case-in
 Every drag sets two payloads:
 
 ```ts
-dataTransfer.setData('text/plain', phrase)                    // interop / debuggability
-dataTransfer.setData('application/x-td-phrase', JSON.stringify({
-  phrase,
-  source: 'list' | 'recent',
-  tabId,          // null for recent
-  index,          // null for recent
-}))
+dataTransfer.setData('text/plain', phrase); // interop / debuggability
+dataTransfer.setData(
+  'application/x-td-phrase',
+  JSON.stringify({
+    phrase,
+    source: 'list' | 'recent',
+    tabId, // null for recent
+    index, // null for recent
+  }),
+);
 ```
 
 Two drop targets, both keyed on the **custom mime**, not `text/plain`:
 
-| Target | Behaviour |
-|---|---|
-| A text input | `preventDefault()` on `dragover`/`drop` (suppressing the browser's default text-insert) → commit the phrase to that input. |
-| A phrase row / list gap | Reorder within the source tab. A drop whose `tabId` isn't the active tab is rejected (no cross-tab moves in v1). |
+| Target                  | Behaviour                                                                                                                  |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| A text input            | `preventDefault()` on `dragover`/`drop` (suppressing the browser's default text-insert) → commit the phrase to that input. |
+| A phrase row / list gap | Reorder within the source tab. A drop whose `tabId` isn't the active tab is rejected (no cross-tab moves in v1).           |
 
 Requiring `application/x-td-phrase` means text dragged in from outside the app (a browser selection,
 another window) is simply not accepted — an external drop can't silently fire a TD update.
@@ -171,13 +174,13 @@ Reorder index is computed from the pointer's position against each row's vertica
 
 ## 5. Storage
 
-Storage is split by what the data *is*, not kept in one blob:
+Storage is split by what the data _is_, not kept in one blob:
 
-| Data | Home | Why |
-|---|---|---|
-| `tabs` (id, name, phrases, order) | SQLite | curated library content — inspectable, backup-able, survives a browser profile wipe |
-| `recent` | SQLite | committed phrase content, just auto-collected rather than hand-curated |
-| `activeTabId` | `localStorage` (`td-web-gui:text-selector:ui`) | a per-browser UI preference, not library content |
+| Data                              | Home                                           | Why                                                                                 |
+| --------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `tabs` (id, name, phrases, order) | SQLite                                         | curated library content — inspectable, backup-able, survives a browser profile wipe |
+| `recent`                          | SQLite                                         | committed phrase content, just auto-collected rather than hand-curated              |
+| `activeTabId`                     | `localStorage` (`td-web-gui:text-selector:ui`) | a per-browser UI preference, not library content                                    |
 
 ### Library — SQLite via `/api/library`
 
@@ -219,7 +222,7 @@ CREATE TABLE recent (
   session (its next successful write catches the database back up).
 - **Known limitation:** two browser tabs open on the app each hold their own in-memory store, so the
   last debounced write wins. Unchanged from the localStorage version, just worth restating now that
-  "last write wins" means *across* tabs/windows, not just within one.
+  "last write wins" means _across_ tabs/windows, not just within one.
 
 ### UI state — `localStorage`
 
@@ -239,15 +242,15 @@ It gains a commit mode, and this app is the first consumer.
 
 ```ts
 export interface TextInputProps {
-  name: string
+  name: string;
   /** When the local value is written to the bound signal and sent to TD. Default: 'input'. */
-  commitOn?: 'input' | 'enter'
+  commitOn?: 'input' | 'enter';
   /** Render a `<textarea>`, carrying line breaks to TD as the `\n` escape. */
-  multiline?: boolean
+  multiline?: boolean;
   /** Visible rows; `multiline` only. */
-  rows?: number
+  rows?: number;
   /** Fired on each committed value (including via form submit / blur), with real newlines. */
-  onCommit?: (value: string) => void
+  onCommit?: (value: string) => void;
 }
 ```
 
@@ -271,7 +274,7 @@ export interface TextInputProps {
   [TECH_PROPOSAL.md § Multi-line text](TECH_PROPOSAL.md#multi-line-text) for why the translation is
   per-component rather than applied to every string param.
 
-`TECH_PROPOSAL.md` gets a short *Text commit modes* entry under **Behavioral Decisions** recording
+`TECH_PROPOSAL.md` gets a short _Text commit modes_ entry under **Behavioral Decisions** recording
 the default and the blur/Escape rules, and `TASKS.md` gains the corresponding task.
 
 ## Accessibility

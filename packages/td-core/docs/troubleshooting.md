@@ -78,7 +78,7 @@ Everything else syncs; one name doesn't.
 
 **Textport: `operator '...' not found - REGISTRY paths should be absolute`**
 
-A registry `op` is missing its leading `/`. These lookups run from *inside* the
+A registry `op` is missing its leading `/`. These lookups run from _inside_ the
 WebGuiServer component, so a bare name resolves against the component rather than
 your project.
 
@@ -96,11 +96,11 @@ A `number[]` entry names a component instead of the group. Write `Color`, not
 
 The value doesn't fit the registry entry's declared type. The message says which:
 
-- *"expected a number, got …"* — the registry says `number`, the schema says
+- _"expected a number, got …"_ — the registry says `number`, the schema says
   something else.
-- *"expects N components, got M"* — a `number[]` array-length mismatch. The
+- _"expects N components, got M"_ — a `number[]` array-length mismatch. The
   ParGroup has N components; the web sent M.
-- *"has no menu key 'x' - TD offers: …"* — `<Select options>` has drifted from
+- _"has no menu key 'x' - TD offers: …"_ — `<Select options>` has drifted from
   TD's actual menu. The message lists the real keys.
 
 **Error `param_not_writable`, and the control goes disabled**
@@ -114,7 +114,7 @@ control from then on.
 parameter would permanently detach its expression, not merely fail. See
 [design-notes.md § Parameter modes](design-notes.md#parameter-modes).
 
-If you *want* the web to drive it, switch the parameter to `CONSTANT` in TD, or
+If you _want_ the web to drive it, switch the parameter to `CONSTANT` in TD, or
 author the control as a `<Value>` readout instead.
 
 **Error `unknown_param`**
@@ -168,7 +168,7 @@ parameter.
 
 **The list is stale after plugging in hardware.**
 
-Expected. Menu *contents* changing raises no TouchDesigner callback — an open
+Expected. Menu _contents_ changing raises no TouchDesigner callback — an open
 Derivative bug. Add a button calling `connection.requestMenus()`, or poll from
 TD. See [design-notes.md § Refreshing a stale menu](design-notes.md#refreshing-a-stale-menu).
 
@@ -176,7 +176,7 @@ TD. See [design-notes.md § Refreshing a stale menu](design-notes.md#refreshing-
 
 TD's current value has no matching option — a device unplugged while selected, or
 web-authored options that have drifted. Shown rather than dropped, because a
-`<select>` asked to hold a value it doesn't have would display some *other*
+`<select>` asked to hold a value it doesn't have would display some _other_
 option as though the user had chosen it.
 
 ## Video
@@ -190,10 +190,10 @@ The provider didn't opt into video. Pass `video` to it.
 The classic case. In order of likelihood:
 
 1. **`Mode` on the Video Stream Out TOP isn't `WebRTC`.** The callbacks warn in
-   the textport: *"Mode is 'x', not 'webrtc'; it will negotiate but send no
-   video"*.
+   the textport: _"Mode is 'x', not 'webrtc'; it will negotiate but send no
+   video"_.
 2. **The TOP has no input**, or its input isn't cooking.
-3. **`STREAMS` paths are wrong.** Textport: *"stream 'x' has no TOP at '…'"*.
+3. **`STREAMS` paths are wrong.** Textport: _"stream 'x' has no TOP at '…'"_.
 4. **No NVIDIA GPU, or not on Windows.** The Video Stream Out TOP requires
    NVIDIA's hardware encoder. There is no software fallback.
 5. **Over 8 encoder sessions on a GeForce card.** That's a hard per-system limit.
@@ -204,7 +204,7 @@ more informative than `status()`.
 
 **Fewer tiles than expected.**
 
-Textport: *"N stream(s) configured but the SDP carries M video m-line(s)"*. An
+Textport: _"N stream(s) configured but the SDP carries M video m-line(s)"_. An
 answerer cannot add m-lines, so `receivers` on the web side is the ceiling. Raise
 it to at least your `STREAMS` count:
 

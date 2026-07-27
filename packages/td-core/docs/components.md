@@ -45,22 +45,22 @@ always wins over both.
 
 **Unknown props pass through.** Everything not listed below is spread onto the
 underlying element, so `class`, `id`, `aria-*`, `style`, `placeholder`, and the
-rest work normally. Event handlers you pass are called *in addition* to the
+rest work normally. Event handlers you pass are called _in addition_ to the
 component's own — yours never replaces the binding logic.
 
 ## Which component for which parameter
 
-| TouchDesigner parameter | Wire type | Component |
-|---|---|---|
-| String | `string` | [`<TextInput>`](#textinput) |
-| Float / Int | `number` | [`<NumberInput>`](#numberinput), [`<RangeInput>`](#rangeinput) |
-| Toggle | `bool` | [`<Toggle>`](#toggle), [`<Button mode="toggle">`](#button) |
-| Pulse | — | [`<Button mode="pulse">`](#button) |
-| Menu | `string` | [`<Select>`](#select) |
-| XYZ / UV / WH ParGroup | `number[]` | [`<Vector>`](#vector) |
-| RGB / RGBA ParGroup | `number[]` | [`<Color>`](#color) |
-| any (read-only) | any | [`<Value>`](#value) |
-| Video Stream Out TOP | — | [`<Video>`](#video) |
+| TouchDesigner parameter | Wire type  | Component                                                      |
+| ----------------------- | ---------- | -------------------------------------------------------------- |
+| String                  | `string`   | [`<TextInput>`](#textinput)                                    |
+| Float / Int             | `number`   | [`<NumberInput>`](#numberinput), [`<RangeInput>`](#rangeinput) |
+| Toggle                  | `bool`     | [`<Toggle>`](#toggle), [`<Button mode="toggle">`](#button)     |
+| Pulse                   | —          | [`<Button mode="pulse">`](#button)                             |
+| Menu                    | `string`   | [`<Select>`](#select)                                          |
+| XYZ / UV / WH ParGroup  | `number[]` | [`<Vector>`](#vector)                                          |
+| RGB / RGBA ParGroup     | `number[]` | [`<Color>`](#color)                                            |
+| any (read-only)         | any        | [`<Value>`](#value)                                            |
+| Video Stream Out TOP    | —          | [`<Video>`](#video)                                            |
 
 ---
 
@@ -69,13 +69,13 @@ component's own — yours never replaces the binding logic.
 Renders `<input type="text">`, or `<textarea>` with `multiline`. Binds a
 `string` parameter.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | — | Parameter to bind. |
-| `commitOn` | `'input' \| 'enter'` | `'input'` | When the value reaches the wire. |
-| `multiline` | `boolean` | `false` | Render a `<textarea>` and translate line breaks. |
-| `rows` | `number` | — | Visible rows. `multiline` only. |
-| `onCommit` | `(value: string) => void` | — | Fired on each committed value, with real newlines. |
+| Prop        | Type                      | Default   | Description                                        |
+| ----------- | ------------------------- | --------- | -------------------------------------------------- |
+| `name`      | `string`                  | —         | Parameter to bind.                                 |
+| `commitOn`  | `'input' \| 'enter'`      | `'input'` | When the value reaches the wire.                   |
+| `multiline` | `boolean`                 | `false`   | Render a `<textarea>` and translate line breaks.   |
+| `rows`      | `number`                  | —         | Visible rows. `multiline` only.                    |
+| `onCommit`  | `(value: string) => void` | —         | Fired on each committed value, with real newlines. |
 
 **`commitOn="input"`** sends on every keystroke. Right for a live text overlay.
 
@@ -111,11 +111,11 @@ If you write such a parameter through `signal()` directly, the
 
 Renders `<input type="number">`. Binds a `number` parameter.
 
-| Prop | Type | Description |
-|---|---|---|
-| `name` | `string` | Parameter to bind. |
-| `min` / `max` | `number` | Clamped before sending. |
-| `step` | `number \| string` | Passed to the input. |
+| Prop          | Type               | Description             |
+| ------------- | ------------------ | ----------------------- |
+| `name`        | `string`           | Parameter to bind.      |
+| `min` / `max` | `number`           | Clamped before sending. |
+| `step`        | `number \| string` | Passed to the input.    |
 
 Never sends `NaN`. While the field is empty or unparseable it holds the last
 valid value and sends nothing, so TD keeps showing the last good number. On blur
@@ -131,11 +131,11 @@ value sent but never fights your cursor.
 
 Renders `<input type="range">`. Binds a `number` parameter.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | — | Parameter to bind. |
-| `min` / `max` / `step` | `number \| string` | — | Passed to the input. |
-| `throttle` | `boolean` | `true` | Coalesce sends to one per animation frame. |
+| Prop                   | Type               | Default | Description                                |
+| ---------------------- | ------------------ | ------- | ------------------------------------------ |
+| `name`                 | `string`           | —       | Parameter to bind.                         |
+| `min` / `max` / `step` | `number \| string` | —       | Passed to the input.                       |
+| `throttle`             | `boolean`          | `true`  | Coalesce sends to one per animation frame. |
 
 Sliders are high-frequency, so wire sends are **throttled by default**: the
 optimistic local write is still immediate (the thumb and any bound `<Value>`
@@ -159,9 +159,9 @@ plus passthrough props.
 
 Renders `<button type="button">`. One component, three distinct wire behaviors.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | — | Parameter to bind. |
+| Prop   | Type                            | Default   | Description                                           |
+| ------ | ------------------------------- | --------- | ----------------------------------------------------- |
+| `name` | `string`                        | —         | Parameter to bind.                                    |
 | `mode` | `'pulse' \| 'hold' \| 'toggle'` | `'pulse'` | Wire behavior. Read once at setup; remount to change. |
 
 ```tsx
@@ -202,23 +202,26 @@ Renders `<select>`. Binds a `string` parameter backed by a TD **Menu**. The wire
 value is the menu's string **key**, which survives TD-side menu reordering where
 an index wouldn't.
 
-| Prop | Type | Description |
-|---|---|---|
-| `name` | `string` | Parameter to bind. |
+| Prop      | Type                 | Description                                            |
+| --------- | -------------------- | ------------------------------------------------------ |
+| `name`    | `string`             | Parameter to bind.                                     |
 | `options` | `{ value, label }[]` | Web-authored options. Omit to use TD's announced menu. |
 
 **With `options`** — the default. You author the list; keeping it in sync with
 TD's menu is your job, exactly like the typed schema itself.
 
 ```tsx
-<App.Select name="blendmode" options={[
-  { value: 'over', label: 'Over' },
-  { value: 'add',  label: 'Add' },
-]} />
+<App.Select
+  name="blendmode"
+  options={[
+    { value: 'over', label: 'Over' },
+    { value: 'add', label: 'Add' },
+  ]}
+/>
 ```
 
 **Without `options`** — the dropdown builds itself from the menu TD announces.
-This exists for menus that genuinely *cannot* be authored ahead of time. An
+This exists for menus that genuinely _cannot_ be authored ahead of time. An
 Audio Device In CHOP's `device` menu is the motivating case: the keys are
 machine-specific GUIDs and the list changes when hardware is plugged in.
 
@@ -230,7 +233,7 @@ machine-specific GUIDs and the list changes when hardware is plugged in.
 The prop always wins when both exist, so adding announcements to a TD project
 can never change what an existing `<Select>` renders.
 
-**Refreshing.** Menu *contents* changing raises no TouchDesigner event, so
+**Refreshing.** Menu _contents_ changing raises no TouchDesigner event, so
 something has to look again — hence the reload button calling
 [`requestMenus()`](api.md#connection). See
 [design-notes.md § TD-announced menus](design-notes.md#td-announced-menus) for
@@ -239,7 +242,7 @@ the full story, including a route that looks like it should work and doesn't.
 **A value with no matching option** — a device unplugged while selected, or
 web-authored options that have drifted — renders as a disabled
 `"<key> (unavailable)"` entry rather than being dropped. A `<select>` asked to
-hold a value it doesn't have displays some *other* option instead, which would
+hold a value it doesn't have displays some _other_ option instead, which would
 misreport TD's state as though the user had chosen it.
 
 ---
@@ -249,13 +252,13 @@ misreport TD's state as though the user had chosen it.
 Renders a `<div>` of numeric inputs. Binds a multi-component `number[]` ParGroup
 — XYZ position, UV, size. The generic case of the array wire shape.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | — | Parameter to bind. |
-| `length` | `number` | `3` | Component count. Ignored if `labels` is given. |
-| `labels` | `string[]` | `['0', '1', …]` | Per-component labels; its length sets the count. |
-| `min` / `max` / `step` | `number \| string` | — | Applied to every sub-input. |
-| `throttle` | `boolean` | `true` | Coalesce sends to one per animation frame. |
+| Prop                   | Type               | Default         | Description                                      |
+| ---------------------- | ------------------ | --------------- | ------------------------------------------------ |
+| `name`                 | `string`           | —               | Parameter to bind.                               |
+| `length`               | `number`           | `3`             | Component count. Ignored if `labels` is given.   |
+| `labels`               | `string[]`         | `['0', '1', …]` | Per-component labels; its length sets the count. |
+| `min` / `max` / `step` | `number \| string` | —               | Applied to every sub-input.                      |
+| `throttle`             | `boolean`          | `true`          | Coalesce sends to one per animation frame.       |
 
 ```tsx
 <App.Vector name="position" labels={['x', 'y', 'z']} step={0.01} />
@@ -274,11 +277,11 @@ Renders a native `<input type="color">`, plus a 0–1 range slider when `alpha` 
 set (the color input has no native alpha channel). Binds a `[r,g,b]` or
 `[r,g,b,a]` array of 0–1 floats, matching TD's color pars.
 
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | — | Parameter to bind. |
-| `alpha` | `boolean` | `false` | Render a fourth channel; wire array becomes `[r,g,b,a]`. |
-| `throttle` | `boolean` | `true` | Coalesce sends to one per animation frame. |
+| Prop       | Type      | Default | Description                                              |
+| ---------- | --------- | ------- | -------------------------------------------------------- |
+| `name`     | `string`  | —       | Parameter to bind.                                       |
+| `alpha`    | `boolean` | `false` | Render a fourth channel; wire array becomes `[r,g,b,a]`. |
+| `throttle` | `boolean` | `true`  | Coalesce sends to one per animation frame.               |
 
 The native color input is 8-bit per channel, so values round-trip through hex.
 For higher precision use `<Vector name="color" length={4} min={0} max={1} />`.
@@ -290,9 +293,9 @@ For higher precision use `<Vector name="color" length={4} min={0} max={1} />`.
 Renders a `<span>`. Read-only readout of any parameter — subscribes to inbound
 updates, never sends, never participates in focus/echo logic.
 
-| Prop | Type | Description |
-|---|---|---|
-| `name` | `string` | Parameter to read. |
+| Prop     | Type                            | Description                                |
+| -------- | ------------------------------- | ------------------------------------------ |
+| `name`   | `string`                        | Parameter to read.                         |
 | `format` | `(value: ParamValue) => string` | Display formatter. Receives the raw value. |
 
 ```tsx
@@ -310,14 +313,14 @@ as a readout means it never even produces an error.
 Renders a `<video>`. Requires `video` on the `<Provider>`; without it, it throws
 a pointed error rather than rendering black.
 
-| Prop | Type | Description |
-|---|---|---|
+| Prop     | Type     | Description                                       |
+| -------- | -------- | ------------------------------------------------- |
 | `stream` | `string` | Announced stream id. Omit for the primary stream. |
 
 ```tsx
 <App.Provider url={url} video={{ receivers: 8 }}>
-  <App.Video />                  {/* the primary stream */}
-  <App.Video stream="tile3" />   {/* selected by announced id */}
+  <App.Video /> {/* the primary stream */}
+  <App.Video stream="tile3" /> {/* selected by announced id */}
 </App.Provider>
 ```
 
@@ -326,7 +329,7 @@ legal without a user gesture** — an unmuted stream silently never starts. All
 three are overridable through props if you add audio later, which would then need
 a user-gesture unmute.
 
-Several `<Video>` on the same id are handed the *same* `MediaStream`, so the
+Several `<Video>` on the same id are handed the _same_ `MediaStream`, so the
 browser decodes it once no matter how many tiles show it — a wall tile and a
 detail pane cost one decode.
 
@@ -339,18 +342,18 @@ overlays see [`useVideo()`](api.md#video).
 `td-core` ships **zero CSS**. Every component renders bare HTML with a stable
 class hook and passes through `class`, `style`, and everything else.
 
-| Component | Class |
-|---|---|
-| `<TextInput>` | `.td-text-input` |
-| `<NumberInput>` | `.td-number-input` |
-| `<RangeInput>` | `.td-range-input` |
-| `<Toggle>` | `.td-toggle` |
-| `<Button>` | `.td-button` plus `.td-button-pulse` / `-hold` / `-toggle` |
-| `<Select>` | `.td-select` |
-| `<Vector>` | `.td-vector`, sub-inputs `.td-vector-input` |
-| `<Color>` | `.td-color`, `.td-color-rgb`, `.td-color-alpha` |
-| `<Value>` | `.td-value` |
-| `<Video>` | `.td-video` |
+| Component       | Class                                                      |
+| --------------- | ---------------------------------------------------------- |
+| `<TextInput>`   | `.td-text-input`                                           |
+| `<NumberInput>` | `.td-number-input`                                         |
+| `<RangeInput>`  | `.td-range-input`                                          |
+| `<Toggle>`      | `.td-toggle`                                               |
+| `<Button>`      | `.td-button` plus `.td-button-pulse` / `-hold` / `-toggle` |
+| `<Select>`      | `.td-select`                                               |
+| `<Vector>`      | `.td-vector`, sub-inputs `.td-vector-input`                |
+| `<Color>`       | `.td-color`, `.td-color-rgb`, `.td-color-alpha`            |
+| `<Value>`       | `.td-value`                                                |
+| `<Video>`       | `.td-video`                                                |
 
 **A `class` prop replaces the hook rather than adding to it.** Passthrough props
 are spread after the default `class`, so `<App.Toggle name="x" class="mine" />`

@@ -15,25 +15,25 @@
  * applied here within a single param.
  */
 
-import { createEffect, Index, splitProps, type JSX } from 'solid-js'
-import { createTDSignal } from '../context'
+import { createEffect, Index, splitProps, type JSX } from 'solid-js';
+import { createTDSignal } from '../context';
 
 export interface VectorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'children'> {
   /** TD parameter name to bind. */
-  name: string
+  name: string;
   /** Component count. Ignored if `labels` is given. Default 3. */
-  length?: number
+  length?: number;
   /** Per-component labels (also sets the count); default `['0', '1', ...]`. */
-  labels?: string[]
-  min?: number
-  max?: number
-  step?: number | string
+  labels?: string[];
+  min?: number;
+  max?: number;
+  step?: number | string;
   /** rAF-coalesce outbound sends. Default `true`. */
-  throttle?: boolean
+  throttle?: boolean;
 }
 
 export function Vector(props: VectorProps): JSX.Element {
-  const binding = createTDSignal<number[]>(props.name)
+  const binding = createTDSignal<number[]>(props.name);
   const [, rest] = splitProps(props, [
     'name',
     'length',
@@ -42,36 +42,36 @@ export function Vector(props: VectorProps): JSX.Element {
     'max',
     'step',
     'throttle',
-  ])
+  ]);
 
   const labels = (): string[] =>
-    props.labels ?? Array.from({ length: props.length ?? 3 }, (_, i) => String(i))
+    props.labels ?? Array.from({ length: props.length ?? 3 }, (_, i) => String(i));
 
   const clamp = (n: number): number => {
-    let out = n
-    if (props.min !== undefined) out = Math.max(props.min, out)
-    if (props.max !== undefined) out = Math.min(props.max, out)
-    return out
-  }
+    let out = n;
+    if (props.min !== undefined) out = Math.max(props.min, out);
+    if (props.max !== undefined) out = Math.min(props.max, out);
+    return out;
+  };
 
-  const refs: (HTMLInputElement | undefined)[] = []
+  const refs: (HTMLInputElement | undefined)[] = [];
 
   // Reflect TD-side changes into each field, but never while it's being edited.
   createEffect(() => {
-    const value = binding.value()
+    const value = binding.value();
     labels().forEach((_, index) => {
-      const el = refs[index]
+      const el = refs[index];
       if (el && document.activeElement !== el) {
-        el.value = value?.[index] === undefined ? '' : String(value[index])
+        el.value = value?.[index] === undefined ? '' : String(value[index]);
       }
-    })
-  })
+    });
+  });
 
   function commit(index: number, parsed: number) {
-    const current = binding.value() ?? labels().map(() => 0)
-    const next = current.slice()
-    next[index] = clamp(parsed)
-    binding.setValue(next, { throttle: props.throttle !== false })
+    const current = binding.value() ?? labels().map(() => 0);
+    const next = current.slice();
+    next[index] = clamp(parsed);
+    binding.setValue(next, { throttle: props.throttle !== false });
   }
 
   return (
@@ -91,22 +91,22 @@ export function Vector(props: VectorProps): JSX.Element {
             aria-label={label()}
             disabled={binding.readonly()}
             onInput={(event) => {
-              const raw = event.currentTarget.value
-              if (raw.trim() === '') return // hold last valid, send nothing
-              const parsed = Number(raw)
-              if (Number.isNaN(parsed)) return // never send NaN
-              commit(index, parsed)
+              const raw = event.currentTarget.value;
+              if (raw.trim() === '') return; // hold last valid, send nothing
+              const parsed = Number(raw);
+              if (Number.isNaN(parsed)) return; // never send NaN
+              commit(index, parsed);
             }}
             onFocus={() => binding.beginEdit()}
             onBlur={(event) => {
-              binding.endEdit()
+              binding.endEdit();
               // Snap the display back to the signal's current (last valid) value.
-              const value = binding.value()
-              event.currentTarget.value = value?.[index] === undefined ? '' : String(value[index])
+              const value = binding.value();
+              event.currentTarget.value = value?.[index] === undefined ? '' : String(value[index]);
             }}
           />
         )}
       </Index>
     </div>
-  )
+  );
 }

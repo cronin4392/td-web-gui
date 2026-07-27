@@ -15,21 +15,23 @@
  * while the field is not the active element (echo suppression handles the rest).
  */
 
-import { createEffect, splitProps, type JSX } from 'solid-js'
-import { createTDSignal } from '../context'
-import { callHandler } from './TextInput'
+import { createEffect, splitProps, type JSX } from 'solid-js';
+import { createTDSignal } from '../context';
+import { callHandler } from './TextInput';
 
-export interface NumberInputProps
-  extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'name' | 'value' | 'type'> {
+export interface NumberInputProps extends Omit<
+  JSX.InputHTMLAttributes<HTMLInputElement>,
+  'name' | 'value' | 'type'
+> {
   /** TD parameter name to bind. */
-  name: string
-  min?: number
-  max?: number
-  step?: number | string
+  name: string;
+  min?: number;
+  max?: number;
+  step?: number | string;
 }
 
 export function NumberInput(props: NumberInputProps): JSX.Element {
-  const binding = createTDSignal<number>(props.name)
+  const binding = createTDSignal<number>(props.name);
   const [, rest] = splitProps(props, [
     'name',
     'min',
@@ -38,24 +40,24 @@ export function NumberInput(props: NumberInputProps): JSX.Element {
     'onInput',
     'onFocus',
     'onBlur',
-  ])
+  ]);
 
-  let inputRef!: HTMLInputElement
+  let inputRef!: HTMLInputElement;
 
   const clamp = (n: number): number => {
-    let out = n
-    if (props.min !== undefined) out = Math.max(props.min, out)
-    if (props.max !== undefined) out = Math.min(props.max, out)
-    return out
-  }
+    let out = n;
+    if (props.min !== undefined) out = Math.max(props.min, out);
+    if (props.max !== undefined) out = Math.min(props.max, out);
+    return out;
+  };
 
   // Reflect TD-side changes into the field, but never while it's being edited.
   createEffect(() => {
-    const value = binding.value()
+    const value = binding.value();
     if (inputRef && document.activeElement !== inputRef) {
-      inputRef.value = value === undefined ? '' : String(value)
+      inputRef.value = value === undefined ? '' : String(value);
     }
-  })
+  });
 
   return (
     <input
@@ -68,25 +70,25 @@ export function NumberInput(props: NumberInputProps): JSX.Element {
       {...rest}
       disabled={props.disabled ?? binding.readonly()}
       onInput={(event) => {
-        const raw = event.currentTarget.value
+        const raw = event.currentTarget.value;
         // Empty or unparseable mid-edit: hold last valid value, send nothing.
         if (raw.trim() !== '') {
-          const parsed = Number(raw)
-          if (!Number.isNaN(parsed)) binding.setValue(clamp(parsed))
+          const parsed = Number(raw);
+          if (!Number.isNaN(parsed)) binding.setValue(clamp(parsed));
         }
-        callHandler(props.onInput, event)
+        callHandler(props.onInput, event);
       }}
       onFocus={(event) => {
-        binding.beginEdit()
-        callHandler(props.onFocus, event)
+        binding.beginEdit();
+        callHandler(props.onFocus, event);
       }}
       onBlur={(event) => {
-        binding.endEdit()
+        binding.endEdit();
         // Snap the display back to the signal's current (last valid) value.
-        const value = binding.value()
-        inputRef.value = value === undefined ? '' : String(value)
-        callHandler(props.onBlur, event)
+        const value = binding.value();
+        inputRef.value = value === undefined ? '' : String(value);
+        callHandler(props.onBlur, event);
       }}
     />
-  )
+  );
 }

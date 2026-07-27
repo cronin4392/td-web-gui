@@ -29,23 +29,25 @@
  * the same way.
  */
 
-import { onCleanup, onMount, splitProps, type JSX } from 'solid-js'
-import { createTDSignal, useTDConnection } from '../context'
-import { callHandler } from './TextInput'
+import { onCleanup, onMount, splitProps, type JSX } from 'solid-js';
+import { createTDSignal, useTDConnection } from '../context';
+import { callHandler } from './TextInput';
 
-export interface ButtonProps
-  extends Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'name' | 'type'> {
+export interface ButtonProps extends Omit<
+  JSX.ButtonHTMLAttributes<HTMLButtonElement>,
+  'name' | 'type'
+> {
   /** TD parameter name to bind (pulse param for `mode="pulse"`, bool otherwise). */
-  name: string
+  name: string;
   /**
    * Default `'pulse'`. Read once at setup (like `commitOn`/`multiline` on
    * `<TextInput>`); remount to change it.
    */
-  mode?: 'pulse' | 'hold' | 'toggle'
+  mode?: 'pulse' | 'hold' | 'toggle';
 }
 
 export function Button(props: ButtonProps): JSX.Element {
-  const mode = props.mode ?? 'pulse'
+  const mode = props.mode ?? 'pulse';
   const [, rest] = splitProps(props, [
     'name',
     'mode',
@@ -57,27 +59,27 @@ export function Button(props: ButtonProps): JSX.Element {
     'onLostPointerCapture',
     'onKeyDown',
     'onKeyUp',
-  ])
+  ]);
 
   if (mode === 'pulse') {
-    const connection = useTDConnection()
+    const connection = useTDConnection();
     return (
       <button
         type="button"
         class="td-button td-button-pulse"
         {...rest}
         onClick={(event) => {
-          connection.pulse(props.name)
-          callHandler(props.onClick, event)
+          connection.pulse(props.name);
+          callHandler(props.onClick, event);
         }}
       >
         {props.children}
       </button>
-    )
+    );
   }
 
   if (mode === 'toggle') {
-    const binding = createTDSignal<boolean>(props.name)
+    const binding = createTDSignal<boolean>(props.name);
     return (
       <button
         type="button"
@@ -86,37 +88,37 @@ export function Button(props: ButtonProps): JSX.Element {
         {...rest}
         disabled={props.disabled ?? binding.readonly()}
         onClick={(event) => {
-          binding.setValue(!(binding.value() ?? false))
-          callHandler(props.onClick, event)
+          binding.setValue(!(binding.value() ?? false));
+          callHandler(props.onClick, event);
         }}
       >
         {props.children}
       </button>
-    )
+    );
   }
 
   // mode === 'hold'
-  const binding = createTDSignal<boolean>(props.name)
-  let isPressed = false
+  const binding = createTDSignal<boolean>(props.name);
+  let isPressed = false;
 
   function press() {
-    if (isPressed) return
-    isPressed = true
-    binding.beginEdit()
-    binding.setValue(true)
+    if (isPressed) return;
+    isPressed = true;
+    binding.beginEdit();
+    binding.setValue(true);
   }
   function release() {
-    if (!isPressed) return
-    isPressed = false
-    binding.endEdit()
-    binding.setValue(false)
+    if (!isPressed) return;
+    isPressed = false;
+    binding.endEdit();
+    binding.setValue(false);
   }
 
   onMount(() => {
-    const handleWindowBlur = () => release()
-    window.addEventListener('blur', handleWindowBlur)
-    onCleanup(() => window.removeEventListener('blur', handleWindowBlur))
-  })
+    const handleWindowBlur = () => release();
+    window.addEventListener('blur', handleWindowBlur);
+    onCleanup(() => window.removeEventListener('blur', handleWindowBlur));
+  });
 
   return (
     <button
@@ -126,35 +128,35 @@ export function Button(props: ButtonProps): JSX.Element {
       {...rest}
       disabled={props.disabled ?? binding.readonly()}
       onPointerDown={(event) => {
-        event.currentTarget.setPointerCapture(event.pointerId)
-        press()
-        callHandler(props.onPointerDown, event)
+        event.currentTarget.setPointerCapture(event.pointerId);
+        press();
+        callHandler(props.onPointerDown, event);
       }}
       onPointerUp={(event) => {
-        release()
-        callHandler(props.onPointerUp, event)
+        release();
+        callHandler(props.onPointerUp, event);
       }}
       onPointerCancel={(event) => {
-        release()
-        callHandler(props.onPointerCancel, event)
+        release();
+        callHandler(props.onPointerCancel, event);
       }}
       onLostPointerCapture={(event) => {
-        release()
-        callHandler(props.onLostPointerCapture, event)
+        release();
+        callHandler(props.onLostPointerCapture, event);
       }}
       onKeyDown={(event) => {
         if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) {
-          event.preventDefault()
-          press()
+          event.preventDefault();
+          press();
         }
-        callHandler(props.onKeyDown, event)
+        callHandler(props.onKeyDown, event);
       }}
       onKeyUp={(event) => {
-        if (event.key === ' ' || event.key === 'Enter') release()
-        callHandler(props.onKeyUp, event)
+        if (event.key === ' ' || event.key === 'Enter') release();
+        callHandler(props.onKeyUp, event);
       }}
     >
       {props.children}
     </button>
-  )
+  );
 }

@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
-import solid from 'vite-plugin-solid'
-import tailwindcss from '@tailwindcss/vite'
-import { vjGuiDbPlugin } from './server/plugin'
+import { defineConfig } from 'vite';
+import solid from 'vite-plugin-solid';
+import tailwindcss from '@tailwindcss/vite';
+import { vjGuiDbPlugin } from './server/plugin';
 
 export default defineConfig({
   plugins: [solid(), tailwindcss(), vjGuiDbPlugin()],
@@ -11,4 +11,4 @@ export default defineConfig({
     // file changes and force-reloads the page after every edit.
     watch: { ignored: ['**/data/**'] },
   },
-})
+});

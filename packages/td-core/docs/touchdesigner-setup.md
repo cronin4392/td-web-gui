@@ -71,12 +71,12 @@ which is what lets them be dropped in unchanged no matter where you put it.
 
 Add four custom parameters to the component:
 
-| Parameter | Name | Type | Purpose |
-|---|---|---|---|
-| Identifier | `Identifier` | String | Name reported to the web app in `welcome`. Advisory only — the web app's own config `id` wins. |
-| Port | `Port` | Int | The Web Server DAT's port. `9980` is the convention. |
-| Config File | `Configfile` | File | Path to your project's config `.py`. |
-| Td Core Dir | `Tdcoredir` | Folder | Absolute path to this package's `touchdesigner/` folder on this machine. The callbacks DATs sync against files in it, and the generated Parameter Execute DATs resolve `parameter-execute.py` inside it. Set once per checkout, so no file parameter depends on how deep your `.toe` sits relative to the package. |
+| Parameter   | Name         | Type   | Purpose                                                                                                                                                                                                                                                                                                            |
+| ----------- | ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Identifier  | `Identifier` | String | Name reported to the web app in `welcome`. Advisory only — the web app's own config `id` wins.                                                                                                                                                                                                                     |
+| Port        | `Port`       | Int    | The Web Server DAT's port. `9980` is the convention.                                                                                                                                                                                                                                                               |
+| Config File | `Configfile` | File   | Path to your project's config `.py`.                                                                                                                                                                                                                                                                               |
+| Td Core Dir | `Tdcoredir`  | Folder | Absolute path to this package's `touchdesigner/` folder on this machine. The callbacks DATs sync against files in it, and the generated Parameter Execute DATs resolve `parameter-execute.py` inside it. Set once per checkout, so no file parameter depends on how deep your `.toe` sits relative to the package. |
 
 ## 2. Add the DATs
 
@@ -112,12 +112,12 @@ names can't contain hyphens, so it won't literally be `webserver-callbacks`.
 
 **`webserver1`** — a **Web Server DAT**:
 
-| Parameter | Value |
-|---|---|
-| `Active` | On |
-| `Port` | `op.WebGuiServer.par.Port` |
-| `Local Address` | **`127.0.0.1`** |
-| `Callbacks DAT` | `webserver1_callbacks` |
+| Parameter       | Value                      |
+| --------------- | -------------------------- |
+| `Active`        | On                         |
+| `Port`          | `op.WebGuiServer.par.Port` |
+| `Local Address` | **`127.0.0.1`**            |
+| `Callbacks DAT` | `webserver1_callbacks`     |
 
 **Set `Local Address` deliberately.** Left blank, the Web Server DAT listens on
 **all** network interfaces — which means anything that can reach your machine
@@ -148,7 +148,7 @@ STREAMS = {}
 
 Four things to get right:
 
-**Paths are absolute.** These lookups run from *inside* `WebGuiServer`, so a
+**Paths are absolute.** These lookups run from _inside_ `WebGuiServer`, so a
 bare name resolves against the component rather than your project. Always start
 with `/`.
 
@@ -157,7 +157,7 @@ a custom par; `device` and `mode` are TD built-ins. Getting the case wrong is a
 silent no-op on the broadcast path.
 
 **`number[]` names the ParGroup, not a component.** Write `Color`, not `Colorr`.
-The ParGroup's component order *is* the array order on the wire.
+The ParGroup's component order _is_ the array order on the wire.
 
 **`pulse` is not a value.** Pulse entries are excluded from snapshots and are
 fired by the separate `pulse` message. Don't register a pulse par as `bool`.
@@ -174,23 +174,23 @@ made in TD — a bridge that looks half broken.
 
 On the component's **Extensions** page:
 
-| Field | Value |
-|---|---|
-| `Extension` (the sequence count) | **`1`** |
-| `Extension 1 Object` | `me.op('WebGuiServerExt').module.WebGuiServerExt(me)` |
-| `Extension 1 Name` | `WebGuiServerExt` |
-| `Promote Extension 1` | On |
+| Field                            | Value                                                 |
+| -------------------------------- | ----------------------------------------------------- |
+| `Extension` (the sequence count) | **`1`**                                               |
+| `Extension 1 Object`             | `me.op('WebGuiServerExt').module.WebGuiServerExt(me)` |
+| `Extension 1 Name`               | `WebGuiServerExt`                                     |
+| `Promote Extension 1`            | On                                                    |
 
 Then pulse `Re-Init Extensions`.
 
-Three of those are easy to get wrong, and all three fail *silently* — no error,
+Three of those are easy to get wrong, and all three fail _silently_ — no error,
 just an extension that never loads:
 
 - **The sequence count starts at `0`.** The `Extension 1` fields exist and accept
   values while zero blocks are active, so a fully filled-in page does nothing
   until you set the count to `1`.
 - **`me.op(...)`, not `op(...)`.** The Object field is evaluated with the
-  component's *parent* as context, so a bare `op('WebGuiServerExt')` looks
+  component's _parent_ as context, so a bare `op('WebGuiServerExt')` looks
   outside the component and resolves to `None`.
 - **The Name field is required.** Left blank, the extension is built but never
   registered, so nothing is promoted.
@@ -214,13 +214,13 @@ when nothing has changed writes nothing. It deliberately caches no "already
 built" state, because storage survives a TDN import that deletes children, and a
 remembered flag would outlive the DATs it described.
 
-Edits that arrive *from* the web flow through these DATs too — the callbacks set
+Edits that arrive _from_ the web flow through these DATs too — the callbacks set
 `par.val`, which fires them — so there is one broadcast path for both directions
 rather than two that can disagree.
 
 > **Why one DAT per operator.** A Parameter Execute DAT's `OPs` and `Parameters`
 > fields form a cross product, so a single DAT covering every operator watches
-> every registered parameter *name* on every one of them. Custom names rarely
+> every registered parameter _name_ on every one of them. Custom names rarely
 > collide across operators; built-in ones (`file`, `index`, `device`) collide
 > constantly, and `Built-In` is a per-DAT toggle. Splitting per operator keeps
 > each watch to exact pairs and scopes `Built-In` to the operators that need it.
@@ -230,18 +230,18 @@ rather than two that can disagree.
 Start your web app and watch TD's textport. A healthy connect logs nothing at
 all; every failure mode below prints a specific warning.
 
-| Symptom | Cause |
-|---|---|
-| `no global OP shortcut 'WebGuiServer'` | Step 1 — the shortcut isn't set. |
-| `WebGuiServer has no 'config' DAT` | The Text DAT isn't named exactly `config`, or `Config File` is empty. |
-| `operator '...' not found - REGISTRY paths should be absolute` | A registry path is missing its leading `/`. |
-| `operator '...' has no par '...'` | Wrong case (`intensity` vs `Intensity`), or the par doesn't exist. |
-| `has no ParGroup '...'` | A `number[]` entry names a component (`Colorr`) instead of the group (`Color`). |
-| Web can write, but TD-side changes never appear | Step 4 — the extension isn't wired, so no `parexec_…` DATs were generated. Check the component for them. |
-| No `parexec_…` DATs at all | The extension isn't wired, or `config` can't be read. `Rebuild()` leaves the network alone when the registry is unreadable rather than deleting every watcher. |
-| `Tdcoredir is empty - generated DATs have no callback code` | Step 1 — the `Td Core Dir` par isn't set. |
+| Symptom                                                                     | Cause                                                                                                                                                               |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no global OP shortcut 'WebGuiServer'`                                      | Step 1 — the shortcut isn't set.                                                                                                                                    |
+| `WebGuiServer has no 'config' DAT`                                          | The Text DAT isn't named exactly `config`, or `Config File` is empty.                                                                                               |
+| `operator '...' not found - REGISTRY paths should be absolute`              | A registry path is missing its leading `/`.                                                                                                                         |
+| `operator '...' has no par '...'`                                           | Wrong case (`intensity` vs `Intensity`), or the par doesn't exist.                                                                                                  |
+| `has no ParGroup '...'`                                                     | A `number[]` entry names a component (`Colorr`) instead of the group (`Color`).                                                                                     |
+| Web can write, but TD-side changes never appear                             | Step 4 — the extension isn't wired, so no `parexec_…` DATs were generated. Check the component for them.                                                            |
+| No `parexec_…` DATs at all                                                  | The extension isn't wired, or `config` can't be read. `Rebuild()` leaves the network alone when the registry is unreadable rather than deleting every watcher.      |
+| `Tdcoredir is empty - generated DATs have no callback code`                 | Step 1 — the `Td Core Dir` par isn't set.                                                                                                                           |
 | Extension page filled in, but `op.WebGuiServer.Rebuild()` says no attribute | Step 4 — the `Extension` sequence count is still `0`, the Object field uses `op(...)` instead of `me.op(...)`, or the Name field is blank. All three fail silently. |
-| One operator's changes never appear, others do | Its `parexec_…` DAT is missing or its registry entry names an operator that doesn't exist. Run `op.WebGuiServer.Rebuild()` and re-read the textport warnings. |
+| One operator's changes never appear, others do                              | Its `parexec_…` DAT is missing or its registry entry names an operator that doesn't exist. Run `op.WebGuiServer.Rebuild()` and re-read the textport warnings.       |
 
 More in [troubleshooting.md](troubleshooting.md).
 
@@ -266,28 +266,28 @@ via the same `Tdcoredir` expression as the other package scripts (step 2).
 
 **`webrtc1`** — a **WebRTC DAT**:
 
-| Parameter | Value |
-|---|---|
-| `Active` | On |
-| `Callbacks DAT` | `webrtc1_callbacks` |
-| `STUN Server URL` (ICE page) | **empty** |
-| `TURN Server` (ICE page) | **empty** |
+| Parameter                    | Value               |
+| ---------------------------- | ------------------- |
+| `Active`                     | On                  |
+| `Callbacks DAT`              | `webrtc1_callbacks` |
+| `STUN Server URL` (ICE page) | **empty**           |
+| `TURN Server` (ICE page)     | **empty**           |
 
 Leave STUN and TURN empty. Browser and TD are on the same machine, so ICE only
 ever needs host candidates, and skipping the servers keeps gathering near-instant
 when several peers come up at once.
 
-> Those host candidates are *not* `127.0.0.1` in practice — Chrome emits an mDNS
+> Those host candidates are _not_ `127.0.0.1` in practice — Chrome emits an mDNS
 > `.local` name and TD offers its LAN interface. They pair fine. Don't chase a
 > non-loopback candidate as the cause of a failure.
 
 **One Video Stream Out TOP per stream**, each with:
 
-| Parameter | Value |
-|---|---|
-| `Mode` | `WebRTC` |
-| `FPS` | A constant (e.g. `30`), **not** the default `me.time.rate` expression |
-| `WebRTC` / `WebRTC Connection` / `WebRTC Video Track` | Left alone — the callbacks set these per peer |
+| Parameter                                             | Value                                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `Mode`                                                | `WebRTC`                                                              |
+| `FPS`                                                 | A constant (e.g. `30`), **not** the default `me.time.rate` expression |
+| `WebRTC` / `WebRTC Connection` / `WebRTC Video Track` | Left alone — the callbacks set these per peer                         |
 
 Pin `FPS` to a constant. At the default `me.time.rate`, eight encoders each run
 at your project's frame rate, which is how a 60fps project quietly spends its
@@ -355,9 +355,9 @@ web side:
 
 ```ts
 export const instances = [
-  { id: 'mixer',  url: 'ws://localhost:9980' },
+  { id: 'mixer', url: 'ws://localhost:9980' },
   { id: 'render', url: 'ws://localhost:9981' },
-]
+];
 ```
 
 Schemas are per-instance, so each gets its own `createTDClient<Schema>()`. See
@@ -365,20 +365,20 @@ Schemas are per-instance, so each gets its own `createTDClient<Schema>()`. See
 
 ## Reference
 
-| File | Edit? | Role |
-|---|---|---|
-| [`webserver-callbacks.py`](../touchdesigner/webserver-callbacks.py) | Never | Web Server DAT callbacks: parameters, menus, inbound signaling |
-| [`parameter-execute.py`](../touchdesigner/parameter-execute.py) | Never | Parameter Execute DAT: TD → web broadcast |
-| [`webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py) | Never | WebRTC DAT callbacks: outbound signaling, `streams` announce |
-| [`config-template.py`](../touchdesigner/config-template.py) | **Yes** | Your registry, wiring names, and stream map |
+| File                                                                | Edit?   | Role                                                           |
+| ------------------------------------------------------------------- | ------- | -------------------------------------------------------------- |
+| [`webserver-callbacks.py`](../touchdesigner/webserver-callbacks.py) | Never   | Web Server DAT callbacks: parameters, menus, inbound signaling |
+| [`parameter-execute.py`](../touchdesigner/parameter-execute.py)     | Never   | Parameter Execute DAT: TD → web broadcast                      |
+| [`webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py)       | Never   | WebRTC DAT callbacks: outbound signaling, `streams` announce   |
+| [`config-template.py`](../touchdesigner/config-template.py)         | **Yes** | Your registry, wiring names, and stream map                    |
 
 Registry entry fields:
 
-| Field | Required | Meaning |
-|---|---|---|
-| `op` | Yes | Absolute path to the operator |
-| `par` | Yes | Parameter name, or ParGroup base name for `number[]` |
-| `type` | Yes | `'bool'` · `'number'` · `'string'` · `'number[]'` · `'pulse'` |
+| Field      | Required            | Meaning                                                                                                                |
+| ---------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `op`       | Yes                 | Absolute path to the operator                                                                                          |
+| `par`      | Yes                 | Parameter name, or ParGroup base name for `number[]`                                                                   |
+| `type`     | Yes                 | `'bool'` · `'number'` · `'string'` · `'number[]'` · `'pulse'`                                                          |
 | `writable` | No (default `True`) | `False` refuses web writes with `param_not_writable`. Not sent to the web — the browser authors its own read-only set. |
 
 A parameter in `EXPRESSION`, `EXPORT`, or `BIND` mode is refused whether or not

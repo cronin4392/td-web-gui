@@ -11,77 +11,77 @@
  * matching real `requestAnimationFrame` semantics.
  */
 
-import type { TDScheduler } from '../scheduler'
+import type { TDScheduler } from '../scheduler';
 
 interface Timer {
-  id: number
-  at: number
-  callback: () => void
+  id: number;
+  at: number;
+  callback: () => void;
 }
 
 export interface ManualScheduler {
   /** Inject as `options.scheduler` into `createTDConnection`. */
-  scheduler: TDScheduler
+  scheduler: TDScheduler;
   /** Advance virtual time by `ms`, firing due timers in order. */
-  advance(ms: number): void
+  advance(ms: number): void;
   /** Run the animation-frame callbacks queued so far (once each). */
-  flushFrame(): void
+  flushFrame(): void;
   /** Current virtual time in ms. */
-  now(): number
+  now(): number;
   /** Count of still-pending timers (excludes frame callbacks). */
-  pendingTimers(): number
+  pendingTimers(): number;
   /** Count of still-pending frame callbacks. */
-  pendingFrames(): number
+  pendingFrames(): number;
 }
 
 export function createManualScheduler(): ManualScheduler {
-  let time = 0
-  let nextId = 1
-  let timers: Timer[] = []
-  let frames: { id: number; callback: () => void }[] = []
+  let time = 0;
+  let nextId = 1;
+  let timers: Timer[] = [];
+  let frames: { id: number; callback: () => void }[] = [];
 
   const scheduler: TDScheduler = {
     setTimeout(callback, ms) {
-      const id = nextId++
-      timers.push({ id, at: time + Math.max(0, ms), callback })
-      return id
+      const id = nextId++;
+      timers.push({ id, at: time + Math.max(0, ms), callback });
+      return id;
     },
     clearTimeout(handle) {
-      timers = timers.filter((t) => t.id !== handle)
+      timers = timers.filter((t) => t.id !== handle);
     },
     requestFrame(callback) {
-      const id = nextId++
-      frames.push({ id, callback })
-      return id
+      const id = nextId++;
+      frames.push({ id, callback });
+      return id;
     },
     cancelFrame(handle) {
-      frames = frames.filter((f) => f.id !== handle)
+      frames = frames.filter((f) => f.id !== handle);
     },
-  }
+  };
 
   function advance(ms: number): void {
-    const target = time + ms
+    const target = time + ms;
     // Fire the earliest due timer, then re-scan — a callback may add or clear
     // timers (the heartbeat re-arms itself), and only those still due by `target`
     // should fire this call.
     for (;;) {
-      let next: Timer | undefined
+      let next: Timer | undefined;
       for (const t of timers) {
-        if (t.at > target) continue
-        if (!next || t.at < next.at || (t.at === next.at && t.id < next.id)) next = t
+        if (t.at > target) continue;
+        if (!next || t.at < next.at || (t.at === next.at && t.id < next.id)) next = t;
       }
-      if (!next) break
-      timers = timers.filter((t) => t.id !== next!.id)
-      time = next.at
-      next.callback()
+      if (!next) break;
+      timers = timers.filter((t) => t.id !== next!.id);
+      time = next.at;
+      next.callback();
     }
-    time = target
+    time = target;
   }
 
   function flushFrame(): void {
-    const batch = frames
-    frames = []
-    for (const f of batch) f.callback()
+    const batch = frames;
+    frames = [];
+    for (const f of batch) f.callback();
   }
 
   return {
@@ -91,5 +91,5 @@ export function createManualScheduler(): ManualScheduler {
     now: () => time,
     pendingTimers: () => timers.length,
     pendingFrames: () => frames.length,
-  }
+  };
 }

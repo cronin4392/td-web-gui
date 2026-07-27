@@ -14,11 +14,11 @@
  * `requestAnimationFrame` return values and the manual scheduler's ids.
  */
 export interface TDScheduler {
-  setTimeout(callback: () => void, ms: number): number
-  clearTimeout(handle: number): void
+  setTimeout(callback: () => void, ms: number): number;
+  clearTimeout(handle: number): void;
   /** Schedule a callback for the next animation frame (~60fps). */
-  requestFrame(callback: () => void): number
-  cancelFrame(handle: number): void
+  requestFrame(callback: () => void): number;
+  cancelFrame(handle: number): void;
 }
 
 /**
@@ -29,11 +29,11 @@ export interface TDScheduler {
  */
 export const defaultScheduler: TDScheduler = {
   setTimeout: (callback, ms) => {
-    const handle = globalThis.setTimeout(callback, ms)
+    const handle = globalThis.setTimeout(callback, ms);
     // In Node (the test host) a pending heartbeat timer would otherwise keep the
     // process alive; `unref` is a no-op-absent in browsers, so this is safe.
-    ;(handle as { unref?: () => void })?.unref?.()
-    return handle as unknown as number
+    (handle as { unref?: () => void })?.unref?.();
+    return handle as unknown as number;
   },
   clearTimeout: (handle) => globalThis.clearTimeout(handle),
   requestFrame: (callback) =>
@@ -44,4 +44,4 @@ export const defaultScheduler: TDScheduler = {
     typeof globalThis.cancelAnimationFrame === 'function'
       ? globalThis.cancelAnimationFrame(handle)
       : globalThis.clearTimeout(handle),
-}
+};

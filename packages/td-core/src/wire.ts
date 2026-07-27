@@ -26,17 +26,17 @@
  * is forward-compatible and does not need one. On mismatch the connection warns
  * and proceeds best-effort rather than rejecting.
  */
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 1;
 
 /**
  * A single parameter value on the wire. The wire speaks only clean JSON types —
  * TD does all coercion to/from its native par types (int/float, bool-as-0/1,
  * menu keys, ParGroups). `number[]` carries multi-component pars (color, XYZ).
  */
-export type ParamValue = number | string | boolean | number[]
+export type ParamValue = number | string | boolean | number[];
 
 /** Map of friendly param name → value, as carried by `snapshot`/`update`. */
-export type ParamMap = Record<string, ParamValue>
+export type ParamMap = Record<string, ParamValue>;
 
 /**
  * Encode a browser-side multi-line string for a TD string parameter: real line
@@ -46,7 +46,7 @@ export type ParamMap = Record<string, ParamValue>
  * same escape, so a paste from Windows/legacy sources lands as one break.
  */
 export function escapeNewlines(text: string): string {
-  return text.replace(/\r\n|\r|\n/g, '\\n')
+  return text.replace(/\r\n|\r|\n/g, '\\n');
 }
 
 /**
@@ -59,20 +59,20 @@ export function escapeNewlines(text: string): string {
  * out too, which TD itself would then show verbatim.
  */
 export function unescapeNewlines(wire: string): string {
-  return wire.replace(/\\n/g, '\n')
+  return wire.replace(/\\n/g, '\n');
 }
 
 // ── web → TD ────────────────────────────────────────────────────────────────
 
 /** Version handshake; opens every (re)connection. */
 export interface HelloMessage {
-  type: 'hello'
-  protocol: number
+  type: 'hello';
+  protocol: number;
 }
 
 /** Requests the current state of all exposed params (on connect/reconnect). */
 export interface SnapshotRequestMessage {
-  type: 'snapshot-request'
+  type: 'snapshot-request';
 }
 
 /**
@@ -81,7 +81,7 @@ export interface SnapshotRequestMessage {
  * this explicit message; a missing `pong` marks the socket half-open.
  */
 export interface PingMessage {
-  type: 'ping'
+  type: 'ping';
 }
 
 /**
@@ -99,7 +99,7 @@ export interface PingMessage {
  * shouldn't drag every parameter value along with it.
  */
 export interface MenusRequestMessage {
-  type: 'menus-request'
+  type: 'menus-request';
 }
 
 /**
@@ -109,8 +109,8 @@ export interface MenusRequestMessage {
  * (sent immediately; still subject to backpressure — see ./connection).
  */
 export interface PulseMessage {
-  type: 'pulse'
-  name: string
+  type: 'pulse';
+  name: string;
 }
 
 // ── both directions ───────────────────────────────────────────────────────
@@ -121,8 +121,8 @@ export interface PulseMessage {
  * broadcasts changes to all connected clients.
  */
 export interface UpdateMessage {
-  type: 'update'
-  params: ParamMap
+  type: 'update';
+  params: ParamMap;
 }
 
 // ── WebRTC signaling, both directions ─────────────────────────────────────
@@ -135,14 +135,14 @@ export interface UpdateMessage {
 
 /** SDP offer. Sent by whichever side is initiating this negotiation. */
 export interface RTCOfferMessage {
-  type: 'rtc-offer'
-  sdp: string
+  type: 'rtc-offer';
+  sdp: string;
 }
 
 /** SDP answer, replying to an {@link RTCOfferMessage}. */
 export interface RTCAnswerMessage {
-  type: 'rtc-answer'
-  sdp: string
+  type: 'rtc-answer';
+  sdp: string;
 }
 
 /**
@@ -155,20 +155,20 @@ export interface RTCAnswerMessage {
  * and independent of which side offered.
  */
 export interface RTCIceMessage {
-  type: 'rtc-ice'
-  candidate: string | null
-  sdpMid?: string | null
-  sdpMLineIndex?: number | null
+  type: 'rtc-ice';
+  candidate: string | null;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
 }
 
 /** One announced video track: which `mid` on the peer carries which stream id. */
 export interface StreamInfo {
   /** Stable, web-facing stream id — what `<Video stream="...">` selects on. */
-  id: string
+  id: string;
   /** The `mid` of the transceiver carrying this stream on the current peer. */
-  mid: string
+  mid: string;
   /** Optional human-readable label for UI. */
-  label?: string
+  label?: string;
 }
 
 /**
@@ -177,28 +177,28 @@ export interface StreamInfo {
  * the mapping is explicit rather than assuming a fixed track order.
  */
 export interface StreamsMessage {
-  type: 'streams'
-  streams: StreamInfo[]
+  type: 'streams';
+  streams: StreamInfo[];
 }
 
 // ── TD → web ────────────────────────────────────────────────────────────────
 
 /** Reply to `hello`: TD's protocol version plus optional instance metadata. */
 export interface WelcomeMessage {
-  type: 'welcome'
-  protocol: number
-  instance?: string
+  type: 'welcome';
+  protocol: number;
+  instance?: string;
 }
 
 /** Reply to `snapshot-request`: an authoritative baseline of all params. */
 export interface SnapshotMessage {
-  type: 'snapshot'
-  params: ParamMap
+  type: 'snapshot';
+  params: ParamMap;
 }
 
 /** Reply to `ping`: proof the established session is still live. */
 export interface PongMessage {
-  type: 'pong'
+  type: 'pong';
 }
 
 /**
@@ -208,18 +208,18 @@ export interface PongMessage {
  * per-param recovery, and absent for connection-scoped errors.
  */
 export interface ErrorMessage {
-  type: 'error'
-  code: string
-  message?: string
-  ref?: string
+  type: 'error';
+  code: string;
+  message?: string;
+  ref?: string;
 }
 
 /** One choice in a TD-announced menu: the wire value plus its display label. */
 export interface MenuOption {
   /** The menu **key** — exactly what `update` carries for this param. */
-  value: string
+  value: string;
   /** TD's human-readable label for that key. */
-  label: string
+  label: string;
 }
 
 /**
@@ -241,8 +241,8 @@ export interface MenuOption {
  * working exactly as before.
  */
 export interface MenusMessage {
-  type: 'menus'
-  menus: Record<string, MenuOption[]>
+  type: 'menus';
+  menus: Record<string, MenuOption[]>;
 }
 
 /** Messages the web sends to TD. */
@@ -256,7 +256,7 @@ export type ClientMessage =
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
-  | StreamsMessage
+  | StreamsMessage;
 
 /** Messages the web receives from TD. */
 export type ServerMessage =
@@ -269,10 +269,10 @@ export type ServerMessage =
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
-  | StreamsMessage
+  | StreamsMessage;
 
 /** Every known message in either direction. */
-export type Message = ClientMessage | ServerMessage
+export type Message = ClientMessage | ServerMessage;
 
 /** The message `type`s `parse` will accept; anything else is dropped. */
 const KNOWN_TYPES = new Set([
@@ -291,37 +291,37 @@ const KNOWN_TYPES = new Set([
   'rtc-answer',
   'rtc-ice',
   'streams',
-])
+]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isParamMap(value: unknown): value is ParamMap {
-  if (!isPlainObject(value)) return false
+  if (!isPlainObject(value)) return false;
   for (const v of Object.values(value)) {
     const ok =
       typeof v === 'number' ||
       typeof v === 'string' ||
       typeof v === 'boolean' ||
-      (Array.isArray(v) && v.every((n) => typeof n === 'number'))
-    if (!ok) return false
+      (Array.isArray(v) && v.every((n) => typeof n === 'number'));
+    if (!ok) return false;
   }
-  return true
+  return true;
 }
 
 function isMenuMap(value: unknown): value is Record<string, MenuOption[]> {
-  if (!isPlainObject(value)) return false
+  if (!isPlainObject(value)) return false;
   for (const options of Object.values(value)) {
-    if (!Array.isArray(options)) return false
+    if (!Array.isArray(options)) return false;
     // Both fields are required: a menu entry with no label has nothing to render
     // in the dropdown, and one with no value can't be sent back as a menu key.
     const ok = options.every(
       (o) => isPlainObject(o) && typeof o.value === 'string' && typeof o.label === 'string',
-    )
-    if (!ok) return false
+    );
+    if (!ok) return false;
   }
-  return true
+  return true;
 }
 
 function isStreamList(value: unknown): value is StreamInfo[] {
@@ -334,7 +334,7 @@ function isStreamList(value: unknown): value is StreamInfo[] {
         typeof s.mid === 'string' &&
         (s.label === undefined || typeof s.label === 'string'),
     )
-  )
+  );
 }
 
 /**
@@ -347,25 +347,23 @@ function isStreamList(value: unknown): value is StreamInfo[] {
  * compatibility").
  */
 export function parse(raw: string): Message | null {
-  let data: unknown
+  let data: unknown;
   try {
-    data = JSON.parse(raw)
+    data = JSON.parse(raw);
   } catch {
-    return null
+    return null;
   }
 
-  if (!isPlainObject(data) || typeof data.type !== 'string') return null
-  if (!KNOWN_TYPES.has(data.type)) return null
+  if (!isPlainObject(data) || typeof data.type !== 'string') return null;
+  if (!KNOWN_TYPES.has(data.type)) return null;
 
   switch (data.type) {
     case 'hello':
-      return typeof data.protocol === 'number'
-        ? { type: 'hello', protocol: data.protocol }
-        : null
+      return typeof data.protocol === 'number' ? { type: 'hello', protocol: data.protocol } : null;
     case 'snapshot-request':
-      return { type: 'snapshot-request' }
+      return { type: 'snapshot-request' };
     case 'menus-request':
-      return { type: 'menus-request' }
+      return { type: 'menus-request' };
     case 'welcome':
       return typeof data.protocol === 'number'
         ? {
@@ -373,41 +371,41 @@ export function parse(raw: string): Message | null {
             protocol: data.protocol,
             ...(typeof data.instance === 'string' ? { instance: data.instance } : {}),
           }
-        : null
+        : null;
     case 'snapshot':
-      return isParamMap(data.params) ? { type: 'snapshot', params: data.params } : null
+      return isParamMap(data.params) ? { type: 'snapshot', params: data.params } : null;
     case 'update':
-      return isParamMap(data.params) ? { type: 'update', params: data.params } : null
+      return isParamMap(data.params) ? { type: 'update', params: data.params } : null;
     case 'pulse':
-      return typeof data.name === 'string' ? { type: 'pulse', name: data.name } : null
+      return typeof data.name === 'string' ? { type: 'pulse', name: data.name } : null;
     case 'ping':
-      return { type: 'ping' }
+      return { type: 'ping' };
     case 'pong':
-      return { type: 'pong' }
+      return { type: 'pong' };
     case 'rtc-offer':
-      return typeof data.sdp === 'string' ? { type: 'rtc-offer', sdp: data.sdp } : null
+      return typeof data.sdp === 'string' ? { type: 'rtc-offer', sdp: data.sdp } : null;
     case 'rtc-answer':
-      return typeof data.sdp === 'string' ? { type: 'rtc-answer', sdp: data.sdp } : null
+      return typeof data.sdp === 'string' ? { type: 'rtc-answer', sdp: data.sdp } : null;
     case 'rtc-ice': {
       // `null` is meaningful here (end-of-candidates), so `candidate` must be
       // present-and-null rather than merely absent, and the two m-line fields
       // keep an explicit `null` distinct from being omitted.
-      if (!(typeof data.candidate === 'string' || data.candidate === null)) return null
-      const mid = data.sdpMid
-      const index = data.sdpMLineIndex
-      if (mid !== undefined && mid !== null && typeof mid !== 'string') return null
-      if (index !== undefined && index !== null && typeof index !== 'number') return null
+      if (!(typeof data.candidate === 'string' || data.candidate === null)) return null;
+      const mid = data.sdpMid;
+      const index = data.sdpMLineIndex;
+      if (mid !== undefined && mid !== null && typeof mid !== 'string') return null;
+      if (index !== undefined && index !== null && typeof index !== 'number') return null;
       return {
         type: 'rtc-ice',
         candidate: data.candidate,
         ...(mid !== undefined ? { sdpMid: mid as string | null } : {}),
         ...(index !== undefined ? { sdpMLineIndex: index as number | null } : {}),
-      }
+      };
     }
     case 'menus':
-      return isMenuMap(data.menus) ? { type: 'menus', menus: data.menus } : null
+      return isMenuMap(data.menus) ? { type: 'menus', menus: data.menus } : null;
     case 'streams':
-      return isStreamList(data.streams) ? { type: 'streams', streams: data.streams } : null
+      return isStreamList(data.streams) ? { type: 'streams', streams: data.streams } : null;
     case 'error':
       return typeof data.code === 'string'
         ? {
@@ -416,8 +414,8 @@ export function parse(raw: string): Message | null {
             ...(typeof data.message === 'string' ? { message: data.message } : {}),
             ...(typeof data.ref === 'string' ? { ref: data.ref } : {}),
           }
-        : null
+        : null;
     default:
-      return null
+      return null;
   }
 }

@@ -9,17 +9,13 @@
  * candidates, deliver a track, or drive `connectionState` to `failed`.
  */
 
-import type {
-  IceCandidateInit,
-  MediaStreamLike,
-  RTCPeerConnectionLike,
-} from '../video'
+import type { IceCandidateInit, MediaStreamLike, RTCPeerConnectionLike } from '../video';
 
 /** A faked track that records whether `stop()` was called. */
 export class MockTrack {
-  stopped = false
+  stopped = false;
   stop(): void {
-    this.stopped = true
+    this.stopped = true;
   }
 }
 
@@ -29,14 +25,14 @@ export class MockTrack {
  * same per-track wrapping the browser path uses.
  */
 export class MockMediaStream implements MediaStreamLike {
-  private static count = 0
-  readonly id = `mock-stream-${MockMediaStream.count++}`
-  readonly tracks: MockTrack[]
+  private static count = 0;
+  readonly id = `mock-stream-${MockMediaStream.count++}`;
+  readonly tracks: MockTrack[];
   constructor(tracks: MockTrack[] = [new MockTrack()]) {
-    this.tracks = tracks
+    this.tracks = tracks;
   }
   getTracks(): MockTrack[] {
-    return this.tracks
+    return this.tracks;
   }
 }
 
@@ -47,7 +43,7 @@ export class MockMediaStream implements MediaStreamLike {
  */
 export const MockMediaStreamCtor = MockMediaStream as unknown as new (
   tracks: unknown[],
-) => MediaStreamLike
+) => MediaStreamLike;
 
 /**
  * The one track a per-mid stream carries. Tests compare tracks rather than
@@ -55,99 +51,99 @@ export const MockMediaStreamCtor = MockMediaStream as unknown as new (
  * own, so the object a test emitted is never the object it gets back.
  */
 export function trackOf(media: MediaStreamLike | undefined): MockTrack | undefined {
-  return media?.getTracks()[0] as MockTrack | undefined
+  return media?.getTracks()[0] as MockTrack | undefined;
 }
 
 export class MockPeerConnection implements RTCPeerConnectionLike {
   /** Every peer built during a test, oldest first — a rebuild appends. */
-  static readonly instances: MockPeerConnection[] = []
+  static readonly instances: MockPeerConnection[] = [];
 
   static reset(): void {
-    MockPeerConnection.instances.length = 0
+    MockPeerConnection.instances.length = 0;
   }
 
   /** The most recently constructed peer. */
   static latest(): MockPeerConnection {
-    const peer = MockPeerConnection.instances.at(-1)
-    if (!peer) throw new Error('no MockPeerConnection has been constructed')
-    return peer
+    const peer = MockPeerConnection.instances.at(-1);
+    if (!peer) throw new Error('no MockPeerConnection has been constructed');
+    return peer;
   }
 
-  connectionState = 'new'
-  iceConnectionState = 'new'
-  signalingState = 'stable'
-  localDescription: { type: string; sdp?: string } | null = null
-  remoteDescription: { type: string; sdp?: string } | null = null
+  connectionState = 'new';
+  iceConnectionState = 'new';
+  signalingState = 'stable';
+  localDescription: { type: string; sdp?: string } | null = null;
+  remoteDescription: { type: string; sdp?: string } | null = null;
 
-  closed = false
+  closed = false;
   /** Transceivers added by the connection, in order. */
-  readonly transceivers: { kind: string; direction?: string }[] = []
+  readonly transceivers: { kind: string; direction?: string }[] = [];
   /** Candidates handed to `addIceCandidate`, in order (`null` = end-of-candidates). */
-  readonly addedCandidates: (IceCandidateInit | null)[] = []
+  readonly addedCandidates: (IceCandidateInit | null)[] = [];
   /** Local descriptions applied, in order — includes `{ type: 'rollback' }`. */
-  readonly localDescriptions: { type: string; sdp?: string }[] = []
+  readonly localDescriptions: { type: string; sdp?: string }[] = [];
 
-  onicecandidate: ((event: { candidate: IceCandidateInit | null }) => void) | null = null
-  ontrack: ((event: any) => void) | null = null
-  onnegotiationneeded: (() => void) | null = null
-  onconnectionstatechange: (() => void) | null = null
-  oniceconnectionstatechange: (() => void) | null = null
+  onicecandidate: ((event: { candidate: IceCandidateInit | null }) => void) | null = null;
+  ontrack: ((event: any) => void) | null = null;
+  onnegotiationneeded: (() => void) | null = null;
+  onconnectionstatechange: (() => void) | null = null;
+  oniceconnectionstatechange: (() => void) | null = null;
 
   constructor(readonly config: { iceServers: unknown[] }) {
-    MockPeerConnection.instances.push(this)
+    MockPeerConnection.instances.push(this);
   }
 
   addTransceiver(kind: string, init?: { direction?: string }): unknown {
-    this.transceivers.push({ kind, direction: init?.direction })
+    this.transceivers.push({ kind, direction: init?.direction });
     // Real browsers fire this asynchronously once the transceiver is added; the
     // connection relies on the event (never on `addTransceiver` returning) to
     // send its offer, so the fake has to fire it too.
-    queueMicrotask(() => this.onnegotiationneeded?.())
-    return {}
+    queueMicrotask(() => this.onnegotiationneeded?.());
+    return {};
   }
 
   async createOffer(): Promise<{ type: string; sdp: string }> {
-    return { type: 'offer', sdp: `offer-sdp-${this.transceivers.length}` }
+    return { type: 'offer', sdp: `offer-sdp-${this.transceivers.length}` };
   }
 
   async createAnswer(): Promise<{ type: string; sdp: string }> {
-    return { type: 'answer', sdp: 'answer-sdp' }
+    return { type: 'answer', sdp: 'answer-sdp' };
   }
 
   async setLocalDescription(description?: { type: string; sdp?: string }): Promise<void> {
-    const desc = description ?? { type: 'offer', sdp: 'offer-sdp' }
-    this.localDescriptions.push(desc)
+    const desc = description ?? { type: 'offer', sdp: 'offer-sdp' };
+    this.localDescriptions.push(desc);
     if (desc.type === 'rollback') {
-      this.signalingState = 'stable'
-      this.localDescription = null
-      return
+      this.signalingState = 'stable';
+      this.localDescription = null;
+      return;
     }
-    this.localDescription = desc
-    this.signalingState = desc.type === 'offer' ? 'have-local-offer' : 'stable'
+    this.localDescription = desc;
+    this.signalingState = desc.type === 'offer' ? 'have-local-offer' : 'stable';
   }
 
   async setRemoteDescription(description: { type: string; sdp?: string }): Promise<void> {
-    this.remoteDescription = description
-    this.signalingState = description.type === 'offer' ? 'have-remote-offer' : 'stable'
+    this.remoteDescription = description;
+    this.signalingState = description.type === 'offer' ? 'have-remote-offer' : 'stable';
   }
 
   async addIceCandidate(candidate: IceCandidateInit | null): Promise<void> {
     if (!this.remoteDescription) {
-      throw new Error('cannot add ICE candidate before a remote description')
+      throw new Error('cannot add ICE candidate before a remote description');
     }
-    this.addedCandidates.push(candidate)
+    this.addedCandidates.push(candidate);
   }
 
   close(): void {
-    this.closed = true
-    this.connectionState = 'closed'
+    this.closed = true;
+    this.connectionState = 'closed';
   }
 
   // ── test-side drivers ──────────────────────────────────────────────────────
 
   /** Emit a trickled local candidate; `null` signals end-of-candidates. */
   emitIceCandidate(candidate: IceCandidateInit | null): void {
-    this.onicecandidate?.({ candidate })
+    this.onicecandidate?.({ candidate });
   }
 
   /**
@@ -156,24 +152,24 @@ export class MockPeerConnection implements RTCPeerConnectionLike {
    * N-track object to every mid — reproduced here because trusting it is what
    * made an 8-tile wall render tile 1 eight times.
    */
-  readonly peerStream = new MockMediaStream([])
+  readonly peerStream = new MockMediaStream([]);
 
   /** Deliver an inbound track on `mid`, as `ontrack` would. */
   emitTrack(mid: string): MockTrack {
-    const track = new MockTrack()
-    this.peerStream.tracks.push(track)
-    this.ontrack?.({ track, streams: [this.peerStream], transceiver: { mid } })
-    return track
+    const track = new MockTrack();
+    this.peerStream.tracks.push(track);
+    this.ontrack?.({ track, streams: [this.peerStream], transceiver: { mid } });
+    return track;
   }
 
   /** Drive `connectionState` and fire the change event. */
   setConnectionState(state: string): void {
-    this.connectionState = state
-    this.onconnectionstatechange?.()
+    this.connectionState = state;
+    this.onconnectionstatechange?.();
   }
 }
 
 /** Inject as `options.RTCPeerConnection` into `createTDVideoStream`. */
 export const MockRTCPeerConnection = MockPeerConnection as unknown as new (config: {
-  iceServers: unknown[]
-}) => RTCPeerConnectionLike
+  iceServers: unknown[];
+}) => RTCPeerConnectionLike;

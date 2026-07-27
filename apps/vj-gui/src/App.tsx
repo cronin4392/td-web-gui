@@ -1,25 +1,25 @@
-import { createMemo, onCleanup, Show, type JSX } from 'solid-js'
-import { escapeNewlines } from 'td-core'
-import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config'
-import { TDClient, type SceneTextParamName } from './td'
-import { RECENT_TAB_ID, createVjGuiStore } from './store'
-import { saveLibrary } from './library-api'
-import type { Library } from './library'
-import { TextField } from './components/TextField'
-import { RecentPanel } from './components/RecentPanel'
-import { TabStrip } from './components/TabStrip'
-import { PhraseList } from './components/PhraseList'
+import { createMemo, onCleanup, Show, type JSX } from 'solid-js';
+import { escapeNewlines } from 'td-core';
+import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config';
+import { TDClient, type SceneTextParamName } from './td';
+import { RECENT_TAB_ID, createVjGuiStore } from './store';
+import { saveLibrary } from './library-api';
+import type { Library } from './library';
+import { TextField } from './components/TextField';
+import { RecentPanel } from './components/RecentPanel';
+import { TabStrip } from './components/TabStrip';
+import { PhraseList } from './components/PhraseList';
 
-const vjGui = instances[0]
+const vjGui = instances[0];
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
-  library: Library
+  library: Library;
 }
 
 export function App(props: AppProps): JSX.Element {
-  const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } })
-  onCleanup(() => store.dispose())
+  const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } });
+  onCleanup(() => store.dispose());
 
   return (
     <main class="flex h-screen flex-col px-2 pt-2">
@@ -31,17 +31,17 @@ export function App(props: AppProps): JSX.Element {
         Bound to instance <code>{vjGui.id}</code> at <code>{vjGui.url}</code>
       </p>
     </main>
-  )
+  );
 }
 
 function VjGuiBody(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
-  const connection = TDClient.useConnection()
-  const selectedLoader = TDClient.signal('selectedLoader')
+  const connection = TDClient.useConnection();
+  const selectedLoader = TDClient.signal('selectedLoader');
 
   /** Which loader's text params the fields are bound to, per TD's `selectedLoader`. */
-  const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()))
+  const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()));
 
   // The one place that owns "commit a phrase to a TD text field" — shared by
   // TextField's own drop target and RecentPanel/PhraseList (always Text 1).
@@ -49,20 +49,22 @@ function VjGuiBody(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.E
   // multiline <TextInput> does on its own commits; stored phrases keep real
   // newlines.
   function applyPhrase(name: SceneTextParamName, phrase: string) {
-    connection.signal(name).setValue(escapeNewlines(phrase))
-    props.store.commitRecent(phrase)
+    connection.signal(name).setValue(escapeNewlines(phrase));
+    props.store.commitRecent(phrase);
   }
   function applyToText1(phrase: string) {
-    const scene = activeScene()
-    if (scene) applyPhrase(sceneTextParam(scene, 1), phrase)
+    const scene = activeScene();
+    if (scene) applyPhrase(sceneTextParam(scene, 1), phrase);
   }
   function clearText(name: SceneTextParamName) {
-    applyPhrase(name, '')
+    applyPhrase(name, '');
   }
 
   const activeTab = createMemo(
-    () => props.store.state.tabs.find((t) => t.id === props.store.state.activeTabId) ?? props.store.state.tabs[0],
-  )
+    () =>
+      props.store.state.tabs.find((t) => t.id === props.store.state.activeTabId) ??
+      props.store.state.tabs[0],
+  );
 
   return (
     <>
@@ -105,10 +107,12 @@ function VjGuiBody(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.E
             when={props.store.state.activeTabId !== RECENT_TAB_ID}
             fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
           >
-            <Show when={activeTab()}>{(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}</Show>
+            <Show when={activeTab()}>
+              {(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}
+            </Show>
           </Show>
         </div>
       </section>
     </>
-  )
+  );
 }

@@ -4,9 +4,9 @@
  * directly.
  */
 
-import { defaultLibrary, isLibrary, type Library } from './library'
+import { defaultLibrary, isLibrary, type Library } from './library';
 
-const ENDPOINT = '/api/library'
+const ENDPOINT = '/api/library';
 
 /**
  * GET the library. Called once at startup (`index.tsx`), so failures are
@@ -16,14 +16,14 @@ const ENDPOINT = '/api/library'
  */
 export async function fetchLibrary(): Promise<Library> {
   try {
-    const res = await fetch(ENDPOINT)
-    if (!res.ok) throw new Error(`GET ${ENDPOINT} -> ${res.status}`)
-    const body: unknown = await res.json()
-    if (!isLibrary(body)) throw new Error('response failed shape validation')
-    return body
+    const res = await fetch(ENDPOINT);
+    if (!res.ok) throw new Error(`GET ${ENDPOINT} -> ${res.status}`);
+    const body: unknown = await res.json();
+    if (!isLibrary(body)) throw new Error('response failed shape validation');
+    return body;
   } catch (err) {
-    console.warn('[vj-gui] failed to load library from server, starting with defaults', err)
-    return defaultLibrary()
+    console.warn('[vj-gui] failed to load library from server, starting with defaults', err);
+    return defaultLibrary();
   }
 }
 
@@ -37,6 +37,6 @@ export async function saveLibrary(library: Library): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(library),
-  })
-  if (!res.ok) throw new Error(`PUT ${ENDPOINT} -> ${res.status}`)
+  });
+  if (!res.ok) throw new Error(`PUT ${ENDPOINT} -> ${res.status}`);
 }
