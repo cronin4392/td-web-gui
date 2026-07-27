@@ -14,6 +14,38 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Added
 
+- **Readouts** — a `READOUTS` map in the project config publishes values that
+  have no parameter behind them: one CHOP channel (`number`), several channels
+  (`number[]`), one DAT cell (`string`), or a whole DAT table (`string[][]`).
+  One-way, TD → web. The source is inferred from the entry's shape, and `type`
+  is written only to override it (a 0/1 gate channel as `bool`, a numeric cell
+  as `number`).
+
+  Readouts **share the parameter namespace**: they ride the same `snapshot` and
+  `update` messages, appear in the same TypeScript schema, and bind by name
+  exactly like a parameter — so lazy signal allocation, shared signals, batching
+  and every read-only component work on them unchanged. A name in both
+  `REGISTRY` and `READOUTS` is a config error; the parameter wins and TD warns.
+  See [docs/design-notes.md § Readouts](docs/design-notes.md#readouts).
+
+- `touchdesigner/chop-execute.py` and `touchdesigner/dat-execute.py` — the
+  watcher callbacks behind readouts, generated per operator by `WebGuiServerExt`
+  alongside the existing Parameter Execute DATs. Both only mark a name dirty;
+  one coalesced `update` is sent at end of frame, because a CHOP Execute DAT
+  fires per changed **sample** and can run several times per frame per channel.
+  The generated DAT Execute DATs additionally set `Execute = End of Frame`,
+  TouchDesigner's own per-frame coalescer.
+
+- `<Table>` — read-only rendering of a `string[][]` readout, with an optional
+  `header` row and a per-cell `format` receiving the cell's index in the
+  original table. Rows and cells render index-keyed, so a table that changes
+  every frame rewrites text in place. Class hook `.td-table`.
+
+- `webserver-callbacks.readout_watches()` — public accessor for the operators
+  and channels backing the readouts, so the generated watchers and the broadcast
+  path share one implementation of the entry-shape rules (the counterpart to
+  `par_names`).
+
 - `touchdesigner/webgui-server-ext.py` — a `WebGuiServerExt` extension for the
   `WebGuiServer` component that generates one Parameter Execute DAT per operator
   the config's `REGISTRY` references, replacing the hand-configured DAT of
@@ -27,11 +59,36 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Changed
 
-- Generated DATs get their `File` as the expression
-  `op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'`, matching how
-  the hand-placed callbacks DATs resolve their own sources. No new parameter is
-  needed to locate the callback code, and repointing `Tdcoredir` moves every DAT
-  at once rather than waiting for the next `Rebuild()`.
+- `ParamValue` gains `string[][]`, for whole-table readouts. Additive, and
+  `PROTOCOL_VERSION` stays `1` — every other wire type is untouched, so a
+  project that declares no whole-table readouts is unaffected.
+- **`parse` now validates `params` per entry rather than all-or-nothing.** An
+  entry carrying an unrecognised value type is dropped and the rest of the map
+  is kept; only a `params` that isn't an object at all nulls the message.
+  Previously one bad value discarded the whole message, which for a `snapshot`
+  meant the client never synced anything and the symptom pointed nowhere near
+  the cause. This is also what keeps future wire-type additions from being
+  breaking changes.
+- An `update` or `pulse` aimed at a readout name is refused with
+  `param_not_writable` rather than `unknown_param` — the name is real, it just
+  has no writable side, and that code is what triggers the web's existing
+  runtime read-only safety net.
+- Generated DATs get their `File` as an expression resolved inside
+  `op.WebGuiServer.par.Tdcoredir`, matching how the hand-placed callbacks DATs
+  resolve their own sources. No new parameter is needed to locate the callback
+  code, and repointing `Tdcoredir` moves every DAT at once rather than waiting
+  for the next `Rebuild()`.
+- `WebGuiServerExt.Rebuild()` reconciles on `(watcher kind, operator path)`
+  rather than path alone, so one operator can carry watchers of different kinds.
+  Existing generated DATs are matched by which parameter names their target
+  (`op` / `chop` / `dat`), read off the operator rather than remembered in a tag.
+
+### Compatibility
+
+A `string[][]` readout requires the web side to be **newer than 0.1.0**: 0.1.0
+validated `params` all-or-nothing, so a snapshot containing one is dropped
+wholesale there. Every other readout type — CHOP channels, DAT cells — works
+against 0.1.0 unchanged, as does any project declaring no whole-table readouts.
 
 ## [0.1.0] — 2026-07-25
 

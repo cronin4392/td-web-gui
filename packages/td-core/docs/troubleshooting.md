@@ -7,6 +7,7 @@ web-side one in the browser console.
 - [Nothing connects](#nothing-connects)
 - [Connects, but no parameters](#connects-but-no-parameters)
 - [One parameter doesn't work](#one-parameter-doesnt-work)
+- [One readout doesn't work](#one-readout-doesnt-work)
 - [Web → TD works, TD → web doesn't](#web--td-works-td--web-doesnt)
 - [Dropdowns](#dropdowns)
 - [Video](#video)
@@ -119,18 +120,80 @@ author the control as a `<Value>` readout instead.
 
 **Error `unknown_param`**
 
-Either the name isn't in `REGISTRY`, or you sent the wrong kind of message for
-it — an `update` aimed at a `pulse` entry. Use `<Button mode="pulse">` for pulse
-parameters.
+Either the name isn't in `REGISTRY` or `READOUTS`, or you sent the wrong kind of
+message for it — an `update` aimed at a `pulse` entry. Use
+`<Button mode="pulse">` for pulse parameters.
+
+## One readout doesn't work
+
+Readouts are `READOUTS` entries — CHOP channels, DAT cells, whole DAT tables —
+with no parameter behind them. They arrive in the same `snapshot`/`update` as
+parameters, so the sections above apply too; these are the readout-specific ones.
+
+**Textport: `readout '...': '...' is a DAT, but this entry reads a CHOP`**
+
+The entry's shape and the operator disagree: a `chan` entry pointing at a DAT, or
+a `row`/`col` entry pointing at a CHOP.
+
+**Textport: `readout '...': '...' has no channel '...'`**
+
+The CHOP resolves but that channel doesn't exist on it. Channel names are
+case-sensitive, and a renamed channel fails silently on the TD side otherwise.
+
+**Textport: `readout '...' names only an operator`**
+
+A whole-table entry missing its `'type': 'string[][]'`. An entry naming only an
+operator is indistinguishable from one whose `chan` you forgot, so it has to say
+which it means.
+
+**Textport: `readout '...' reads a cell, which can be 'string' or 'number' - not 'bool'`**
+
+There's no guess-free string → bool cast — `"false"` is truthy — so a cell can't
+be declared `bool`. Convert it in TouchDesigner (an Evaluate DAT, or a DAT to
+CHOP feeding a channel readout) and read the result instead.
+
+**Textport: `'...' is in both REGISTRY and READOUTS`**
+
+A name collision. The `REGISTRY` entry wins and the readout is ignored, because
+dropping the parameter would silently break writes. Rename one of them.
+
+**Error `param_not_writable` on a name you know is a readout**
+
+Working as intended — readouts are TD → web only. Bind them with `<Value>` or
+`<Table>` and list them in the provider's `readonly` so the control is disabled
+from the start rather than after the first refused edit.
+
+**A readout never updates, but shows a value on connect**
+
+The snapshot works and the watcher doesn't. Check for a `chopexec_…` or
+`datexec_…` DAT for that operator inside `WebGuiServer`, then run
+`op.WebGuiServer.Rebuild()` — same diagnosis path as the `parexec_…` DATs below.
+
+**A readout updates far more often than expected**
+
+Expected, up to one message per frame. Everything dirtied in a frame is coalesced
+into a single end-of-frame `update`, but a channel that changes every frame is
+still 60/sec. Resample or filter the CHOP in TouchDesigner; there is deliberately
+no rate setting in the config. See
+[design-notes.md § Readouts](design-notes.md#readouts).
+
+**A table readout syncs nothing at all, and the whole UI is empty**
+
+Check the web-side `td-core` version. **0.1.0** validated `params` all-or-nothing,
+so a snapshot containing a `string[][]` drops wholesale there. Upgrade the web
+side, or drop the table readout. Projects with no whole-table readouts are
+unaffected. See
+[protocol.md § A bad value drops its entry](protocol.md#a-bad-value-drops-its-entry-not-the-message).
 
 ## Web → TD works, TD → web doesn't
 
 Editing in the browser moves the parameter in TD, but editing in TD does nothing
 in the browser.
 
-**This is almost always the generated Parameter Execute DATs.** They're the
-`parexec_…` DATs inside `WebGuiServer`, one per operator your registry
-references. Check, in order:
+**This is almost always the generated watcher DATs.** They live inside
+`WebGuiServer`: `parexec_…` (one per operator your `REGISTRY` references),
+`chopexec_…` and `datexec_…` (one per operator your `READOUTS` references). The
+checks below read the same for all three. Check, in order:
 
 1. There is one for the operator in question. If the component has none at all,
    the extension isn't wired — see setup step 4.
@@ -139,10 +202,11 @@ references. Check, in order:
 3. The registry entry names an operator that exists, spelled absolutely. An
    entry pointing at a missing operator generates a watcher that watches nothing.
 4. `Td Core Dir` on the component is set. Empty, and the generated DATs can't
-   resolve `parameter-execute.py`, so they have no callback code to run.
+   resolve their callback scripts (`parameter-execute.py`, `chop-execute.py`,
+   `dat-execute.py`), so they have no code to run.
 
-Don't hand-edit a `parexec_…` DAT's parameters to fix this — `Rebuild()`
-overwrites them. Fix the registry entry instead.
+Don't hand-edit a generated DAT's parameters to fix this — `Rebuild()`
+overwrites them. Fix the config entry instead.
 
 **Textport: `WebGuiServer has no DAT '...' - check CALLBACKS in the config DAT`**
 

@@ -1,21 +1,23 @@
 """
 td-core project config — copy this file into your project and edit it.
 
-This is the ONE file you write per project. The other four scripts in this
+This is the ONE file you write per project. The other six scripts in this
 folder are project-agnostic and are dropped in unchanged:
 
 	webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
 	webgui-server-ext.py     WebGuiServer extension    (generates the watchers below)
-	parameter-execute.py     Parameter Execute DATs    (TD -> web broadcast)
+	parameter-execute.py     Parameter Execute DATs    (TD -> web param broadcast)
+	chop-execute.py          CHOP Execute DATs         (TD -> web readout broadcast)
+	dat-execute.py           DAT Execute DATs          (TD -> web readout broadcast)
 	webrtc-callbacks.py      WebRTC DAT callbacks      (outbound video signaling)
 
-All four find this file through the WebGuiServer component's `Config File`
+All of them find this file through the WebGuiServer component's `Config File`
 parameter, which loads it into a Text DAT named `config` inside the component.
 They read it back as `op.WebGuiServer.op('config').module`.
 
-REGISTRY below is the whole of the setup for TD -> web: the extension generates
-one Parameter Execute DAT per operator you name here, so there is no watcher to
-create or keep in sync by hand.
+REGISTRY and READOUTS below are the whole of the setup for TD -> web: the
+extension generates one watcher DAT per operator you name in either, so there is
+no watcher to create or keep in sync by hand.
 
 The instance name the web app sees comes from WebGuiServer's `Identifier`
 parameter, not from anything in here.
@@ -57,8 +59,10 @@ CALLBACKS = 'webserver1_callbacks'
 #
 #   writable: Optional, defaults True. False makes the entry read-only to the
 #         web — it still snapshots and broadcasts, but a write is refused with a
-#         `param_not_writable` error instead of applied. Use it for readouts the
-#         browser must never drive.
+#         `param_not_writable` error instead of applied. Use it for a parameter
+#         the browser must never drive. (For a value that has no parameter
+#         behind it at all, use READOUTS below instead — those are one-way by
+#         construction and need no flag.)
 #
 #         Note this flag is NOT sent to the web. The web authors its own
 #         read-only set beside its TypeScript schema; this is the TD-side
@@ -78,6 +82,65 @@ REGISTRY = {
 	# 'color':     {'op': '/project1/params', 'par': 'Color',     'type': 'number[]'},
 	# 'fps':       {'op': '/project1/info',   'par': 'Fps',       'type': 'number',
 	#               'writable': False},
+}
+
+
+# ── Readouts (optional) ──────────────────────────────────────────────────────
+
+# friendly wire name -> data read straight out of a CHOP or a DAT, with no
+# parameter in between. **One-way, TD -> web, always.**
+#
+# Use these for values that are data rather than settings: an analysis CHOP's
+# level, a timecode, a now-playing table. Exporting such a value onto a parameter
+# just to publish it works, but it costs a par per value and puts that par in
+# EXPORT mode — which the web then has to refuse writes to anyway.
+#
+# Readouts share the wire namespace with REGISTRY: they ride the same `snapshot`
+# and `update` messages, and the browser binds them by name exactly like a
+# parameter (`<Value name="fps" />`). The web never learns which side of this
+# file a name came from, which is the point — where a value lives in TD is a TD
+# detail. A name in BOTH maps is a config error: the REGISTRY entry wins, the
+# readout is ignored, and a warning names it.
+#
+#   op:   Absolute path to the CHOP or DAT, same rule as REGISTRY — these
+#         lookups run from inside WebGuiServer, so a bare name resolves against
+#         the component rather than your project.
+#
+# The rest of the entry says what to read, and its SHAPE picks the source:
+#
+#   chan: 'level'              one CHOP channel        -> number
+#   chan: ['low','mid','high'] several CHOP channels   -> number[]
+#   row/col: 'title', 1        one DAT cell            -> string
+#   (neither, + the type)      the whole DAT table     -> string[][]
+#
+#   type: Optional. Defaults to the natural type above; declare it only to
+#         override. A channel may also be 'bool' (a 0/1 gate) or 'string'; a
+#         cell may also be 'number' (parsed, and an unparseable cell is skipped
+#         with a warning rather than sent as garbage). A cell may NOT be 'bool' —
+#         the string "false" is truthy, so there is no guess-free cast, and
+#         silently turning an off into an on is worse than refusing.
+#         **A whole-table readout must declare `'type': 'string[][]'`**, since
+#         an entry naming only an operator is otherwise indistinguishable from
+#         one where you forgot the `chan`.
+#
+# Channel order is the array order on the wire, exactly like a ParGroup's
+# component order — so reordering a `chan` list reassigns which number is which
+# on the web. A pattern ('band*') is deliberately not accepted: it would make the
+# array's length and order depend on what the CHOP happens to hold this frame.
+#
+# **Rate.** A CHOP Execute DAT fires once per changed SAMPLE per channel, so a
+# time-sliced CHOP can call back several times in a single frame. Everything
+# dirtied within a frame is coalesced into one `update` sent at end of frame, so
+# the ceiling is one message per frame no matter how many readouts change. That
+# is still 60 messages/sec for a channel that changes every frame — if you don't
+# need that resolution, resample or filter the CHOP in TD rather than reaching
+# for a knob here.
+READOUTS = {
+	# 'fps':    {'op': '/project1/perf_stats',  'chan': 'fps'},
+	# 'level':  {'op': '/project1/audio_bands', 'chan': ['low', 'mid', 'high']},
+	# 'playing':{'op': '/project1/transport',   'chan': 'playing', 'type': 'bool'},
+	# 'track':  {'op': '/project1/nowplaying',  'row': 'title', 'col': 1},
+	# 'cues':   {'op': '/project1/cue_table',   'type': 'string[][]'},
 }
 
 

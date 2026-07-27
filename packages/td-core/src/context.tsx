@@ -31,6 +31,7 @@ import { Color, type ColorProps } from './components/Color';
 import { NumberInput, type NumberInputProps } from './components/NumberInput';
 import { RangeInput, type RangeInputProps } from './components/RangeInput';
 import { Select, type SelectProps } from './components/Select';
+import { Table, type TableProps } from './components/Table';
 import { TextInput, type TextInputProps } from './components/TextInput';
 import { Toggle, type ToggleProps } from './components/Toggle';
 import { Value, type ValueProps } from './components/Value';
@@ -178,6 +179,11 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
   const TypedColor = (props: ColorProps & { name: KeysOfType<Schema, number[]> }): JSX.Element =>
     Color(props);
 
+  // Narrowed to `string[][]` keys, which are readouts by construction — no TD
+  // parameter carries a table, so there is nothing writable to confuse this with.
+  const TypedTable = (props: TableProps & { name: KeysOfType<Schema, string[][]> }): JSX.Element =>
+    Table(props);
+
   return {
     Provider,
     signal,
@@ -193,6 +199,7 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     Select: TypedSelect,
     Vector: TypedVector,
     Color: TypedColor,
+    Table: TypedTable,
     // Not schema-typed: `<Video>` selects on a stream id TD announces at
     // runtime, which isn't part of the param schema.
     Video: (props: VideoProps): JSX.Element => Video(props),

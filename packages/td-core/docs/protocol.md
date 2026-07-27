@@ -12,6 +12,7 @@ protocol.
 - [Handshake](#handshake)
 - [Message catalog](#message-catalog)
 - [Value types](#value-types)
+- [Readouts](#readouts)
 - [Errors](#errors)
 - [Forward compatibility](#forward-compatibility)
 - [Keeping the two sides in sync](#keeping-the-two-sides-in-sync)
@@ -148,17 +149,18 @@ add m-lines. Both sides must be able to send and receive an offer.
 ## Value types
 
 The wire speaks only **clean JSON types** — `bool`, `number`, `string`,
-`number[]` — and **TouchDesigner does all coercion**, because the registry is
-where parameter-type information already lives. The web's TypeScript schema lines
-up 1:1 with the wire and never has to know that a TD Toggle is really a 0/1 float
-or that a color is four separate pars.
+`number[]`, `string[][]` — and **TouchDesigner does all coercion**, because the
+registry is where parameter-type information already lives. The web's TypeScript
+schema lines up 1:1 with the wire and never has to know that a TD Toggle is
+really a 0/1 float or that a color is four separate pars.
 
-| Wire type  | TD → web (read)                | web → TD (write)        |
-| ---------- | ------------------------------ | ----------------------- |
-| `bool`     | `bool(par.eval())`             | `par.val = v`           |
-| `number`   | `par.eval()`                   | `par.val = v`           |
-| `string`   | `par.eval()`                   | `par.val = v`           |
-| `number[]` | `[p.eval() for p in parGroup]` | each component in order |
+| Wire type    | TD → web (read)                | web → TD (write)        |
+| ------------ | ------------------------------ | ----------------------- |
+| `bool`       | `bool(par.eval())`             | `par.val = v`           |
+| `number`     | `par.eval()`                   | `par.val = v`           |
+| `string`     | `par.eval()`                   | `par.val = v`           |
+| `number[]`   | `[p.eval() for p in parGroup]` | each component in order |
+| `string[][]` | `dat.rows(val=True)`           | — readout only          |
 
 **Menus carry the string key, not the index.** `par.eval()` on a Menu par returns
 the key, which survives TD-side menu reordering where an index wouldn't.
@@ -173,6 +175,79 @@ the operator's parameter list rather than by component.
 The registry already knows which the backing par is, so `par.val = v` lets TD
 round on write while `par.eval()` returns its native type on read.
 
+**`string[][]` is TD → web only**, and is the one wire type no parameter can
+carry — it exists for whole-table readouts. See [Readouts](#readouts).
+
+### A bad value drops its entry, not the message
+
+`parse` validates `params` **per entry**: an entry whose value isn't a legal wire
+type is dropped and the rest of the map is kept. Only a `params` that isn't an
+object at all nulls the whole message.
+
+This matters more than it looks. All-or-nothing validation means one
+unrecognised entry in a **snapshot** costs the client every _other_ parameter in
+it — the UI never syncs at all, and an entirely empty screen points nowhere near
+the cause. It is also what would make every future wire-type addition a breaking
+change. Per-entry, an older client simply drops what it doesn't understand and
+syncs the rest, exactly as it already does for parameter names it isn't bound to.
+
+> **One exception, worth knowing.** `td-core` **0.1.0** predates this rule and
+> validated all-or-nothing, so a snapshot containing a `string[][]` readout is
+> dropped wholesale by a 0.1.0 client. `PROTOCOL_VERSION` is still `1` — the
+> addition is additive and every other type is unaffected — so a project that
+> declares no whole-table readouts works against 0.1.0 unchanged. If you add one,
+> update the web side too.
+
+## Readouts
+
+A **readout** publishes a value that has no parameter behind it: a CHOP channel,
+a DAT cell, a whole DAT table. Readouts are declared in the config's `READOUTS`
+map, are **TD → web only**, and ride the **same `snapshot` and `update` messages
+as parameters** — they appear in the same `params` map, under the same kind of
+friendly name.
+
+```jsonc
+{ "type": "update", "params": { "intensity": 0.5, "fps": 59.9, "level": [0.2, 0.8, 0.1] } }
+//                               ^ a parameter    ^ a CHOP channel  ^ three channels
+```
+
+**Nothing on the wire distinguishes them, deliberately.** The browser binds a
+_name_, not a source; where a value lives inside TD is a TD detail, which is the
+same reasoning that puts `intensity` on the wire instead of
+`/project1/level1/opacity`. A client that could tell them apart still couldn't do
+anything different with the knowledge. See
+[design-notes.md § Readouts](design-notes.md#readouts).
+
+Three consequences follow from sharing the namespace:
+
+- **A name in both `REGISTRY` and `READOUTS` is a config error.** The parameter
+  wins — it's the bidirectional contract, so dropping it would silently break
+  writes — and TD warns naming the collision.
+- **An `update` or `pulse` aimed at a readout is refused** with
+  `param_not_writable`, not `unknown_param`. The name is real; it just isn't
+  writable. That code is also what triggers the web's runtime safety net, so an
+  optimistic edit snaps back instead of sticking.
+- **Readouts are in the snapshot.** It's the only way a newly connected browser
+  learns a readout that hasn't changed since it opened.
+
+### Rate
+
+TD coalesces readouts: everything that changes within a frame goes out as **one
+`update` at end of frame**, so the ceiling is one message per frame however many
+readouts moved.
+
+That coalescing isn't an optimisation, it's required. A **CHOP Execute DAT fires
+once per changed _sample_ per channel** — the docs are explicit that a
+time-sliced CHOP "may get called 2 or more times per channel" in a single frame —
+so broadcasting inline would put several messages per frame on the socket for one
+channel. (A DAT Execute DAT has an `End of Frame` mode that does the same job
+natively; the generated DATs use it.)
+
+One message per frame is still 60/sec for a channel that changes every frame. If
+that's more resolution than the UI needs, resample or filter the CHOP in
+TouchDesigner — that's a TD-side question, and the protocol deliberately has no
+knob for it.
+
 ## Errors
 
 An `error` is **surfaced, never fatal**. It routes to the connection's
@@ -182,7 +257,7 @@ An `error` is **surfaced, never fatal**. It routes to the connection's
 | --------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
 | `unknown_param`       | yes   | No such name in the registry, or the wrong message kind for it (an `update` aimed at a pulse param). |
 | `missing_param`       | yes   | Registered, but its operator or parameter isn't in this project.                                     |
-| `param_not_writable`  | yes   | Registered `writable: False`, or a backing par isn't in `CONSTANT` mode.                             |
+| `param_not_writable`  | yes   | Registered `writable: False`, a backing par isn't in `CONSTANT` mode, or the name is a readout.      |
 | `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.     |
 | `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.            |
 | `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                 |
@@ -210,19 +285,29 @@ socket.
 **Unknown parameter names in an `update` are ignored.** Consistent with the
 broadcast-bus model — the web skips names it isn't bound to, no error raised.
 
+**Unrecognised parameter _values_ are dropped per entry**, keeping the rest of
+the map. See [A bad value drops its entry](#a-bad-value-drops-its-entry-not-the-message).
+
 So: add a message type, and old clients ignore it. Add a parameter, and old
-clients don't see it. Only a change to the _meaning_ of an existing field needs
-a `PROTOCOL_VERSION` bump.
+clients don't see it. Add a wire _value_ type, and old clients drop just those
+entries. Only a change to the _meaning_ of an existing field needs a
+`PROTOCOL_VERSION` bump.
 
 ## Keeping the two sides in sync
 
 Two hand-authored declarations describe the same parameters, and **nothing checks
 that they agree**:
 
-| Side          | File                     | Declares                              |
-| ------------- | ------------------------ | ------------------------------------- |
-| TouchDesigner | your config's `REGISTRY` | name → operator, parameter, wire type |
-| Web           | your `Schema` interface  | name → TypeScript type                |
+| Side          | File                     | Declares                                     |
+| ------------- | ------------------------ | -------------------------------------------- |
+| TouchDesigner | your config's `REGISTRY` | name → operator, parameter, wire type        |
+| TouchDesigner | your config's `READOUTS` | name → operator, channel/cell/table          |
+| Web           | your `Schema` interface  | name → TypeScript type                       |
+| Web           | your `readonly` list     | which of those names controls must not drive |
+
+Readouts belong in the web's `readonly` list. Nothing enforces that — TD refuses
+the write either way — but declaring it statically makes a control render
+disabled from the start rather than after the first refused edit.
 
 This duplication is deliberate. The alternative — the web introspecting TD's
 network — would couple your UI to TD's node layout and make the whole app depend

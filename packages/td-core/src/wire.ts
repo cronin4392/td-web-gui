@@ -31,9 +31,15 @@ export const PROTOCOL_VERSION = 1;
 /**
  * A single parameter value on the wire. The wire speaks only clean JSON types —
  * TD does all coercion to/from its native par types (int/float, bool-as-0/1,
- * menu keys, ParGroups). `number[]` carries multi-component pars (color, XYZ).
+ * menu keys, ParGroups). `number[]` carries multi-component pars (color, XYZ)
+ * and multi-channel readouts; `string[][]` carries a whole DAT table as rows of
+ * cells.
+ *
+ * The same map carries parameters and readouts alike — a name backed by a CHOP
+ * channel or a DAT cell is indistinguishable here from one backed by a par, by
+ * design. See docs/design-notes.md § "Readouts".
  */
-export type ParamValue = number | string | boolean | number[];
+export type ParamValue = number | string | boolean | number[] | string[][];
 
 /** Map of friendly param name → value, as carried by `snapshot`/`update`. */
 export type ParamMap = Record<string, ParamValue>;
@@ -119,6 +125,12 @@ export interface PulseMessage {
  * A batch of param changes. Always carries a `params` map; a single change is a
  * one-entry map. Symmetric in both directions: the web sends edits, TD
  * broadcasts changes to all connected clients.
+ *
+ * TD → web, `params` also carries **readouts** — values read straight out of a
+ * CHOP channel or DAT cell with no parameter behind them. They are deliberately
+ * not a separate message: the web binds a name, not a source, so telling the two
+ * apart on the wire would buy the client nothing it could act on. Sending one
+ * back in a web → TD `update` is refused with `param_not_writable`.
  */
 export interface UpdateMessage {
   type: 'update';
@@ -297,17 +309,46 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isParamMap(value: unknown): value is ParamMap {
-  if (!isPlainObject(value)) return false;
-  for (const v of Object.values(value)) {
-    const ok =
-      typeof v === 'number' ||
-      typeof v === 'string' ||
-      typeof v === 'boolean' ||
-      (Array.isArray(v) && v.every((n) => typeof n === 'number'));
-    if (!ok) return false;
+function isParamValue(value: unknown): value is ParamValue {
+  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'boolean') {
+    return true;
   }
-  return true;
+  if (!Array.isArray(value)) return false;
+  // `number[]` (ParGroup / multi-channel readout) or `string[][]` (a DAT table
+  // as rows of cells). An empty array satisfies both, which is the correct
+  // reading either way — there is nothing in it to disagree about.
+  return (
+    value.every((v) => typeof v === 'number') ||
+    value.every((row) => Array.isArray(row) && row.every((cell) => typeof cell === 'string'))
+  );
+}
+
+/**
+ * Read a `params` payload, **keeping the entries that carry a valid value and
+ * dropping the ones that don't**. Returns `null` only when the payload isn't an
+ * object at all, since then there is nothing to salvage.
+ *
+ * Per-entry rather than all-or-nothing on purpose. Rejecting the whole message
+ * over one bad value means a single unrecognised entry costs the client every
+ * *other* parameter in that snapshot — it never syncs at all, and the symptom
+ * (an entirely empty UI) points nowhere near the cause. Dropping just the
+ * offender leaves one control empty instead, and matches the rule `update`
+ * already follows for names the client isn't bound to.
+ *
+ * This is also what keeps adding a wire type from being a breaking change: a
+ * client that predates the type drops those entries and syncs the rest.
+ */
+function toParamMap(value: unknown): ParamMap | null {
+  if (!isPlainObject(value)) return null;
+  const params: ParamMap = {};
+  for (const [name, v] of Object.entries(value)) {
+    if (isParamValue(v)) {
+      params[name] = v;
+    } else {
+      console.debug('[td-core] dropping param with unrecognised value type', name, v);
+    }
+  }
+  return params;
 }
 
 function isMenuMap(value: unknown): value is Record<string, MenuOption[]> {
@@ -372,10 +413,14 @@ export function parse(raw: string): Message | null {
             ...(typeof data.instance === 'string' ? { instance: data.instance } : {}),
           }
         : null;
-    case 'snapshot':
-      return isParamMap(data.params) ? { type: 'snapshot', params: data.params } : null;
-    case 'update':
-      return isParamMap(data.params) ? { type: 'update', params: data.params } : null;
+    case 'snapshot': {
+      const params = toParamMap(data.params);
+      return params ? { type: 'snapshot', params } : null;
+    }
+    case 'update': {
+      const params = toParamMap(data.params);
+      return params ? { type: 'update', params } : null;
+    }
     case 'pulse':
       return typeof data.name === 'string' ? { type: 'pulse', name: data.name } : null;
     case 'ping':

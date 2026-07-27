@@ -22,7 +22,7 @@ bind through the same context.
   [`<RangeInput>`](#rangeinput) · [`<Toggle>`](#toggle) ·
   [`<Button>`](#button) · [`<Select>`](#select) ·
   [`<Vector>`](#vector) · [`<Color>`](#color) ·
-  [`<Value>`](#value) · [`<Video>`](#video)
+  [`<Value>`](#value) · [`<Table>`](#table) · [`<Video>`](#video)
 - [Styling](#styling)
 
 ## Shared behavior
@@ -61,6 +61,21 @@ component's own — yours never replaces the binding logic.
 | RGB / RGBA ParGroup     | `number[]` | [`<Color>`](#color)                                            |
 | any (read-only)         | any        | [`<Value>`](#value)                                            |
 | Video Stream Out TOP    | —          | [`<Video>`](#video)                                            |
+
+A [readout](touchdesigner-setup.md#readouts) — a `READOUTS` entry with no
+parameter behind it — binds by name like anything else, so the same components
+apply:
+
+| Readout source    | Wire type    | Component                                  |
+| ----------------- | ------------ | ------------------------------------------ |
+| One CHOP channel  | `number`     | [`<Value>`](#value)                        |
+| Several channels  | `number[]`   | [`<Value>`](#value), [`<Vector>`](#vector) |
+| One DAT cell      | `string`     | [`<Value>`](#value)                        |
+| A whole DAT table | `string[][]` | [`<Table>`](#table)                        |
+
+Readouts are TD → web only, so prefer a read-only component. An editable one
+bound to a readout renders disabled once TD refuses the first write — declaring
+the name in the provider's `readonly` list disables it from the start instead.
 
 ---
 
@@ -302,9 +317,56 @@ updates, never sends, never participates in focus/echo logic.
 <App.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
 ```
 
-Without `format`, arrays render comma-joined and scalars via `String()`. This is
-also the right component for a parameter you've declared read-only — authoring it
-as a readout means it never even produces an error.
+Without `format`, scalars render via `String()`, arrays comma-joined, and a
+`string[][]` table joins cells with `, ` and rows with `|` so a one-line
+readout of one stays legible. [`<Table>`](#table) is the real component for a
+table; this is sensible degradation, not the intent.
+
+This is also the right component for a parameter you've declared read-only, and
+for any scalar [readout](touchdesigner-setup.md#readouts) — authoring it as a
+readout means it never even produces an error.
+
+---
+
+## `<Table>`
+
+Renders a `<table>`. Binds a `string[][]`
+[readout](touchdesigner-setup.md#readouts) — a whole DAT table. Read-only: like
+`<Value>` it subscribes to inbound updates, never sends, and never participates
+in focus/echo logic, because a table readout has no parameter behind it to write
+to.
+
+| Prop     | Type                         | Default | Description                                  |
+| -------- | ---------------------------- | ------- | -------------------------------------------- |
+| `name`   | `string`                     | —       | Readout to read.                             |
+| `header` | `boolean`                    | `false` | Render row 0 as a `<thead>` of `<th>` cells. |
+| `format` | `(cell, row, col) => string` | —       | Per-cell formatter.                          |
+
+```python
+# TD side
+READOUTS = {'cues': {'op': '/project1/cue_table', 'type': 'string[][]'}}
+```
+
+```tsx
+<App.Table name="cues" header format={(cell, row, col) => (col === 1 ? `@${cell}` : cell)} />
+```
+
+**`format` receives the cell's index in the original table**, not its index
+within `<tbody>` — so a formatter keyed on row 3 doesn't shift meaning when
+`header` is toggled. With `header`, the head row is row 0 and the first body row
+is row 1.
+
+**Rows and cells render index-keyed**, so a table that changes every frame
+rewrites cell text in place rather than tearing down and rebuilding the DOM.
+
+**Ragged rows render at their own lengths.** TD tables are rectangular, but
+nothing on the wire enforces that, and a short row must not shift the cells of
+the rows after it.
+
+Before the first snapshot lands — or if the name turns out not to carry a table
+at all — it renders empty rather than throwing. A name/type mismatch is
+schema-vs-config drift that the console already reports; a component is the wrong
+place to escalate it into a render crash.
 
 ---
 
@@ -353,6 +415,7 @@ class hook and passes through `class`, `style`, and everything else.
 | `<Vector>`      | `.td-vector`, sub-inputs `.td-vector-input`                |
 | `<Color>`       | `.td-color`, `.td-color-rgb`, `.td-color-alpha`            |
 | `<Value>`       | `.td-value`                                                |
+| `<Table>`       | `.td-table`                                                |
 | `<Video>`       | `.td-video`                                                |
 
 **A `class` prop replaces the hook rather than adding to it.** Passthrough props

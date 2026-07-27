@@ -11,7 +11,8 @@ loads it into the `config` Text DAT the two scripts read. The instance name the
 web app sees is WebGuiServer's Identifier par, not a value in this file.
 
 Backing operators this project expects — a single `/project1/params` Base COMP
-with one custom par per REGISTRY entry:
+with one custom par per REGISTRY entry, plus `/project1/readouts` holding the
+CHOP and DAT sources for READOUTS (see that section below):
 	Message    String
 	Intensity  Float   (0-1)
 	Enabled    Toggle
@@ -49,13 +50,15 @@ the mirror comes back (forum.derivative.ca/t/stunned-by-webrtcpanel/293915).
 Flipping at the encoder has no such failure mode, and fixes every consumer of the
 stream rather than one styled element in one browser state.
 
-The Parameter Execute DATs are NOT set by hand. WebGuiServerExt generates one per
-operator named above, straight out of REGISTRY. This project exercises both
-toggle paths: `/project1/params` holds only custom pars, while
-`/project1/audiodevicein_demo` holds the built-in `device`, so the generated DATs
-get `Custom` and `Built-In` respectively rather than both globally. Pulse entries
-are skipped entirely — pulses raise On Pulse, not Value Change, so `reset` needs
-no watcher.
+The watcher DATs are NOT set by hand. WebGuiServerExt generates them from
+REGISTRY and READOUTS: `parexec_…` per operator, `chopexec_…` per CHOP,
+`datexec_…` per DAT.
+
+This project exercises both Parameter Execute toggle paths: `/project1/params`
+holds only custom pars, while `/project1/audiodevicein_demo` holds the built-in
+`device`, so those two DATs get `Custom` and `Built-In` respectively rather than
+both globally. Pulse entries are skipped entirely — pulses raise On Pulse, not
+Value Change, so `reset` needs no watcher.
 
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
@@ -146,4 +149,20 @@ REGISTRY = {
 	# Note the lowercase par name: `device` is a built-in par, and only custom
 	# pars are capitalized like the ones above.
 	'audiodevice': {'op': '/project1/audiodevicein_demo', 'par': 'device', 'type': 'string'},
+}
+
+# friendly wire name -> a value read straight out of a CHOP or DAT, with no
+# parameter in between. One-way, TD -> web. The entry's shape picks the source and
+# the wire type; `type` appears only where it overrides that. One entry per shape
+# here, with the sources in /project1/readouts.
+#
+# Full reference: packages/td-core/docs/touchdesigner-setup.md § Readouts.
+READOUTS = {
+	'fps':     {'op': '/project1/readouts/null_stats', 'chan': 'fps'},
+	# A Perform CHOP ships with only `fps` enabled — `cook` was toggled on for
+	# this entry, which is also the one type override in the project.
+	'cooking': {'op': '/project1/readouts/null_stats', 'chan': 'cook', 'type': 'bool'},
+	'bands':   {'op': '/project1/readouts/null_bands', 'chan': ['low', 'mid', 'high']},
+	'track':   {'op': '/project1/readouts/nowplaying', 'row': 'title', 'col': 1},
+	'cues':    {'op': '/project1/readouts/cue_table', 'type': 'string[][]'},
 }

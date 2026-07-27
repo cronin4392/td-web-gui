@@ -45,6 +45,9 @@ What you get over hand-rolling a WebSocket:
 - **Typed parameters.** One schema, checked in JSX.
 - **A component per parameter kind** — including the awkward ones: ParGroups,
   pulse parameters, momentary buttons, TD-populated menus.
+- **Readouts straight from CHOPs and DATs.** Publish a channel, a cell, or a
+  whole table without exporting it onto a parameter first — coalesced to one
+  message per frame, because a CHOP Execute DAT fires per sample.
 - **Correctness under real conditions.** Optimistic writes that don't fight the
   user's cursor, reconnect with resync, rAF throttling, backpressure, and a
   guard that stops a web write from silently detaching a TD author's expression.
@@ -71,28 +74,33 @@ same pass as your own components.
 ### 1. Set up TouchDesigner
 
 The package ships the TouchDesigner half of the bridge in
-[`touchdesigner/`](touchdesigner/) — four project-agnostic Python files you drop
+[`touchdesigner/`](touchdesigner/) — six project-agnostic Python files you drop
 in unchanged, plus a config template you edit.
 
 **→ [Full walkthrough: docs/touchdesigner-setup.md](docs/touchdesigner-setup.md)**
 
 In short: a Base COMP with the global OP shortcut `WebGuiServer`, holding a Web
-Server DAT, the callbacks, and an extension that generates the Parameter Execute
-DATs watching your operators; and a config mapping friendly names to parameters.
+Server DAT, the callbacks, and an extension that generates the watcher DATs
+observing your operators; and a config mapping friendly names to parameters.
 
 ```python
 # your-config.py
 CALLBACKS = 'webserver1_callbacks'
 
-REGISTRY = {
+REGISTRY = {   # bidirectional: parameters
     'message':   {'op': '/project1/params', 'par': 'Message',   'type': 'string'},
     'intensity': {'op': '/project1/params', 'par': 'Intensity', 'type': 'number'},
     'tint':      {'op': '/project1/params', 'par': 'Tint',      'type': 'number[]'},
     'reset':     {'op': '/project1/params', 'par': 'Reset',     'type': 'pulse'},
 }
+
+READOUTS = {   # TD -> web only: values with no parameter behind them
+    'fps':  {'op': '/project1/perf_stats', 'chan': 'fps'},
+    'cues': {'op': '/project1/cue_table',  'type': 'string[][]'},
+}
 ```
 
-### 2. Declare the same parameters in TypeScript
+### 2. Declare the same names in TypeScript
 
 ```ts
 // src/td.config.ts
@@ -101,8 +109,16 @@ export interface MixerParams {
   intensity: number;
   tint: number[];
   reset: boolean;
+  fps: number; // a readout
+  cues: string[][]; // a readout
 }
+
+export const readonly = ['fps', 'cues'];
 ```
+
+Readouts sit in the same interface as parameters — they ride the same wire
+messages and bind by name identically. Only `readonly` tells the two apart on the
+web side, and only so a control disables itself before TD has to refuse it.
 
 Both sides are hand-authored and nothing checks that they agree — that's a
 deliberate trade, explained in
@@ -167,6 +183,7 @@ props, and carries a stable `td-*` class hook.
 | `<Select>`                     | Menu parameters. Options authored by you, or announced by TD.        |
 | `<Vector>` `<Color>`           | Multi-component ParGroups — XYZ, RGB, RGBA.                          |
 | `<Value>`                      | Read-only readout, with an optional `format`.                        |
+| `<Table>`                      | A whole DAT table, read-only, with an optional `header`.             |
 | `<Video>`                      | One WebRTC stream, selected by announced id.                         |
 
 **Connection** — `createTDClient<Schema>()` for typed UI;
@@ -179,8 +196,13 @@ sane defaults.
 its tracks, signaling multiplexed over the control socket, per-stream status, and
 rebuild-on-failure.
 
+**Readouts** — `READOUTS` publishes a CHOP channel, several channels, a DAT cell,
+or a whole DAT table with no parameter behind it, one-way TD → web. They share
+the parameter namespace, so they bind by name like anything else.
+
 **TouchDesigner** — [`touchdesigner/`](touchdesigner/): the DAT callbacks
-implementing the other half of the protocol, and a commented config template.
+implementing the other half of the protocol, an extension that generates every
+watcher DAT from your config, and a commented config template.
 
 ## Documentation
 

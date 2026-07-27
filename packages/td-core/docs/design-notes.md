@@ -12,6 +12,7 @@ worth reading first.
 - [Security model](#security-model)
 - [The web authors its schema](#the-web-authors-its-schema)
 - [Parameter modes](#parameter-modes)
+- [Readouts](#readouts)
 - [TD-announced menus](#td-announced-menus)
 - [Optimistic writes and echo suppression](#optimistic-writes-and-echo-suppression)
 - [One signal per name](#one-signal-per-name)
@@ -77,12 +78,13 @@ for exactly how each kind of drift fails.
 
 This stance shows up in three places, and is broken exactly once:
 
-| Thing                     | Authored where           | Why                                           |
-| ------------------------- | ------------------------ | --------------------------------------------- |
-| Parameter names and types | Web schema + TD registry | No introspection                              |
-| `<Select>` options        | Web (`options` prop)     | No introspection                              |
-| Read-only parameters      | Web (`readonly` prop)    | No introspection; no wire-format change       |
-| **Menu options**          | **TD (`menus` message)** | **Some menus cannot be authored — see below** |
+| Thing                     | Authored where             | Why                                           |
+| ------------------------- | -------------------------- | --------------------------------------------- |
+| Parameter names and types | Web schema + TD registry   | No introspection                              |
+| Readout names and sources | Web schema + TD `READOUTS` | No introspection                              |
+| `<Select>` options        | Web (`options` prop)       | No introspection                              |
+| Read-only parameters      | Web (`readonly` prop)      | No introspection; no wire-format change       |
+| **Menu options**          | **TD (`menus` message)**   | **Some menus cannot be authored — see below** |
 
 If TD ever needs to drive _more_ metadata to the web (`min`/`max`/labels/units),
 the escape hatch is a dedicated message alongside the snapshot — deliberately not
@@ -138,6 +140,108 @@ Two complementary layers keep this from being a silent failure:
 For array parameters the check is **per component**, so a half-constant ParGroup
 (`Positionx` constant, `Positiony` expression) is refused whole rather than
 half-applied.
+
+## Readouts
+
+Not every value worth showing in a UI is a setting. An analysis CHOP's level, a
+timecode, a now-playing table — these are **data**, and the parameter bridge is
+the wrong shape for them.
+
+You _can_ publish one through a parameter: export the CHOP channel onto a par and
+register it. But that costs a par per value, and it puts the par in `EXPORT`
+mode — which the write guard above then has to refuse anyway. The parameter is
+pure ceremony; the only thing it contributes is a place to hang the registry
+entry.
+
+So `READOUTS` reads the source directly. A CHOP channel, several channels, a DAT
+cell, or a whole DAT table, one-way, TD → web.
+
+### They share the parameter namespace
+
+Readouts ride the **same `snapshot` and `update` messages** as parameters, in the
+same `params` map. Nothing on the wire says which is which.
+
+This was the load-bearing decision, and the alternative — a `readouts` message
+with its own routing table, its own snapshot, and a parallel set of web-side
+components — was rejected because **the consumer cannot act on the distinction.**
+The browser binds a _name_. `<Value name="fps">` wants a number called `fps`;
+whether TD gets it from `perform1.par.Fps` or `chop_stats['fps']` is a fact about
+someone's TD network, and one that should be free to change without touching the
+UI. That is the same argument that already puts `intensity` on the wire rather
+than `/project1/level1/opacity` — readouts are just where it bites hardest,
+because the value has no parameter at all.
+
+What sharing the namespace buys is everything the parameter path already does:
+lazy per-name signal allocation, shared signals across binders, batched
+application, `<Value>`, `createTDSignal`, and the typed schema. A readout is a
+schema key like any other. And because the wire format doesn't change,
+`PROTOCOL_VERSION` stays at `1`.
+
+What it costs is exactly one thing: **a name in both maps is ambiguous.** That's
+a config error, detected and warned, with the parameter winning — it's the
+bidirectional contract, so dropping it would silently break writes, while
+dropping the readout only costs a value.
+
+### Writes are refused as `param_not_writable`
+
+Not `unknown_param`. The name is real; it just has no writable side. Reusing the
+existing code means the web's runtime safety net already handles it — the control
+disables and a snapshot re-request reverts the optimistic edit — with no
+web-side change at all. Declaring readouts in `<Provider readonly>` is still
+worth doing: it disables the control from the start instead of after the first
+refused edit.
+
+### The type is inferred from the entry's shape
+
+`chan: 'fps'` is a number, `chan: ['low','mid']` is a `number[]`, a `row`/`col`
+pair is a string, and a bare operator (plus `type: 'string[][]'`) is the whole
+table. `type` is only written when overriding — a 0/1 gate channel as `bool`, a
+numeric cell as `number`.
+
+Inference is safe here in a way it wouldn't be for parameters: a CHOP channel is
+_always_ a float and a DAT cell is _always_ a string, so there is no hidden TD
+type to get wrong. A parameter has one (a Toggle is a 0/1 float), which is why
+`REGISTRY` still requires `type`.
+
+**A cell may not be declared `bool`.** There is no guess-free string → bool cast
+— `"false"` is truthy — and silently turning an off into an on is worse than
+refusing the entry. Same reasoning that makes the inbound coercion refuse strings
+for `bool`.
+
+**A channel list is explicit, never a pattern.** `chan: 'band*'` would make the
+array's length and order depend on what the CHOP happens to hold this frame,
+which is exactly the property a `number[]` on the wire must not have. A ParGroup's
+fixed component order plays the same role for parameters.
+
+### Coalescing is required, not an optimisation
+
+> **Measured against the TouchDesigner docs:** a **CHOP Execute DAT runs its
+> script "for every sample that changes, so when rendering one frame, it may get
+> called 2 or more times per channel"** on a time-sliced CHOP. Its `Value Change`
+> callback has no once-per-frame option — the `While Off/On Frequency` parameter
+> that offers one applies only to `While On` / `While Off`.
+
+So a readout hook that broadcast inline would put several messages per frame on
+the socket for a single channel, and N times that for N readouts. Instead the
+hooks only mark a name dirty, and one coalesced `update` goes out at **end of
+frame** (`run(..., endFrame=True)` — the value still reaches the browser in the
+frame it changed). The ceiling is one message per frame however many readouts
+moved.
+
+Re-reading each dirty readout at flush time, rather than carrying the callback's
+`val` through, is what makes that collapse correct: what gets sent is the value
+that survived the frame, not whichever sample fired last.
+
+**DATs get this for free.** A DAT Execute DAT's `Execute` parameter has an `End
+of Frame` setting — "at most one time per frame ... even if it triggered several
+times in one frame" — so the generated DAT Execute DATs use it. The CHOP side
+has no equivalent, which is the whole reason the coalescing lives in the
+callbacks module rather than in operator parameters.
+
+One message per frame is still 60/sec for a channel that moves every frame.
+There's deliberately no rate knob in the config for that: resampling or filtering
+belongs in the CHOP network, where TouchDesigner already has better tools for it
+than a config field would be.
 
 ## TD-announced menus
 
@@ -434,6 +538,25 @@ expected failure, so writes validate against `par.menuNames` first and return
 `param_type_mismatch`.
 
 **`menuNames` changes fire no `onTableChange`.** An open Derivative bug since 2021. See [TD-announced menus](#td-announced-menus).
+
+**A CHOP Execute DAT fires per changed _sample_, not per frame.** On a
+time-sliced CHOP one frame "may get called 2 or more times per channel", and
+`Value Change` has no once-per-frame option — the `While Off/On Frequency`
+parameter that offers one governs only `While On` / `While Off`. A DAT Execute
+DAT, by contrast, has an `Execute = End of Frame` setting that coalesces
+natively. That asymmetry is why readout broadcasts coalesce in Python rather than
+in operator parameters. See [Readouts](#readouts).
+
+**A bare `Cell` autocasts to a number.** `dat[1,2]` returns a `Cell`, and its
+contents decide whether numeric or string operations apply — so a cell holding
+`"3"` reaches JSON as `3` and breaks the schema's promise that the name carries a
+string. Always `.val`, which the Derivative docs themselves flag as the safer
+form.
+
+**`Channel.eval()` is the current value; `channel[0]` is not.** Subscripting
+takes sample 0 of the buffer, which on a time-sliced CHOP is not where "now"
+lives — the readout would sit on a stale sample and look frozen. `eval()` with no
+index evaluates at the current time, mirroring `par.eval()`.
 
 **Built-in parameters are lowercase; custom parameters are capitalized.**
 `webrtc`, `mode`, and `device` are built-ins; `Intensity` and `Color` are custom.
