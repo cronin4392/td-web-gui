@@ -8,8 +8,8 @@
  *
  * The page drives **three** TouchDesigner processes, of **two** kinds:
  *
- *   - the GUI project (`td/config.py`), which owns the scene-loader selection
- *     and the eight loaders' text params — one of a kind, one schema;
+ *   - the GUI project (`td/gui-config.py`), which owns the scene-loader
+ *     selection and the eight loaders' text params — one of a kind, one schema;
  *   - the scene projects (`td/scene-config.py`), one process per live scene.
  *
  * The two scene processes run the same project, so they publish the same wire
@@ -46,7 +46,7 @@ const sceneBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
  * as authoritative when they disagree.
  */
 export const guiInstance = {
-  id: 'vj-gui',
+  id: 'gui',
   url: `ws://${host}:${guiPort}`,
 } as const satisfies TDInstanceConfig;
 
@@ -56,7 +56,7 @@ export const sceneInstances = [
   { id: 'sceneB', url: `ws://${host}:${sceneBPort}` },
 ] as const satisfies readonly TDInstanceConfig[];
 
-/** The eight external scene loaders, matching `SCENE_IDS` in `td/config.py`. */
+/** The eight external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`. */
 export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export type SceneId = (typeof sceneIds)[number];
 

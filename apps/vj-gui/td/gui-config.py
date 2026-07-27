@@ -1,32 +1,50 @@
 """
-Config for BOTH scene instances — sceneA (port 4007) and sceneB (port 5007).
+Config for the GUI instance — the scene-loader control surface, on port 9980.
 
-One file for two TouchDesigner processes. The scene projects are the same
-project, so their registry, readouts, and streams are identical and there is
-nothing to keep in sync: point both WebGuiServer components' `Config File` par
-at this file. Each process loads its own copy into its own `config` Text DAT and
-only ever reads it, so sharing the file on disk is safe.
+Backing operators this project expects:
+        /GUI/GUI                              custom par `Selectedloader`
+        /GUI/ExternalScenes/SceneA … SceneH   custom pars `Text`, `Text2`
 
-What differs between the two lives on WebGuiServer's own parameters, not in
-here: `Identifier` (sceneA / sceneB — the id the web app matches) and `Port`.
+The web app shows only the text pair belonging to whichever loader
+`selectedLoader` points at — see `VjGuiParams` and `sceneIdFromLoaderPath` in
+apps/vj-gui/src/td.config.ts, which parses the loader's PATH, so the
+SCENE_PATH below and that file's LOADER_PATH_PREFIX have to agree.
 
-That is also why no name below is scene-prefixed. A wire name is scoped to its
-instance, so both processes publish a plain `level` and a plain `cpuCookTime`,
-and the web keeps them apart by which `<Provider>` reads them — see
-`SceneParams` in apps/vj-gui/src/td.config.ts, the TypeScript half of this
-contract. Prefixing would only re-encode, in two places, what the connection
-already says.
+`Selectedloader` is an OP-reference par: it eval()s to the operator rather than
+a string, and webserver-callbacks._to_string sends its `.path`. An empty one
+eval()s to None and is skipped from the snapshot with a warning, which the web
+reads as "no loader selected yet".
 
-The GUI project's config is separate: td/config.py at the repo root.
+The scenes are separate processes with their own config: td/scene-config.py.
 """
 
 CALLBACKS = "webserver1_callbacks"
 
-# Nothing on a scene is web-writable yet — they are read-only monitors, and the
-# writable params still live on the GUI project.
-REGISTRY = {}
+# The eight external scene loaders. Each exposes the same pair of text pars.
+SCENE_IDS = "ABCDEFGH"
+SCENE_PATH = "/GUI/ExternalScenes/Scene%s"
 
-WEBRTC = "webrtc1"
+REGISTRY = {
+    "selectedLoader": {
+        "op": "/GUI/GUI",
+        "par": "Selectedloader",
+        "type": "string",
+    }
+}
+
+# sceneAText1 / sceneAText2 … sceneHText1 / sceneHText2. The web app derives these
+# same names from its scene id, so the two sides must agree on the spelling.
+for _scene in SCENE_IDS:
+    REGISTRY["scene%sText1" % _scene] = {"op": SCENE_PATH % _scene, "par": "Text", "type": "string"}
+    REGISTRY["scene%sText2" % _scene] = {
+        "op": SCENE_PATH % _scene,
+        "par": "Text2",
+        "type": "string",
+    }
+
+# Params only — the video comes from the scene instances, not from here. The web
+# side matches: App.tsx passes `video` to the scene providers, not the GUI one.
+WEBRTC = None
 
 STREAMS = {}
 
