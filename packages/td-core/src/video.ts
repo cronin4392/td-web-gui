@@ -200,6 +200,10 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
   // ICE that arrived before a remote description exists; `addIceCandidate`
   // would throw, so it's queued in order (including the `null` terminator).
   const pendingCandidates: (IceCandidateInit | null)[] = [];
+  /**
+   * Tail of the signaling queue — see {@link enqueueSignaling}.
+   */
+  let signalingTail: Promise<void> = Promise.resolve();
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -207,6 +211,31 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
   function signalingOpen(): boolean {
     const s = connection.status();
     return s === 'open' || s === 'synced';
+  }
+
+  /**
+   * Run a signaling step only after every step already queued has finished.
+   *
+   * Offer/answer is a state machine on **one** peer, and each step is several
+   * awaits long (`setRemoteDescription` → `createAnswer` → `setLocalDescription`).
+   * Started concurrently, two steps interleave and the second one's writes land
+   * against a state the first one has already moved on from — the symptom is
+   * `InvalidStateError: Called in wrong signalingState: stable` from a
+   * `setLocalDescription` whose own `setRemoteDescription` was undone by its
+   * neighbour, leaving TD stuck in `have-local-offer` and no media flowing.
+   *
+   * TD renegotiates more than once while attaching its tracks, so back-to-back
+   * inbound offers are normal rather than exotic — this is ordinary traffic, not
+   * a glare edge case, and `makingOffer` cannot cover it because that flag says
+   * nothing about an *inbound* offer still being answered. Serializing is the
+   * standard fix; the WebRTC "perfect negotiation" pattern calls this the
+   * operations chain.
+   */
+  function enqueueSignaling(step: () => Promise<void>): void {
+    // Same step on both settle paths: every step swallows its own errors, and
+    // passing it as the rejection handler too means a step that somehow throws
+    // can't leave the queue permanently rejected and stall the ones behind it.
+    signalingTail = signalingTail.then(step, step);
   }
 
   function peerState(pc: RTCPeerConnectionLike): string {
@@ -289,7 +318,9 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
       if (isCurrent()) registerTrack(event);
     };
     pc.onnegotiationneeded = () => {
-      if (isCurrent()) void negotiate(myId);
+      // Queued for the same reason inbound offers are: our own offer is three
+      // awaits long and must not interleave with an offer arriving mid-flight.
+      if (isCurrent()) enqueueSignaling(() => negotiate(myId));
     };
     pc.onconnectionstatechange = () => {
       if (isCurrent()) syncPeerState();
@@ -534,7 +565,10 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     }
     const state = peerState(peer);
     if (state === 'failed' || state === 'closed') rebuild('ws reconnect, peer dead');
-    else if (negotiationPending) void negotiate(peerId);
+    else if (negotiationPending) {
+      const id = peerId;
+      enqueueSignaling(() => negotiate(id));
+    }
   }
 
   const unsubscribe = connection.subscribe((message) => {
@@ -542,15 +576,25 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
       case 'snapshot':
         onSignalingReady();
         break;
-      case 'rtc-offer':
-        void handleOffer(message.sdp, peerId);
+      // The three below queue rather than start: they mutate one peer's
+      // offer/answer state and must not interleave (see enqueueSignaling). The
+      // peer id is captured HERE, at arrival, so a step that waits behind
+      // another still refuses to act on a peer that was rebuilt meanwhile.
+      case 'rtc-offer': {
+        const id = peerId;
+        enqueueSignaling(() => handleOffer(message.sdp, id));
         break;
-      case 'rtc-answer':
-        void handleAnswer(message.sdp, peerId);
+      }
+      case 'rtc-answer': {
+        const id = peerId;
+        enqueueSignaling(() => handleAnswer(message.sdp, id));
         break;
-      case 'rtc-ice':
-        void handleIce(message, peerId);
+      }
+      case 'rtc-ice': {
+        const id = peerId;
+        enqueueSignaling(() => handleIce(message, id));
         break;
+      }
       case 'streams':
         // Re-sent by TD on every (re)negotiation: replacing the map wholesale is
         // what rebinds `<Video>` when mids shift.

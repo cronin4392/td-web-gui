@@ -48,12 +48,22 @@ Workspace-wide: `pnpm build`, `pnpm test`, `pnpm typecheck`.
 ## Running end-to-end
 
 1. `pnpm --filter td-core build`
-2. Open [`apps/example/td/Example.toe`](apps/example/td) in TouchDesigner
+2. Open **both** reference projects in TouchDesigner —
+   [`apps/example/td/Example1/Example.toe`](apps/example/td/Example1) and
+   [`apps/example/td/Example2/Example2.toe`](apps/example/td/Example2)
 3. `pnpm --filter example dev`
 
-`apps/example/td/config-example.py` is the reference project's registry; it expects a
-`/project1/params` Base COMP with one custom parameter per entry, plus the video
-wall under `/project1/videowall`. The file's docstring lists exactly what.
+The example app drives two instances at once, one per column. Each `.toe` has its
+own registry beside it — `apps/example/td/Example1/config.py` and
+`apps/example/td/Example2/config.py` — and the two are deliberately different
+shapes, which is what the multi-instance example is demonstrating. Both expect a
+`/project1/params` Base COMP with one custom parameter per entry, plus a
+four-tile video wall under `/project1/videowall`. Each file's docstring lists
+exactly what.
+
+Instance 1 alone is enough to exercise every control; opening only it leaves the
+right-hand column showing "reconnecting…", which is itself the demonstration that
+the two connections are independent.
 
 The TouchDesigner callbacks the reference project loads live in the package now
 (`packages/td-core/touchdesigner/`), so the `.toe` consumes them the same way a

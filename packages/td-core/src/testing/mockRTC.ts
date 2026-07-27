@@ -112,6 +112,19 @@ export class MockPeerConnection implements RTCPeerConnectionLike {
 
   async setLocalDescription(description?: { type: string; sdp?: string }): Promise<void> {
     const desc = description ?? { type: 'offer', sdp: 'offer-sdp' };
+    // Real browsers reject an answer that has no offer to answer, with exactly
+    // this error. Enforced here because a permissive fake hides the bug it was
+    // written to catch: two inbound offers handled concurrently interleave, the
+    // second one's setRemoteDescription undoes the first's, and the first's
+    // setLocalDescription then lands against `stable`. Against a fake that
+    // shrugs, that sequence "passes" while real Chrome throws and TD sits in
+    // have-local-offer with no pixels.
+    if (desc.type === 'answer' && this.signalingState !== 'have-remote-offer') {
+      throw new Error(
+        `InvalidStateError: Failed to execute 'setLocalDescription' on ` +
+          `'RTCPeerConnection': Called in wrong signalingState: ${this.signalingState}`,
+      );
+    }
     this.localDescriptions.push(desc);
     if (desc.type === 'rollback') {
       this.signalingState = 'stable';
