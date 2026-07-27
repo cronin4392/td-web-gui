@@ -32,6 +32,7 @@ REGISTRY = {
     }
 }
 
+
 # sceneAText1 / sceneAText2 … sceneHText1 / sceneHText2. The web app derives these
 # same names from its scene id, so the two sides must agree on the spelling.
 for _scene in SCENE_IDS:
