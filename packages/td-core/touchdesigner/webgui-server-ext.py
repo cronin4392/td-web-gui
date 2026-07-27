@@ -95,7 +95,17 @@ GENERATED_COMMENT = (
 # hand-built operators. Vertical step is computed from the tallest actual tile
 # rather than assumed, then snapped up to the 200 grid.
 _GRID = 200
-_GAP = 60
+
+# Each generated DAT gets a companion "note" -- a comment annotation directly
+# above it saying what it watches. Comment mode: no title bar, since a one- or
+# two-line watch description doesn't need one. Sized to hug its own DAT
+# (_NOTE_GAP_BELOW) while leaving a wide, unmistakable gap before the next DAT
+# up the column (_NOTE_GAP_ABOVE) -- the asymmetry is what tells a reader which
+# watcher a note belongs to, without needing to draw a line between them.
+_NOTE_WIDTH = 300
+_NOTE_HEIGHT = 110
+_NOTE_GAP_BELOW = 20
+_NOTE_GAP_ABOVE = 150
 
 
 class WebGuiServerExt:
@@ -157,6 +167,9 @@ class WebGuiServerExt:
         keep, orphans = self._matchExisting(desired)
 
         for dat in orphans:
+            note = self._findUtilityChild(self._noteName(dat))
+            if note is not None:
+                note.destroy()
             dat.destroy()
 
         # Keyed on (kind, op path), so one operator can legitimately carry two
@@ -350,6 +363,7 @@ class WebGuiServerExt:
     def _createWatcher(self, key):
         kind, path = key
         dat = self.ownerComp.create(_WATCH[kind]["optype"], self._datName(kind, path))
+        dat.viewer = True
         dat.tags.add(GENERATED_TAG)
         dat.comment = GENERATED_COMMENT
         return dat
@@ -378,6 +392,59 @@ class WebGuiServerExt:
         """
         if par.mode != ParMode.EXPRESSION or par.expr != expr:
             par.expr = expr
+
+    # ── notes ─────────────────────────────────────────────────────────────────
+
+    def _noteName(self, dat):
+        """Name of the comment annotation documenting one generated DAT."""
+        return tdu.validName(dat.name + "_note")
+
+    def _findUtilityChild(self, name):
+        """Look up a direct utility child (e.g. a note annotation) by name.
+
+        Utility ops — annotations among them — are invisible to op() and
+        .children, so a plain attribute or dict lookup can't find them.
+        findChildren(includeUtility=True) is the call that does see them, but it
+        also recurses into an annotate's own internal widget network; maxDepth=1
+        keeps this to direct children of the component only.
+        """
+        for child in self.ownerComp.findChildren(includeUtility=True, maxDepth=1):
+            if child.name == name:
+                return child
+        return None
+
+    def _getOrCreateNote(self, dat):
+        """The comment annotation for one generated DAT, creating it if missing.
+
+        Looked up fresh and recreated on demand rather than cached: a TDN
+        reimport of this component (see onInitTD) recreates the DAT children
+        from the .tdn, which has no notion of these hand-attached notes, so a
+        note can vanish out from under Rebuild between runs. Idempotent
+        lookup-or-create is what makes that self-healing rather than a
+        one-time setup step that silently stops matching reality.
+        """
+        name = self._noteName(dat)
+        note = self._findUtilityChild(name)
+        if note is None:
+            note = self.ownerComp.create(annotateCOMP, name)
+            note.name = name  # create() ignores the name arg for annotateCOMP
+            note.utility = True
+            note.tags.add(GENERATED_TAG)
+            note.par.Mode = "comment"
+        return note
+
+    def _watchText(self, key, watch):
+        """Body text for a watcher's note: which op, and what it watches."""
+        kind, path = key
+        if kind == _PAREXEC:
+            return "OP: %s\nparameters: %s" % (path, ", ".join(watch["pars"]))
+        if kind == _CHOPEXEC:
+            return "CHOP: %s\nchannels: %s" % (path, ", ".join(watch["chans"]))
+        return "DAT: %s\nwatches: whole table (Table Change)" % path
+
+    def _setNoteText(self, note, text):
+        if note.par.Bodytext.eval() != text:
+            note.par.Bodytext = text
 
     def _applyWatch(self, dat, key, watch):
         kind, path = key
@@ -416,6 +483,8 @@ class WebGuiServerExt:
         # hot-reloads every generated DAT the way it already does for the
         # hand-placed callbacks DATs.
         self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(self._getOrCreateNote(dat), self._watchText(key, watch))
 
     def _warnIfNoCoreDir(self):
         """Warn once per rebuild when Tdcoredir can't supply a source path.
@@ -465,11 +534,22 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        # Step from the tallest actual tile, not a fixed offset — a column stepped
-        # by less than its own tile height overlaps.
+        # Step from the tallest actual tile plus its note, not a fixed offset —
+        # a column stepped by less than one DAT + its note overlaps.
         tallest = max(d.nodeHeight for d in generated)
-        step = int(math.ceil((tallest + _GAP) / float(_GRID)) * _GRID)
+        unit = tallest + _NOTE_GAP_BELOW + _NOTE_HEIGHT + _NOTE_GAP_ABOVE
+        step = int(math.ceil(unit / float(_GRID)) * _GRID)
 
         for i, dat in enumerate(sorted(generated, key=lambda d: d.name)):
             dat.nodeX = anchor_x
             dat.nodeY = anchor_y - i * step
+
+            # The note for this DAT may not exist yet on a component whose
+            # config was just widened — created here too so layout alone is
+            # enough to keep every DAT captioned, not just a Rebuild that
+            # happened to touch this key's watch this time.
+            note = self._getOrCreateNote(dat)
+            note.nodeX = anchor_x - (_NOTE_WIDTH - dat.nodeWidth) // 2
+            note.nodeY = dat.nodeY + dat.nodeHeight + _NOTE_GAP_BELOW
+            note.nodeWidth = _NOTE_WIDTH
+            note.nodeHeight = _NOTE_HEIGHT

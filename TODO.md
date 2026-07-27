@@ -24,3 +24,4 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [ ] If an input doesn't have a value yet in web show something, maybe skeleton state?
 - [ ] Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes
 - [ ] Automatically create videostreamoutTOP inside the WebGuiServer based on config. Then handle the flip x in there.
+- [ ] On TD close, delete all the watcher DATs
