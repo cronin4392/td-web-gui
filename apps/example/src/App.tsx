@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js';
 import { createTDClient } from 'td-core';
-import { instances, VIDEO_TILES, type ExampleParams } from './td.config';
+import { instances, readonlyParams, VIDEO_TILES, type ExampleParams } from './td.config';
 
 // One factory per TD instance, typed by that instance's param schema.
 const Example = createTDClient<ExampleParams>();
@@ -97,6 +97,52 @@ function AudioDevicePicker() {
 }
 
 /**
+ * Readouts — CHOP channels and DAT cells read straight out of the operator, with
+ * no parameter behind them. One-way TD → web.
+ *
+ * They bind exactly like the parameters above: same names, same components. Only
+ * `readonlyParams` on the `<Provider>` marks them out.
+ */
+function Readouts() {
+  return (
+    <section>
+      <h2>Readouts</h2>
+
+      <p>
+        Frame rate: <Example.Value name="fps" format={(v) => `${Number(v).toFixed(1)} fps`} />
+        {' · '}
+        last frame <Example.Value name="cooking" format={(v) => (v ? 'cooked' : 'skipped')} />
+      </p>
+
+      <p>
+        Bands (three CHOP channels as one array):{' '}
+        <Example.Value
+          name="bands"
+          format={(v) =>
+            Array.isArray(v) ? v.map((n) => Number(n).toFixed(3)).join(' · ') : String(v)
+          }
+        />
+      </p>
+      {/* The same array in <Vector>: a readout needs no special component, since
+          the wire shape matches a ParGroup's. Disabled, being read-only. */}
+      <Example.Vector name="bands" labels={['low', 'mid', 'high']} step={0.001} />
+
+      <p>
+        Now playing: <Example.Value name="track" />
+      </p>
+
+      <p>Cue table (a whole DAT, as string[][])</p>
+      {/* Row 0 holds the column names, so `header` lifts it into a <thead>. */}
+      <Example.Table name="cues" header />
+      <p class="caption">
+        Sources are in <code>/project1/readouts</code>. Edit <code>nowplaying</code> or{' '}
+        <code>cue_table</code> in TouchDesigner and these update live.
+      </p>
+    </section>
+  );
+}
+
+/**
  * The video wall — every stream this instance announces, rendered
  * at once. `<Provider video>` opens **one** WebRTC peer and every tile is a
  * track on it, which is why the grid is driven by `video.streams()` (the id →
@@ -165,7 +211,14 @@ export function App() {
           so the ceiling on how many tracks TD can attach when it answers: an
           answerer cannot add m-lines, so a wall of 8 needs all 8 offered up
           front or the surplus streams have nowhere to land. */}
-      <Example.Provider url={example.url} instance={example.id} video={{ receivers: VIDEO_TILES }}>
+      {/* `readonly` is web-side only, never sent over the wire — it just
+          disables readout controls from the first paint. */}
+      <Example.Provider
+        url={example.url}
+        instance={example.id}
+        readonly={[...readonlyParams]}
+        video={{ receivers: VIDEO_TILES }}
+      >
         <StatusBar />
 
         <section>
@@ -233,6 +286,8 @@ export function App() {
             <Example.Color name="color" alpha />
           </label>
         </section>
+
+        <Readouts />
 
         <VideoWall />
       </Example.Provider>

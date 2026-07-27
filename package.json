@@ -12,10 +12,12 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "prettier": "^3.9.6",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "husky": "^8.0.0"
   }
 }

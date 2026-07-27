@@ -107,3 +107,27 @@ button {
   font-size: 0.85rem;
   color: #666;
 }
+
+/* td-core ships zero CSS, so <Table>'s bare markup is the app's to style. */
+.td-table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.td-table th,
+.td-table td {
+  padding: 0.25rem 0.75rem 0.25rem 0;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.td-table th {
+  font-weight: 600;
+  color: #444;
+}
+
+/* Readouts render :disabled — dim them so "TD drives this" reads at a glance. */
+.td-vector input:disabled {
+  color: #555;
+  background: #f5f5f5;
+}

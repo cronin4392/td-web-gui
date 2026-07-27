@@ -20,10 +20,22 @@ Param-scoped failures reply with an `error` carrying the offending name as
 	                      kind for it (an `update` aimed at a pulse param)
 	missing_param         registered, but its operator/parameter isn't in this
 	                      project
-	param_not_writable    registered writable:False, or a backing par isn't in
-	                      CONSTANT mode — see _refuse_write
+	param_not_writable    registered writable:False, a backing par isn't in
+	                      CONSTANT mode (see _refuse_write), or the name is a
+	                      READOUTS entry, which is TD -> web only
 	param_type_mismatch   the value doesn't fit the entry's declared wire type:
 	                      wrong JSON type, wrong array length, unknown menu key
+
+Two maps feed the wire, and they share one namespace:
+
+	REGISTRY    parameters, read AND written, snapshot + broadcast
+	READOUTS    values read straight out of a CHOP or DAT, TD -> web only
+
+Both land in the same `params` map on the wire, so the browser binds either by
+name without knowing which is which — where a value lives in TD is a TD detail.
+A name in both is a config error: the REGISTRY entry wins (it is the
+bidirectional contract, so dropping it would silently break writes) and the
+readout is ignored with a warning.
 
 WebRTC signaling is multiplexed over this same socket — one connection to
 manage, no second port. The outbound half (answers, local ICE, the `streams`
@@ -37,10 +49,19 @@ its global OP shortcut:
 	Identifier    names this instance to the web app.
 	Config File   loaded into op.WebGuiServer.op('config'); its REGISTRY maps
 	              friendly wire names to (operator, parameter, wire-type), the
-	              single place type info lives. See config-template.py.
+	              single place type info lives, and its READOUTS maps them to
+	              CHOP channels and DAT cells. See config-template.py.
 
-TD-side param edits are pushed back to the browser by a Parameter Execute DAT
-that calls broadcast_param_change() — see parameter-execute.py.
+TD-side changes are pushed back to the browser by generated watcher DATs, all of
+them created by WebGuiServerExt from those two maps:
+
+	Parameter Execute DAT -> broadcast_param_change()    parameter-execute.py
+	CHOP Execute DAT      -> broadcast_channel_change()  chop-execute.py
+	DAT Execute DAT       -> broadcast_table_change()    dat-execute.py
+
+The two readout hooks only mark a name dirty; the actual `update` goes out once
+at end of frame (see flush_readouts), because a CHOP Execute DAT fires per
+changed SAMPLE and would otherwise send several messages per frame per channel.
 
 See docs/protocol.md for the full message catalog.
 """
@@ -64,9 +85,15 @@ client_by_peer = {}
 # callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`.
 _server = None
 
-# (op path, par name) pairs we've already warned about, so a project that's
-# missing a backing operator/par doesn't spam the textport on every request.
+# Keys we've already warned about, so a project that's missing a backing
+# operator/par/channel doesn't spam the textport on every request — and readouts
+# especially, since those are re-read every frame they change.
 _warned = set()
+
+# Readout names changed since the last flush, plus whether an end-of-frame flush
+# is already booked. See flush_readouts.
+_dirty_readouts = set()
+_readout_flush_scheduled = False
 
 
 def _webgui():
@@ -99,17 +126,34 @@ def _registry():
 	return _config().REGISTRY
 
 
+def _readouts():
+	"""The config's READOUTS map, or {} for a project that declares none.
+
+	getattr rather than attribute access: READOUTS arrived after REGISTRY, and a
+	config written before it is still a perfectly valid params-only project.
+	"""
+	return getattr(_config(), 'READOUTS', None) or {}
+
+
 def _remember(dat):
 	global _server
 	_server = dat
 
 
-def _warn_missing(entry, reason):
-	key = (entry['op'], entry['par'])
+def _warn_once(key, reason):
+	"""Print a warning the first time `key` produces one, then stay quiet.
+
+	Keyed rather than deduped on the message so a value that keeps failing (a
+	readout re-read every frame) costs one line, not one per frame.
+	"""
 	if key in _warned:
 		return
 	_warned.add(key)
 	print("webserver-callbacks: warning - %s" % reason)
+
+
+def _warn_missing(entry, reason):
+	_warn_once((entry['op'], entry['par']), reason)
 
 
 def _pars(entry):
@@ -230,6 +274,337 @@ def _read(name):
 	return _to_string(value, where)
 
 
+# ── readouts (TD -> web only) ─────────────────────────────────────────────────
+#
+# A readout publishes a value with no parameter behind it — a CHOP channel, a DAT
+# cell, a whole DAT table. It rides the same `params` map as REGISTRY, so the
+# browser binds it by name like anything else and never learns the difference.
+# Nothing below ever writes: the web-facing refusal lives in _write/_pulse, and
+# there is no code path here that assigns to a CHOP or a DAT.
+
+# Source kinds, inferred from the entry's SHAPE rather than declared. Inferring
+# keeps the common cases free of boilerplate, and the shapes are disjoint: a
+# 'chan' is a CHOP, a row/col is a cell, neither is the whole table.
+_CHANNEL = 'channel'     # 'chan': 'level'
+_CHANNELS = 'channels'   # 'chan': ['low', 'mid', 'high']
+_CELL = 'cell'           # 'row' + 'col'
+_TABLE = 'table'         # neither — and so must declare type 'string[][]'
+
+_READOUT_DEFAULT_TYPE = {
+	_CHANNEL: 'number',
+	_CHANNELS: 'number[]',
+	_CELL: 'string',
+	_TABLE: 'string[][]',
+}
+
+# What each source may be DECLARED as when the default isn't wanted. A cell is
+# deliberately not allowed to be 'bool': the string "false" is truthy, so there
+# is no guess-free cast — the same reasoning that makes _to_bool refuse strings.
+# Silently turning an off into an on is worse than refusing the entry.
+_READOUT_ALLOWED_TYPES = {
+	_CHANNEL: ('number', 'bool', 'string'),
+	_CHANNELS: ('number[]',),
+	_CELL: ('string', 'number'),
+	_TABLE: ('string[][]',),
+}
+
+_READOUT_FAMILY = {
+	_CHANNEL: 'CHOP',
+	_CHANNELS: 'CHOP',
+	_CELL: 'DAT',
+	_TABLE: 'DAT',
+}
+
+
+def _readout_kind(entry):
+	"""Which source shape this entry describes — one of the constants above."""
+	chan = entry.get('chan')
+	if isinstance(chan, (list, tuple)):
+		return _CHANNELS
+	if chan is not None:
+		return _CHANNEL
+	if 'row' in entry or 'col' in entry:
+		return _CELL
+	return _TABLE
+
+
+def _readout_type(name, entry, kind):
+	"""The wire type this readout promises, defaulted from its shape.
+
+	Raises rather than falling back, so a combination that can't be honoured is
+	skipped with one clear warning instead of quietly sending a value the web's
+	schema then has to cope with.
+	"""
+	declared = entry.get('type')
+	if declared is None:
+		if kind == _TABLE:
+			# An entry naming only an operator is indistinguishable from one
+			# whose 'chan' was forgotten, so a whole-table read has to say so.
+			raise _WireTypeError(
+				"readout '%s' names only an operator - add 'chan', 'row'/'col', or "
+				"'type': 'string[][]' to read the whole table" % name)
+		return _READOUT_DEFAULT_TYPE[kind]
+	allowed = _READOUT_ALLOWED_TYPES[kind]
+	if declared not in allowed:
+		raise _WireTypeError("readout '%s' reads a %s, which can be %s - not %r"
+							 % (name, kind, ' or '.join(repr(a) for a in allowed), declared))
+	return declared
+
+
+def _readout_op(name, entry, kind):
+	"""The CHOP or DAT this readout reads.
+
+	The family check earns its line: a 'chan' entry pointed at a DAT would
+	otherwise surface as a confusing missing-channel error rather than as the
+	wrong-operator mistake it actually is.
+	"""
+	path = entry.get('op')
+	base = op(path) if path else None
+	if base is None:
+		# Same trap as REGISTRY paths: these lookups run from inside
+		# WebGuiServer, so a bare name resolves against the component.
+		hint = '' if (path or '').startswith('/') else ' - READOUTS paths should be absolute'
+		raise _WireTypeError("readout '%s': operator '%s' not found%s" % (name, path, hint))
+	family = _READOUT_FAMILY[kind]
+	if base.family != family:
+		raise _WireTypeError("readout '%s': '%s' is a %s, but this entry reads a %s"
+							 % (name, path, base.family, family))
+	return base
+
+
+def _cell_number(name, text):
+	"""A DAT cell's contents as a number.
+
+	Parsed here rather than sent through _to_number, which refuses strings on
+	purpose. The two cases really are different: a par declared 'number' holding
+	a string is a registry mistake, while a cell is a string BY NATURE and
+	declaring it 'number' is the author asking for exactly this parse.
+	"""
+	try:
+		return float(text)
+	except (TypeError, ValueError):
+		raise _WireTypeError("readout '%s' is declared 'number', but its cell holds %r"
+							 % (name, text))
+
+
+def _read_readout(name):
+	"""This readout's current value, coerced to its wire type.
+
+	Every failure — missing operator, wrong family, missing channel, unparseable
+	cell — raises _WireTypeError, so callers skip the one name with a warning
+	rather than losing the whole snapshot or the whole frame's flush.
+	"""
+	entry = _readouts()[name]
+	kind = _readout_kind(entry)
+	wire = _readout_type(name, entry, kind)
+	base = _readout_op(name, entry, kind)
+	where = "readout '%s'" % name
+
+	if kind in (_CHANNEL, _CHANNELS):
+		names = list(entry['chan']) if kind == _CHANNELS else [entry['chan']]
+		values = []
+		for chan_name in names:
+			# chan() rather than base[chan_name]: it returns None for a miss
+			# instead of raising, which is what lets this name the channel.
+			channel = base.chan(chan_name)
+			if channel is None:
+				raise _WireTypeError("%s: '%s' has no channel '%s'"
+									 % (where, entry['op'], chan_name))
+			# eval() with no index is the value at the CURRENT time, which is the
+			# whole meaning of a readout. Subscripting ([0]) would instead pin it
+			# to the first sample of the buffer and never move on a time-sliced
+			# CHOP.
+			values.append(channel.eval())
+		if kind == _CHANNELS:
+			return [_to_number(v, where) for v in values]
+		if wire == 'bool':
+			return _to_bool(values[0], where)
+		if wire == 'string':
+			return _to_string(values[0], where)
+		return _to_number(values[0], where)
+
+	if kind == _CELL:
+		if 'row' not in entry or 'col' not in entry:
+			raise _WireTypeError("%s: a cell readout needs both 'row' and 'col'" % where)
+		cell = base.cell(entry['row'], entry['col'])
+		if cell is None:
+			raise _WireTypeError("%s: '%s' has no cell [%r, %r]"
+								 % (where, entry['op'], entry['row'], entry['col']))
+		# .val, not the bare Cell. A bare Cell autocasts to a NUMBER when its
+		# contents look numeric, so a cell holding "3" would reach the wire as 3
+		# and break the schema's promise that this name carries a string.
+		text = cell.val
+		return _cell_number(name, text) if wire == 'number' else text
+
+	# The whole table. str() per cell rather than trusting rows(val=True) to hand
+	# back plain strings: a non-str slipping through would raise inside
+	# json.dumps and take down the entire broadcast, once per frame, for a value
+	# nobody could see. Tables change at human pace, so the pass is free.
+	return [[str(cell) for cell in row] for row in base.rows(val=True)]
+
+
+def _readout_names():
+	"""The readout names this project will actually serve.
+
+	A name in both REGISTRY and READOUTS is a config error. The parameter wins:
+	it is the bidirectional contract, so dropping it would silently break writes,
+	while dropping the readout costs only a value.
+	"""
+	registry = _registry()
+	names = []
+	for name in _readouts():
+		if name in registry:
+			_warn_once(('collision', name),
+					   "'%s' is in both REGISTRY and READOUTS - the REGISTRY entry wins "
+					   "and the readout is ignored" % name)
+			continue
+		names.append(name)
+	return names
+
+
+def readout_watches():
+	"""What READOUTS asks the generated watcher DATs to observe.
+
+	`{op path: {'family': 'CHOP'|'DAT', 'chans': [channel names]}}`, where `chans`
+	is empty for a DAT — a DAT Execute DAT watches the whole table, not a cell.
+
+	Public for the same reason par_names is: WebGuiServerExt builds the watchers
+	from this, so "which operator and channels back a readout" has exactly one
+	implementation. A second copy of these shape rules is precisely how a watcher
+	ends up watching something this module never reads. Derived from the entry
+	shapes alone, so it also works for an operator that isn't in the project yet.
+	"""
+	watches = {}
+	for name in _readout_names():
+		entry = _readouts()[name]
+		path = entry.get('op')
+		if not path:
+			_warn_once(('readout', name), "readout '%s' has no 'op'" % name)
+			continue
+		kind = _readout_kind(entry)
+		family = _READOUT_FAMILY[kind]
+		watch = watches.setdefault(path, {'family': family, 'chans': []})
+		if watch['family'] != family:
+			# One operator can't be both. Whichever entry got here first decides,
+			# and the other is skipped rather than silently reshaping the watcher.
+			_warn_once(('family', path),
+					   "READOUTS entries disagree about whether '%s' is a CHOP or a DAT; "
+					   "watching it as a %s" % (path, watch['family']))
+			continue
+		if kind == _CHANNELS:
+			chans = list(entry['chan'])
+		elif kind == _CHANNEL:
+			chans = [entry['chan']]
+		else:
+			chans = []
+		for chan in chans:
+			if chan not in watch['chans']:
+				watch['chans'].append(chan)
+	return watches
+
+
+def _mark_readout_dirty(name):
+	"""Queue a readout for this frame's flush, booking the flush if needed."""
+	global _readout_flush_scheduled
+	if name in _registry():
+		return  # shadowed by a param; _readout_names has already warned
+	_dirty_readouts.add(name)
+	if _readout_flush_scheduled:
+		return
+	dat = _webgui().op(_config().CALLBACKS)
+	if dat is None:
+		# Nothing to address the deferred call to. Send inline rather than drop
+		# it — one message per callback is worse than one per frame, but it is
+		# not nothing, and the missing DAT is reported everywhere else already.
+		flush_readouts()
+		return
+	_readout_flush_scheduled = True
+	# endFrame rather than delayFrames=1: the value still reaches the browser in
+	# the frame it changed, and every callback fired during this frame's cook
+	# lands in the same message.
+	run('op(%r).module.flush_readouts()' % dat.path, endFrame=True)
+
+
+def broadcast_channel_change(channel):
+	"""Queue every readout backed by this CHOP channel (CHOP Execute DAT hook).
+
+	Called once per changed SAMPLE per channel, which is exactly why it only
+	marks the name and leaves the send to flush_readouts.
+	"""
+	owner = channel.owner
+	for name in _readout_names():
+		entry = _readouts()[name]
+		kind = _readout_kind(entry)
+		if kind not in (_CHANNEL, _CHANNELS):
+			continue
+		# Compared by id, like broadcast_param_change: TD hands out fresh Python
+		# wrappers for its internals, so `is` is never a safe "same operator".
+		target = op(entry['op'])
+		if target is None or target.id != owner.id:
+			continue
+		names = entry['chan'] if kind == _CHANNELS else [entry['chan']]
+		if channel.name in names:
+			_mark_readout_dirty(name)
+
+
+def broadcast_table_change(dat):
+	"""Queue every readout backed by this DAT (DAT Execute DAT hook).
+
+	Both cell and whole-table readouts of that DAT are queued: the DAT Execute
+	DAT reports that the table changed, not which cell, and re-reading one cell
+	is cheap enough that narrowing it would only add a way to be wrong.
+	"""
+	for name in _readout_names():
+		entry = _readouts()[name]
+		if _readout_kind(entry) in (_CHANNEL, _CHANNELS):
+			continue
+		target = op(entry['op'])
+		if target is not None and target.id == dat.id:
+			_mark_readout_dirty(name)
+
+
+def flush_readouts():
+	"""Send everything dirtied this frame to every client, as ONE `update`.
+
+	Public because the deferred run() in _mark_readout_dirty has to name it.
+
+	This is the whole reason the readout hooks don't broadcast directly. A CHOP
+	Execute DAT fires per changed sample per channel — the docs are explicit that
+	one frame "may get called 2 or more times per channel" on a time-sliced CHOP
+	— so an inline broadcast would put several messages per frame on the socket
+	for a single channel, and N times that for N readouts. Coalescing here makes
+	the ceiling one message per frame however many readouts moved.
+
+	Re-reading at flush time, rather than carrying each callback's `val` through,
+	is what makes that collapse correct: the value sent is the one that survived
+	the frame, not whichever sample happened to fire last.
+	"""
+	global _readout_flush_scheduled
+	_readout_flush_scheduled = False
+	names = sorted(_dirty_readouts)
+	_dirty_readouts.clear()
+	# Reading costs an op lookup per name and these can go dirty every frame, so
+	# skip the work entirely when nobody is listening. A browser that connects
+	# later gets current values from the snapshot, not from a replayed update.
+	if not names or not clients:
+		return
+	# Re-checked against the config rather than trusted from the mark: the config
+	# DAT syncs to file, so an edit can land between a name being dirtied and this
+	# flush. A KeyError here would escape the _WireTypeError handler below and
+	# take the whole frame's flush with it, including the readouts that are fine.
+	serveable = set(_readout_names())
+	params = {}
+	for name in names:
+		if name not in serveable:
+			continue
+		try:
+			params[name] = _read_readout(name)
+		except _WireTypeError as e:
+			_warn_once(('readout', name), str(e))
+	if params:
+		_broadcast({'type': 'update', 'params': params})
+
+
 def _snapshot():
 	# Pulses hold no state — never part of a snapshot/update. A registered par
 	# whose op/par doesn't exist is left out rather than sent as null: the
@@ -247,6 +622,14 @@ def _snapshot():
 			# One mistyped registry entry must not cost the whole snapshot —
 			# the browser would then never sync anything at all.
 			_warn_missing(entry, str(e))
+	# Readouts join the same map. A snapshot is the only way a newly connected
+	# browser learns a readout that hasn't changed since it opened, so this is
+	# not merely an optimisation over waiting for the next flush.
+	for name in _readout_names():
+		try:
+			result[name] = _read_readout(name)
+		except _WireTypeError as e:
+			_warn_once(('readout', name), str(e))
 	return result
 
 
@@ -660,6 +1043,13 @@ def _write(name, value):
 	"""
 	entry = _registry().get(name)
 	if entry is None:
+		if name in _readouts():
+			# A real name, just not a writable one. param_not_writable rather
+			# than unknown_param is also what makes the web's runtime safety net
+			# fire: it marks the name read-only from then on and re-requests a
+			# snapshot, so the optimistic edit snaps back instead of sticking.
+			return ('param_not_writable',
+					"'%s' is a readout (READOUTS), which is TD -> web only" % name)
 		return 'unknown_param', "no param '%s'" % name
 	if entry['type'] == 'pulse':
 		return 'unknown_param', "'%s' is pulse-only, send a pulse message" % name
@@ -692,6 +1082,9 @@ def _pulse(name):
 	does not drive this", regardless of mechanism.
 	"""
 	entry = _registry().get(name)
+	if entry is None and name in _readouts():
+		return ('param_not_writable',
+				"'%s' is a readout (READOUTS), which is TD -> web only" % name)
 	if entry is None or entry['type'] != 'pulse':
 		return 'unknown_param', "no pulse param '%s'" % name
 	if not entry.get('writable', True):

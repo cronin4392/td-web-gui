@@ -16,5 +16,6 @@ describe('td-core public surface', () => {
     expect(typeof td.NumberInput).toBe('function');
     expect(typeof td.RangeInput).toBe('function');
     expect(typeof td.Value).toBe('function');
+    expect(typeof td.Table).toBe('function');
   });
 });

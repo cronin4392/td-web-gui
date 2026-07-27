@@ -37,15 +37,15 @@ const Mixer = createTDClient<MixerParams>();
 
 The bundle:
 
-| Member                                                                                     | Type                                                         |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `Provider`                                                                                 | Context provider owning one connection (see below)           |
-| `signal(name)`                                                                             | `TDBinding<Schema[K]>` — bind a signal to a parameter        |
-| `pulse(name)`                                                                              | `void` — fire a momentary parameter                          |
-| `useConnection()`                                                                          | `TDConnection` — the nearest provider's connection           |
-| `useVideo()`                                                                               | `TDVideoStream` — the nearest provider's peer                |
-| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` | Bound controls, `name` narrowed to matching schema keys      |
-| `Video`                                                                                    | Bound video; not schema-typed (stream ids aren't parameters) |
+| Member                                                                                             | Type                                                         |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `Provider`                                                                                         | Context provider owning one connection (see below)           |
+| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter        |
+| `pulse(name)`                                                                                      | `void` — fire a momentary parameter                          |
+| `useConnection()`                                                                                  | `TDConnection` — the nearest provider's connection           |
+| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                |
+| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys      |
+| `Video`                                                                                            | Bound video; not schema-typed (stream ids aren't parameters) |
 
 ### Why a factory rather than plain components
 
@@ -57,9 +57,22 @@ JSX, with autocomplete.
 
 `name` is narrowed per component to the schema keys whose type matches:
 `Mixer.RangeInput` accepts only `number`-valued keys, `Mixer.Toggle` only
-`boolean` ones. `Value` and `Button` accept any key — a readout works across
-every type, and `mode="pulse"` binds a momentary parameter that isn't part of the
-value schema at all.
+`boolean` ones, `Mixer.Table` only `string[][]` ones. `Value` and `Button` accept
+any key — a readout works across every type, and `mode="pulse"` binds a momentary
+parameter that isn't part of the value schema at all.
+
+**Readouts are schema keys like any other.** A `READOUTS` entry (a CHOP channel,
+DAT cell, or DAT table with no parameter behind it) rides the same wire messages
+and belongs in the same interface — declare it by its wire type and list it in
+`readonly`:
+
+```ts
+interface MixerParams {
+  intensity: number; // a parameter
+  fps: number; // a readout — one CHOP channel
+  cues: string[][]; // a readout — a whole DAT table
+}
+```
 
 The generics are purely compile-time. At runtime there is one shared context and
 one connection implementation.
@@ -116,6 +129,10 @@ A parameter can also become read-only at runtime: an inbound
 `param_not_writable` error marks that name from then on and re-requests a
 snapshot, so an optimistic edit TD refused snaps back instead of sticking. See
 [design-notes.md § Parameter modes](design-notes.md#parameter-modes).
+
+**List your readouts here too.** TD refuses a write to one either way, through
+that same runtime path — declaring it statically just means the control is
+disabled from the start rather than after the first refused edit.
 
 ### `options`
 

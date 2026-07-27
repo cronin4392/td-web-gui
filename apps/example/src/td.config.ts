@@ -55,4 +55,21 @@ export interface ExampleParams {
    * announces them over the `menus` message instead.
    */
   audiodevice: string;
+
+  // Readouts (TD → web only) — `READOUTS` entries in td/config-example.py. They
+  // share the parameter namespace, so they belong in this same interface.
+  fps: number;
+  cooking: boolean;
+  bands: number[];
+  track: string;
+  cues: string[][];
 }
+
+/** Readout names, declared read-only so their controls render disabled. */
+export const readonlyParams = [
+  'fps',
+  'cooking',
+  'bands',
+  'track',
+  'cues',
+] as const satisfies readonly (keyof ExampleParams)[];

@@ -1,21 +1,25 @@
 """
-WebGuiServer extension — generates the Parameter Execute DATs that carry
-TD -> web changes.
+WebGuiServer extension — generates the watcher DATs that carry TD -> web changes.
 
-One Parameter Execute DAT per operator the config's REGISTRY references, each
-watching exactly that operator's registered parameters. Everything is derived
-from the config, so adding a registry entry is the whole of the work: no DAT to
-create, no `OPs` string to keep in sync by hand.
+Three kinds, all derived from the config, so adding an entry to either map is
+the whole of the work — no DAT to create, no `OPs` string to keep in sync:
+
+	REGISTRY  -> one Parameter Execute DAT per operator, watching exactly that
+	             operator's registered parameters      (parameter-execute.py)
+	READOUTS  -> one CHOP Execute DAT per CHOP, watching exactly the channels
+	             those readouts read                   (chop-execute.py)
+	          -> one DAT Execute DAT per DAT           (dat-execute.py)
 
 Nothing here is project specific — drop this into any project unchanged, like
-the other three scripts. It reads the same config the callbacks read, through
-the same `op.WebGuiServer` global shortcut.
+the other scripts. It reads the same config the callbacks read, through the same
+`op.WebGuiServer` global shortcut.
 
 Set on the WebGuiServer component:
-	Tdcoredir     Folder par pointing at this directory. parameter-execute.py is
-	              resolved inside it, and every generated DAT syncs its text from
-	              there — so a hot-reload of that file reaches all of them at
-	              once. The same par already locates the callbacks scripts.
+	Tdcoredir     Folder par pointing at this directory. The three callback
+	              scripts above are resolved inside it, and every generated DAT
+	              syncs its text from there — so a hot-reload of one of those
+	              files reaches all of its DATs at once. The same par already
+	              locates the hand-placed callbacks scripts.
 
 Why one DAT per operator rather than one watching everything: a Parameter
 Execute DAT's `OPs` and `Parameters` fields are a cross product, so a single DAT
@@ -23,26 +27,57 @@ covering N operators watches every registered parameter NAME on every one of
 them. Custom names rarely collide across operators, but built-in ones (`file`,
 `index`, `device`) collide constantly, and the `Built-In` toggle is per-DAT.
 Splitting per operator makes each watch an exact set of (operator, parameters)
-pairs and scopes `Built-In` to the operators that actually need it.
+pairs and scopes `Built-In` to the operators that actually need it. A CHOP
+Execute DAT's `CHOP`/`Channel` fields are a cross product in the same way, and
+channel names (`tx`, `level`, `chan1`) collide across CHOPs far more readily
+than parameter names do.
 
-	Correctness does not depend on any of that — webserver-callbacks.py's
-	broadcast_param_change re-checks owner and parameter name against the
-	registry before broadcasting, so an over-broad watch was only ever wasted
-	work. This is about cost, and about the watch being legible.
+	Correctness does not depend on any of that — the broadcast functions in
+	webserver-callbacks.py re-check the owning operator and the parameter or
+	channel name against the config before sending, so an over-broad watch was
+	only ever wasted work. This is about cost, and about the watch being legible.
 """
 
 import math
 
-# The File expression every generated DAT gets, matching how the hand-placed
-# callbacks DATs resolve their own sources. Resolved inside the component's
-# Tdcoredir rather than configured separately: the component already knows where
-# the td-core scripts live, and a second par holding a path into the same folder
-# is one more thing to get out of step.
+# The File expression each generated DAT gets, by kind, matching how the
+# hand-placed callbacks DATs resolve their own sources. Resolved inside the
+# component's Tdcoredir rather than configured separately: the component already
+# knows where the td-core scripts live, and a second par holding a path into the
+# same folder is one more thing to get out of step.
 #
-# An expression rather than a baked absolute path, so repointing Tdcoredir — on
+# Expressions rather than baked absolute paths, so repointing Tdcoredir — on
 # another machine, or a moved checkout — moves every generated DAT at once
 # instead of waiting for the next Rebuild to notice.
-_PAREXEC_FILE_EXPR = "op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'"
+_TDCOREDIR = "op.WebGuiServer.par.Tdcoredir.eval() + '/%s'"
+
+# The three watcher kinds. Each names its target operator through a DIFFERENT
+# parameter, which is also how _kindOf recognises an existing DAT — read off the
+# operator itself rather than remembered in a tag that could go stale.
+_PAREXEC = 'par'
+_CHOPEXEC = 'chop'
+_DATEXEC = 'dat'
+
+_WATCH = {
+	_PAREXEC: {
+		'optype': parameterexecuteDAT,
+		'prefix': 'parexec_',
+		'target': 'op',      # the "OPs" par
+		'file': _TDCOREDIR % 'parameter-execute.py',
+	},
+	_CHOPEXEC: {
+		'optype': chopexecuteDAT,
+		'prefix': 'chopexec_',
+		'target': 'chop',
+		'file': _TDCOREDIR % 'chop-execute.py',
+	},
+	_DATEXEC: {
+		'optype': datexecuteDAT,
+		'prefix': 'datexec_',
+		'target': 'dat',
+		'file': _TDCOREDIR % 'dat-execute.py',
+	},
+}
 
 # Marks a DAT as created and owned by this extension. Reconciliation only ever
 # deletes operators carrying this tag — a generated component that deletes by
@@ -51,10 +86,8 @@ GENERATED_TAG = 'webgui-generated'
 
 # Shown on each generated DAT, since the thing a reader most needs to know about
 # an operator they didn't create is that editing it is pointless.
-GENERATED_COMMENT = ('Generated from the config REGISTRY by WebGuiServerExt. '
-					 'Edits are overwritten on the next Rebuild.')
-
-_NAME_PREFIX = 'parexec_'
+GENERATED_COMMENT = ('Generated from the config REGISTRY / READOUTS by '
+					 'WebGuiServerExt. Edits are overwritten on the next Rebuild.')
 
 # Layout: generated DATs stack in a column to the right of the component's
 # hand-built operators. Vertical step is computed from the tallest actual tile
@@ -102,9 +135,9 @@ class WebGuiServerExt:
 	# ── public ────────────────────────────────────────────────────────────────
 
 	def Rebuild(self):
-		"""Make the generated Parameter Execute DATs match the config's REGISTRY.
+		"""Make the generated watcher DATs match the config's REGISTRY + READOUTS.
 
-		Idempotent and diff-based: it compares what the registry asks for against
+		Idempotent and diff-based: it compares what the config asks for against
 		the DATs that are live *right now*, and applies only the difference. It
 		caches nothing between runs, which is what makes it safe under TDN —
 		storage survives an import that deletes children, so a remembered "already
@@ -124,11 +157,14 @@ class WebGuiServerExt:
 		for dat in orphans:
 			dat.destroy()
 
-		for path in sorted(desired):
-			dat = keep.get(path)
+		# Keyed on (kind, op path), so one operator can legitimately carry two
+		# watchers of different kinds and a CHOP path can never be mistaken for
+		# the parameter watcher of an operator with the same path.
+		for key in sorted(desired):
+			dat = keep.get(key)
 			if dat is None:
-				dat = self._createWatcher(path)
-			self._applyWatch(dat, path, desired[path])
+				dat = self._createWatcher(key)
+			self._applyWatch(dat, key, desired[key])
 
 		self._layout()
 
@@ -144,10 +180,11 @@ class WebGuiServerExt:
 	def _callbacks(self):
 		"""The Web Server DAT's callbacks module.
 
-		Reached for its par_names(), so that "which parameters back this registry
-		entry" has exactly one implementation. A `number[]` entry names a
-		ParGroup, not a parameter — see _desiredWatches — and a second copy of
-		that expansion here is precisely how the two would drift apart.
+		Reached for its par_names() and readout_watches(), so that "what backs
+		this config entry" has exactly one implementation. A `number[]` entry
+		names a ParGroup rather than a parameter, and a readout's source is
+		inferred from its entry's shape — a second copy of either rule here is
+		precisely how the watchers and the broadcast path would drift apart.
 		"""
 		config = self._config()
 		if config is None:
@@ -202,11 +239,24 @@ class WebGuiServerExt:
 			return [entry['par'] + '*']
 		return [entry['par']]
 
+	def _readoutWatches(self):
+		"""What READOUTS asks for: op path -> {'family', 'chans'}.
+
+		Delegated to the callbacks module, which owns the entry-shape rules. The
+		getattr guard is for a project whose callbacks DAT predates readouts:
+		Rebuild() runs at init, so an AttributeError here would take the
+		PARAMETER watchers down with it, and a params-only project should not
+		break because one of the two files is stale.
+		"""
+		callbacks = self._callbacks()
+		watches = getattr(callbacks, 'readout_watches', None) if callbacks else None
+		return watches() if watches else {}
+
 	def _desiredWatches(self):
-		"""What the registry asks for: op path -> {pars, custom, builtin}.
+		"""What the config asks for: (kind, op path) -> watch spec.
 
 		Returns None when the config can't be read, so the caller can leave the
-		network alone rather than reconcile against an empty registry and delete
+		network alone rather than reconcile against an empty config and delete
 		every watcher.
 		"""
 		config = self._config()
@@ -221,7 +271,7 @@ class WebGuiServerExt:
 			if entry['type'] == 'pulse':
 				continue
 
-			watch = watches.setdefault(entry['op'],
+			watch = watches.setdefault((_PAREXEC, entry['op']),
 									   {'pars': [], 'custom': False, 'builtin': False})
 			for name in self._parNames(entry):
 				if name not in watch['pars']:
@@ -231,6 +281,15 @@ class WebGuiServerExt:
 				else:
 					watch['builtin'] = True
 
+		for path, readout in self._readoutWatches().items():
+			kind = _CHOPEXEC if readout['family'] == 'CHOP' else _DATEXEC
+			watch = watches.setdefault((kind, path), {'chans': []})
+			# A DAT Execute DAT watches the whole table and ignores this list;
+			# it is carried anyway so both readout kinds share one shape here.
+			for chan in readout['chans']:
+				if chan not in watch['chans']:
+					watch['chans'].append(chan)
+
 		return watches
 
 	# ── reconciliation ────────────────────────────────────────────────────────
@@ -238,44 +297,56 @@ class WebGuiServerExt:
 	def _generatedDats(self):
 		return [c for c in self.ownerComp.children if GENERATED_TAG in c.tags]
 
-	def _matchExisting(self, desired):
-		"""Split the generated DATs into ones to keep and ones to destroy.
+	def _watchedBy(self, dat):
+		"""The (kind, watched op path) an existing generated DAT stands for.
 
-		Matched on the operator each DAT actually watches, read back off its OPs
-		parameter, rather than on its name. A DAT someone renamed is still doing
-		its job, and rebuilding it would be churn for nothing.
+		Recognised by WHICH parameter names its target — each kind uses a
+		different one (`op` / `chop` / `dat`) and none carries another's. Read off
+		the operator itself rather than remembered in a tag, so it cannot go
+		stale; and matched on the path rather than the DAT's name, because a DAT
+		someone renamed is still doing its job and rebuilding it would be churn
+		for nothing.
+
+		Returns None for anything carrying our tag that is none of the three — a
+		leftover from an earlier shape of this component, or something tagged by
+		hand. The caller treats that as an orphan rather than raising.
 		"""
+		for kind, spec in _WATCH.items():
+			# .val, not .eval(): these are OP-style parameters, so eval() resolves
+			# to a list of operators rather than returning the path that was
+			# configured. We are matching on what the DAT is set to watch.
+			par = getattr(dat.par, spec['target'], None)
+			if par is not None:
+				return kind, par.val.strip()
+		return None
+
+	def _matchExisting(self, desired):
+		"""Split the generated DATs into ones to keep and ones to destroy."""
 		keep = {}
 		orphans = []
 		for dat in self._generatedDats():
-			# Anything carrying our tag that isn't a Parameter Execute DAT has no
-			# OPs par to read. Treat it as an orphan rather than raising: it can
-			# only be a leftover from an earlier shape of this component, or
-			# something that got tagged by hand.
-			# .val, not .eval(): OPs is an OP-style parameter, so eval() resolves
-			# it to a list of operators rather than returning the path that was
-			# configured. We are matching on what the DAT is set to watch.
-			par = getattr(dat.par, 'op', None)
-			path = par.val.strip() if par is not None else ''
-			if path in desired and path not in keep:
-				keep[path] = dat
+			key = self._watchedBy(dat)
+			if key is not None and key in desired and key not in keep:
+				keep[key] = dat
 			else:
-				# Either the registry no longer references this operator, or a
+				# Either the config no longer references this operator, or a
 				# second DAT ended up watching one that's already covered.
 				orphans.append(dat)
 		return keep, orphans
 
-	def _datName(self, path):
+	def _datName(self, kind, path):
 		"""A legal, collision-free DAT name derived from the watched op path.
 
 		Deriving from the full path rather than the operator's own name means two
 		operators called 'params' in different networks can't land on the same
-		name, so there is no collision case to resolve.
+		name. The per-kind prefix keeps a CHOP and a parameter watcher of
+		same-named operators apart, so there is no collision case to resolve.
 		"""
-		return tdu.validName(_NAME_PREFIX + path.strip('/').replace('/', '_'))
+		return tdu.validName(_WATCH[kind]['prefix'] + path.strip('/').replace('/', '_'))
 
-	def _createWatcher(self, path):
-		dat = self.ownerComp.create(parameterexecuteDAT, self._datName(path))
+	def _createWatcher(self, key):
+		kind, path = key
+		dat = self.ownerComp.create(_WATCH[kind]['optype'], self._datName(kind, path))
 		dat.tags.add(GENERATED_TAG)
 		dat.comment = GENERATED_COMMENT
 		return dat
@@ -305,18 +376,40 @@ class WebGuiServerExt:
 		if par.mode != ParMode.EXPRESSION or par.expr != expr:
 			par.expr = expr
 
-	def _applyWatch(self, dat, path, watch):
-		self._setPar(dat.par.op, path)
-		self._setPar(dat.par.pars, ' '.join(watch['pars']))
-		self._setPar(dat.par.custom, int(watch['custom']))
-		self._setPar(dat.par.builtin, int(watch['builtin']))
+	def _applyWatch(self, dat, key, watch):
+		kind, path = key
+		spec = _WATCH[kind]
+		self._setPar(getattr(dat.par, spec['target']), path)
 
-		# Value Change is the only callback parameter-execute.py implements.
-		self._setPar(dat.par.valuechange, 1)
+		if kind == _PAREXEC:
+			self._setPar(dat.par.pars, ' '.join(watch['pars']))
+			self._setPar(dat.par.custom, int(watch['custom']))
+			self._setPar(dat.par.builtin, int(watch['builtin']))
+			# Value Change is the only callback parameter-execute.py implements.
+			self._setPar(dat.par.valuechange, 1)
+		elif kind == _CHOPEXEC:
+			self._setPar(dat.par.channel, ' '.join(watch['chans']))
+			# Value Change is the only callback chop-execute.py implements. The
+			# threshold callbacks (Off to On, While On, ...) describe a channel
+			# crossing zero, which is a different question from "what does this
+			# channel read now" — the only one a readout asks.
+			self._setPar(dat.par.valuechange, 1)
+		else:
+			# Table Change alone: as of 2025.30000 it "does everything now" and
+			# the other four (Row/Column/Cell/Size Change) are deprecated.
+			self._setPar(dat.par.tablechange, 1)
+			# End of Frame is the DAT Execute DAT's own coalescer — it calls the
+			# hook "at most one time per frame ... even if it triggered several
+			# times in one frame". Start of Frame would call it once per change,
+			# which for a table rewritten cell by cell is a burst per frame.
+			# CHOP Execute DATs have no equivalent parameter, which is why that
+			# side coalesces in webserver-callbacks.flush_readouts instead.
+			self._setPar(dat.par.execute, 'end')
+
 		self._setPar(dat.par.active, 1)
 
-		self._setExpr(dat.par.file, _PAREXEC_FILE_EXPR)
-		# Sync to File rather than a one-shot load, so editing parameter-execute.py
+		self._setExpr(dat.par.file, spec['file'])
+		# Sync to File rather than a one-shot load, so editing the callback script
 		# hot-reloads every generated DAT the way it already does for the
 		# hand-placed callbacks DATs.
 		self._setPar(dat.par.syncfile, 1)
@@ -333,8 +426,9 @@ class WebGuiServerExt:
 		par = getattr(self.ownerComp.par, 'Tdcoredir', None)
 		if par is None or not par.eval().strip():
 			debug('WebGuiServerExt: Tdcoredir is unset - generated DATs cannot '
-				  'resolve parameter-execute.py, so TD -> web changes will not '
-				  'broadcast')
+				  'resolve their callback scripts (parameter-execute.py, '
+				  'chop-execute.py, dat-execute.py), so TD -> web changes will '
+				  'not broadcast')
 
 	# ── layout ────────────────────────────────────────────────────────────────
 

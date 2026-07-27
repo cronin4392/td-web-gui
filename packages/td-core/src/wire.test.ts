@@ -123,10 +123,51 @@ describe('parse', () => {
     expect(parse('{"type":"hello","protocol":"1"}')).toBeNull(); // wrong protocol type
     expect(parse('{"type":"snapshot"}')).toBeNull(); // missing params
     expect(parse('{"type":"update","params":42}')).toBeNull(); // params not a map
-    expect(parse('{"type":"update","params":{"bad":{"nested":1}}}')).toBeNull();
-    expect(parse('{"type":"update","params":{"arr":[1,"x"]}}')).toBeNull(); // mixed array
     expect(parse('{"type":"pulse"}')).toBeNull(); // missing name
     expect(parse('{"type":"pulse","name":42}')).toBeNull(); // wrong name type
+  });
+
+  it('parses a table readout as string[][]', () => {
+    const raw = '{"type":"update","params":{"cues":[["name","time"],["intro","0:00"]]}}';
+    expect(parse(raw)).toEqual({
+      type: 'update',
+      params: {
+        cues: [
+          ['name', 'time'],
+          ['intro', '0:00'],
+        ],
+      },
+    });
+  });
+
+  it('reads an empty array as a valid value rather than a malformed one', () => {
+    // Ambiguous between number[] and string[][], and correct either way — there
+    // is nothing in it to disagree about. An empty table or an empty ParGroup
+    // must not take the whole message down.
+    expect(parse('{"type":"update","params":{"empty":[]}}')).toEqual({
+      type: 'update',
+      params: { empty: [] },
+    });
+  });
+
+  it('drops only the offending param, keeping the rest of the map', () => {
+    // The whole point of per-entry validation: one unrecognised value must not
+    // cost the client every other param in the message. Rejecting the map
+    // wholesale would mean a single bad entry in a SNAPSHOT leaves the UI
+    // entirely empty, pointing nowhere near the cause — and it is what would
+    // make every future wire-type addition a breaking change.
+    const raw =
+      '{"type":"update","params":{"good":1,"nested":{"a":1},"mixed":[1,"x"],"ragged":[["ok"],[2]],"also":"fine"}}';
+    expect(parse(raw)).toEqual({
+      type: 'update',
+      params: { good: 1, also: 'fine' },
+    });
+  });
+
+  it('keeps an empty params map rather than nulling the message', () => {
+    // A snapshot from a project with an empty REGISTRY is legitimate, and is
+    // what flips the connection to `synced`.
+    expect(parse('{"type":"snapshot","params":{}}')).toEqual({ type: 'snapshot', params: {} });
   });
 
   it('parses a menus announcement', () => {
