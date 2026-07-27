@@ -1,10 +1,10 @@
 format: tdn
 version: '2.0'
-build: 3
+build: 4
 generator: Embody/6.0.154
 td_build: 099.2025.33070
 source_file: Example.toe
-exported_at: '2026-07-27T16:28:50Z'
+exported_at: '2026-07-27T17:19:20Z'
 network_path: /project1/WebGuiServer
 options:
   include_dat_content: false
@@ -17,6 +17,31 @@ type_defaults:
     flags:
     - viewer
     color: [0.67, 0.67, 0.67]
+  flipTOP:
+    parameters:
+      flipx: true
+    size: [130, 90]
+    color: [0.67, 0.67, 0.67]
+    tags:
+    - webgui-generated
+    - webgui-stream
+  selectTOP:
+    size: [130, 90]
+    color: [0.67, 0.67, 0.67]
+    tags:
+    - webgui-generated
+    - webgui-stream
+  videostreamoutTOP:
+    parameters:
+      mode: webrtc
+      fps: 30
+      webrtc: webrtc1
+      webrtcconnection: 1cb66479-9fc4-4c3a-93d4-3f385bb0b679
+    size: [130, 90]
+    color: [0.67, 0.67, 0.67]
+    tags:
+    - webgui-generated
+    - webgui-stream
   parameterexecuteDAT:
     parameters:
       fromop: =parent()
@@ -105,6 +130,30 @@ operators:
   position: [-300, 225]
   size: [130, 90]
   color: [0.67, 0.67, 0.67]
+- name: flip_tile1
+  type: flipTOP
+  position: [1100, 717]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - select_tile1
+- name: flip_tile2
+  type: flipTOP
+  position: [1100, 317]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - select_tile2
+- name: flip_tile3
+  type: flipTOP
+  position: [1100, -83]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - select_tile3
+- name: flip_tile4
+  type: flipTOP
+  position: [1100, -483]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - select_tile4
 - name: webserver1
   type: webserverDAT
   parameters:
@@ -117,6 +166,30 @@ operators:
   position: [-475, 225]
   size: [130, 90]
   color: [0.67, 0.67, 0.67]
+- name: select_tile1
+  type: selectTOP
+  parameters:
+    top: /project1/videowall/video1
+  position: [700, 717]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+- name: select_tile2
+  type: selectTOP
+  parameters:
+    top: /project1/videowall/video2
+  position: [700, 317]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+- name: select_tile3
+  type: selectTOP
+  parameters:
+    top: /project1/videowall/video3
+  position: [700, -83]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+- name: select_tile4
+  type: selectTOP
+  parameters:
+    top: /project1/videowall/video4
+  position: [700, -483]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
 - name: WebGuiServerExt
   type: textDAT
   parameters:
@@ -130,6 +203,38 @@ operators:
   position: [-300, 100]
   size: [130, 90]
   dock: webrtc1
+- name: videostreamout_tile1
+  type: videostreamoutTOP
+  parameters:
+    webrtcvideotrack: tile1
+  position: [1500, 717]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - flip_tile1
+- name: videostreamout_tile2
+  type: videostreamoutTOP
+  parameters:
+    webrtcvideotrack: tile2
+  position: [1500, 317]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - flip_tile2
+- name: videostreamout_tile3
+  type: videostreamoutTOP
+  parameters:
+    webrtcvideotrack: tile3
+  position: [1500, -83]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - flip_tile3
+- name: videostreamout_tile4
+  type: videostreamoutTOP
+  parameters:
+    webrtcvideotrack: tile4
+  position: [1500, -483]
+  comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  inputs:
+  - flip_tile4
 - name: webserver1_callbacks
   type: textDAT
   parameters:
@@ -232,5 +337,45 @@ annotations:
     OP: /project1/params
     parameters: Message, Intensity, Enabled, Gate, Mute, Blendmode, Positionx, Positiony, Positionz, Colorr, Colorg, Colorb, Colora
   position: [115, -1173]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: select_tile1_note
+  mode: comment
+  title: Annotate
+  text: |-
+    stream: tile1 (Tile 1)
+    source: /project1/videowall/video1
+    flipx -> WebRTC track 'tile1' @ 30 fps
+  position: [615, 827]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: select_tile2_note
+  mode: comment
+  title: Annotate
+  text: |-
+    stream: tile2 (Tile 2)
+    source: /project1/videowall/video2
+    flipx -> WebRTC track 'tile2' @ 30 fps
+  position: [615, 427]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: select_tile3_note
+  mode: comment
+  title: Annotate
+  text: |-
+    stream: tile3 (Tile 3)
+    source: /project1/videowall/video3
+    flipx -> WebRTC track 'tile3' @ 30 fps
+  position: [615, 27]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: select_tile4_note
+  mode: comment
+  title: Annotate
+  text: |-
+    stream: tile4 (Tile 4)
+    source: /project1/videowall/video4
+    flipx -> WebRTC track 'tile4' @ 30 fps
+  position: [615, -373]
   size: [300, 110]
   color: [0.45, 0.45, 0.45]
