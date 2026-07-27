@@ -102,13 +102,39 @@ WEBRTC = "webrtc1"
 # these eight are eight streams for ONE browser, not one stream for eight
 # browsers. Serving a second viewer simultaneously needs a second set of eight
 # TOPs; v1 is single-viewer and the callbacks warn when a second one negotiates.
-STREAM_COUNT = 8
 STREAMS = {
-    "tile%d" % n: {
-        "top": "/project1/videowall/videostreamout_tile%d" % n,
-        "label": "Tile %d" % n,
-    }
-    for n in range(1, STREAM_COUNT + 1)
+    "tile1": {
+        "top": "/project1/videowall/videostreamout_tile1",
+        "label": "Tile 1",
+    },
+    "tile2": {
+        "top": "/project1/videowall/videostreamout_tile2",
+        "label": "Tile 2",
+    },
+    "tile3": {
+        "top": "/project1/videowall/videostreamout_tile3",
+        "label": "Tile 3",
+    },
+    "tile4": {
+        "top": "/project1/videowall/videostreamout_tile4",
+        "label": "Tile 4",
+    },
+    "tile5": {
+        "top": "/project1/videowall/videostreamout_tile5",
+        "label": "Tile 5",
+    },
+    "tile6": {
+        "top": "/project1/videowall/videostreamout_tile6",
+        "label": "Tile 6",
+    },
+    "tile7": {
+        "top": "/project1/videowall/videostreamout_tile7",
+        "label": "Tile 7",
+    },
+    "tile8": {
+        "top": "/project1/videowall/videostreamout_tile8",
+        "label": "Tile 8",
+    },
 }
 
 # friendly wire name -> backing parameter.

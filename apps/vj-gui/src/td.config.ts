@@ -37,6 +37,9 @@ export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
 export interface VjGuiParams extends Record<SceneTextParamName, string> {
   /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
   selectedLoader: string;
+  sceneACpuCookTime: number;
+  sceneALevel: number;
+  sceneAPerformance: string[][];
 }
 
 /** Wire name of a scene's text param — the TS half of the naming contract above. */
@@ -58,3 +61,10 @@ export function sceneIdFromLoaderPath(path: string | undefined): SceneId | undef
   const id = path.slice(LOADER_PATH_PREFIX.length);
   return sceneIds.find((scene) => scene === id);
 }
+
+/** Readout names, declared read-only so their controls render disabled. */
+export const readonlyParams = [
+  'sceneACpuCookTime',
+  'sceneAPerformance',
+  'sceneALevel',
+] as const satisfies readonly (keyof VjGuiParams)[];

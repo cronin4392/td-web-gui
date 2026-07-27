@@ -1,6 +1,6 @@
 import { createMemo, onCleanup, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
-import { instances, sceneIdFromLoaderPath, sceneTextParam } from './td.config';
+import { instances, readonlyParams, sceneIdFromLoaderPath, sceneTextParam } from './td.config';
 import { TDClient, type SceneTextParamName } from './td';
 import { RECENT_TAB_ID, createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
@@ -23,8 +23,14 @@ export function App(props: AppProps): JSX.Element {
 
   return (
     <main class="flex h-screen flex-col px-2 pt-2">
-      <TDClient.Provider url={vjGui.url} instance={vjGui.id}>
-        <VjGuiBody store={store} />
+      <TDClient.Provider
+        url={vjGui.url}
+        instance={vjGui.id}
+        video={true}
+        readonly={[...readonlyParams]}
+      >
+        <VideoSceneA />
+        <TextSelector store={store} />
       </TDClient.Provider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
@@ -34,7 +40,36 @@ export function App(props: AppProps): JSX.Element {
   );
 }
 
-function VjGuiBody(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
+function VideoSceneA(): JSX.Element {
+  const video = TDClient.useVideo();
+  return (
+    <div class="grid grid-cols-8">
+      <div>
+        <Show when={video.stream('scene')} keyed>
+          {(_stream) => (
+            <figure>
+              <div class="video-tile">
+                <TDClient.Video stream="scene" />
+                <Show when={video.streamStatus('scene') !== 'connected'}>
+                  <div class="video-overlay">{video.streamStatus('scene')}…</div>
+                </Show>
+              </div>
+            </figure>
+          )}
+        </Show>
+        <TDClient.RangeInput name="sceneALevel" min={0} max={1} step={0.01} readOnly />
+        <fieldset>
+          <label>CPU Cooktime </label>
+          <TDClient.Value name="sceneACpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
+        </fieldset>
+        {/* TODO: Table not getting data after load */}
+        {/* <TDClient.Table name="sceneAPerformance" header /> */}
+      </div>
+    </div>
+  );
+}
+
+function TextSelector(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
   const connection = TDClient.useConnection();
