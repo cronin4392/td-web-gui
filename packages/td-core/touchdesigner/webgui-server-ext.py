@@ -1,14 +1,21 @@
 """
-WebGuiServer extension — generates the watcher DATs that carry TD -> web changes.
+WebGuiServer extension — generates the operators the config implies.
 
-Three kinds, all derived from the config, so adding an entry to either map is
-the whole of the work — no DAT to create, no `OPs` string to keep in sync:
+Two families, both wholly derived from the config, so editing the config is the
+whole of the work — nothing to create by hand, nothing to keep in sync:
+
+WATCHERS, which carry TD -> web changes:
 
         REGISTRY  -> one Parameter Execute DAT per operator, watching exactly that
                      operator's registered parameters      (parameter-execute.py)
         READOUTS  -> one CHOP Execute DAT per CHOP, watching exactly the channels
                      those readouts read                   (chop-execute.py)
                   -> one DAT Execute DAT per DAT           (dat-execute.py)
+
+STREAM CHAINS, which carry TD -> web video:
+
+        STREAMS   -> one select_ / flip_ / videostreamout_ chain per stream,
+                     built inside this component            (webrtc-callbacks.py)
 
 Nothing here is project specific — drop this into any project unchanged, like
 the other scripts. It reads the same config the callbacks read, through the same
@@ -79,29 +86,65 @@ _WATCH = {
     },
 }
 
-# Marks a DAT as created and owned by this extension. Reconciliation only ever
-# deletes operators carrying this tag — a generated component that deletes by
-# name pattern alone eventually eats something a human made.
+# The per-stream video chain, in flow order. STREAMS names a SOURCE TOP — the
+# picture you want on the web — and these three ops are what turn it into a
+# WebRTC track:
+#
+#       select_<id>          fetches the source TOP into this component
+#       flip_<id>            flipx, because TD's WebRTC output arrives mirrored
+#       videostreamout_<id>  the encoder, Mode = WebRTC
+#
+# The Select TOP is not decoration: a TOP cannot be wired across a COMP
+# boundary, so fetching by reference is the only way the source can live wherever
+# the project puts it while the chain lives in here.
+#
+# The flip is unconditional. TD's WebRTC output reaches the browser mirrored in X
+# even though the TD viewer shows the source the right way round, so every stream
+# needs it — and flipping at the encoder fixes every consumer of the stream,
+# where the CSS transform Derivative's own webRTC palette component uses is
+# dropped by Chrome on entering fullscreen and the mirror comes back
+# (forum.derivative.ca/t/stunned-by-webrtcpanel/293915).
+_SELECT_PREFIX = "select_"
+_FLIP_PREFIX = "flip_"
+_STREAMOUT_PREFIX = "videostreamout_"
+
+# Encoder rate, pinned to a constant rather than left at the Video Stream Out
+# TOP's default `me.time.rate` expression. At the default, every encoder runs at
+# the project's frame rate — which is how a 60fps project with a wall of streams
+# quietly spends its whole GPU budget on encoding.
+_STREAM_FPS = 30
+
+# Marks an operator as created and owned by this extension. Reconciliation only
+# ever deletes operators carrying this tag — a generated component that deletes
+# by name pattern alone eventually eats something a human made.
 GENERATED_TAG = "webgui-generated"
 
-# Shown on each generated DAT, since the thing a reader most needs to know about
-# an operator they didn't create is that editing it is pointless.
+# Marks the generated operators belonging to a STREAMS chain, so reconciliation
+# can tell the two families apart. Only the stream side carries a role tag —
+# a watcher is defined as "ours, and not a stream op", so anything of ours that
+# is neither reads as an orphan and gets cleaned up rather than left behind.
+STREAM_TAG = "webgui-stream"
+
+# Shown on each generated operator, since the thing a reader most needs to know
+# about an operator they didn't create is that editing it is pointless.
 GENERATED_COMMENT = (
-    "Generated from the config REGISTRY / READOUTS by "
+    "Generated from the config REGISTRY / READOUTS / STREAMS by "
     "WebGuiServerExt. Edits are overwritten on the next Rebuild."
 )
 
-# Layout: generated DATs stack in a column to the right of the component's
-# hand-built operators. Vertical step is computed from the tallest actual tile
-# rather than assumed, then snapped up to the 200 grid.
+# Layout: the generated operators sit right of the component's hand-built ones,
+# watcher DATs in one column and stream chains in a second. Steps are computed
+# from the tallest/widest actual tile rather than assumed, then snapped up to the
+# 200 grid.
 _GRID = 200
 
-# Each generated DAT gets a companion "note" -- a comment annotation directly
-# above it saying what it watches. Comment mode: no title bar, since a one- or
-# two-line watch description doesn't need one. Sized to hug its own DAT
-# (_NOTE_GAP_BELOW) while leaving a wide, unmistakable gap before the next DAT
-# up the column (_NOTE_GAP_ABOVE) -- the asymmetry is what tells a reader which
-# watcher a note belongs to, without needing to draw a line between them.
+# Each generated DAT, and each stream chain, gets a companion "note" -- a comment
+# annotation directly above it saying what it watches or carries. Comment mode:
+# no title bar, since a one- or two-line description doesn't need one. Sized to
+# hug its own operator (_NOTE_GAP_BELOW) while leaving a wide, unmistakable gap
+# before the next one up the column (_NOTE_GAP_ABOVE) -- the asymmetry is what
+# tells a reader which operator a note belongs to, without needing to draw a line
+# between them.
 _NOTE_WIDTH = 300
 _NOTE_HEIGHT = 110
 _NOTE_GAP_BELOW = 20
@@ -109,7 +152,7 @@ _NOTE_GAP_ABOVE = 150
 
 
 class WebGuiServerExt:
-    """Keeps the generated Parameter Execute DATs in step with the config."""
+    """Keeps the generated watcher DATs and video chains in step with the config."""
 
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
@@ -147,13 +190,15 @@ class WebGuiServerExt:
     # ── public ────────────────────────────────────────────────────────────────
 
     def Rebuild(self):
-        """Make the generated watcher DATs match the config's REGISTRY + READOUTS.
+        """Make the generated operators match the config.
+
+        Watcher DATs from REGISTRY + READOUTS, video chains from STREAMS.
 
         Idempotent and diff-based: it compares what the config asks for against
-        the DATs that are live *right now*, and applies only the difference. It
-        caches nothing between runs, which is what makes it safe under TDN —
+        the operators that are live *right now*, and applies only the difference.
+        It caches nothing between runs, which is what makes it safe under TDN —
         storage survives an import that deletes children, so a remembered "already
-        built" flag would outlive the DATs it described and leave the bridge
+        built" flag would outlive the operators it described and leave the bridge
         silently dead. Reading the live network cannot go stale that way.
 
         Safe to call at any time, from any trigger, as often as you like. When
@@ -164,13 +209,27 @@ class WebGuiServerExt:
             return  # config unreadable; _config() already explained why
 
         self._warnIfNoCoreDir()
+        self._rebuildWatchers(desired)
+        chains = self._rebuildStreams()
+        self._layout(chains)
+
+    def StreamTop(self, stream_id):
+        """The generated Video Stream Out TOP carrying `stream_id`, or None.
+
+        Public because webserver-callbacks.py points these TOPs at each
+        negotiated peer and so has to find them. Keeping the name derivation here
+        means the callbacks never spell the convention out a second time — and
+        that renaming the chain is a change to this file alone.
+        """
+        return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
+
+    # ── watchers ──────────────────────────────────────────────────────────────
+
+    def _rebuildWatchers(self, desired):
         keep, orphans = self._matchExisting(desired)
 
         for dat in orphans:
-            note = self._findUtilityChild(self._noteName(dat))
-            if note is not None:
-                note.destroy()
-            dat.destroy()
+            self._destroyWithNote(dat)
 
         # Keyed on (kind, op path), so one operator can legitimately carry two
         # watchers of different kinds and a CHOP path can never be mistaken for
@@ -180,8 +239,6 @@ class WebGuiServerExt:
             if dat is None:
                 dat = self._createWatcher(key)
             self._applyWatch(dat, key, desired[key])
-
-        self._layout()
 
     # ── config ────────────────────────────────────────────────────────────────
 
@@ -310,8 +367,18 @@ class WebGuiServerExt:
 
     # ── reconciliation ────────────────────────────────────────────────────────
 
-    def _generatedDats(self):
-        return [c for c in self.ownerComp.children if GENERATED_TAG in c.tags]
+    def _generatedWatchers(self):
+        """Every watcher DAT we own — defined as ours and not part of a chain.
+
+        By exclusion rather than by a role tag of its own, so that anything of
+        ours which is neither a watcher nor a chain op reads as an orphan to be
+        cleaned up rather than as something to leave alone.
+        """
+        return [
+            c
+            for c in self.ownerComp.children
+            if GENERATED_TAG in c.tags and STREAM_TAG not in c.tags
+        ]
 
     def _watchedBy(self, dat):
         """The (kind, watched op path) an existing generated DAT stands for.
@@ -340,7 +407,7 @@ class WebGuiServerExt:
         """Split the generated DATs into ones to keep and ones to destroy."""
         keep = {}
         orphans = []
-        for dat in self._generatedDats():
+        for dat in self._generatedWatchers():
             key = self._watchedBy(dat)
             if key is not None and key in desired and key not in keep:
                 keep[key] = dat
@@ -395,9 +462,9 @@ class WebGuiServerExt:
 
     # ── notes ─────────────────────────────────────────────────────────────────
 
-    def _noteName(self, dat):
-        """Name of the comment annotation documenting one generated DAT."""
-        return tdu.validName(dat.name + "_note")
+    def _noteName(self, host):
+        """Name of the comment annotation documenting one generated operator."""
+        return tdu.validName(host.name + "_note")
 
     def _findUtilityChild(self, name):
         """Look up a direct utility child (e.g. a note annotation) by name.
@@ -413,17 +480,17 @@ class WebGuiServerExt:
                 return child
         return None
 
-    def _getOrCreateNote(self, dat):
-        """The comment annotation for one generated DAT, creating it if missing.
+    def _getOrCreateNote(self, host):
+        """The comment annotation for one generated operator, creating it if missing.
 
         Looked up fresh and recreated on demand rather than cached: a TDN
-        reimport of this component (see onInitTD) recreates the DAT children
-        from the .tdn, which has no notion of these hand-attached notes, so a
-        note can vanish out from under Rebuild between runs. Idempotent
-        lookup-or-create is what makes that self-healing rather than a
-        one-time setup step that silently stops matching reality.
+        reimport of this component (see onInitTD) recreates the children from the
+        .tdn, which has no notion of these hand-attached notes, so a note can
+        vanish out from under Rebuild between runs. Idempotent lookup-or-create
+        is what makes that self-healing rather than a one-time setup step that
+        silently stops matching reality.
         """
-        name = self._noteName(dat)
+        name = self._noteName(host)
         note = self._findUtilityChild(name)
         if note is None:
             note = self.ownerComp.create(annotateCOMP, name)
@@ -432,6 +499,18 @@ class WebGuiServerExt:
             note.tags.add(GENERATED_TAG)
             note.par.Mode = "comment"
         return note
+
+    def _destroyWithNote(self, host):
+        """Destroy a generated operator and the note captioning it, if any.
+
+        Together, because a note outliving its host is a caption pointing at
+        nothing — and one that Rebuild would never look at again, so it would sit
+        there describing a watcher or a stream the config dropped.
+        """
+        note = self._findUtilityChild(self._noteName(host))
+        if note is not None:
+            note.destroy()
+        host.destroy()
 
     def _watchText(self, key, watch):
         """Body text for a watcher's note: which op, and what it watches."""
@@ -504,24 +583,157 @@ class WebGuiServerExt:
                 "not broadcast"
             )
 
+    # ── streams ───────────────────────────────────────────────────────────────
+
+    def _streams(self):
+        """The config's STREAMS map: stream id -> {'source': ..., 'label': ...}.
+
+        Optional config — a project can expose params and no video at all.
+        """
+        config = self._config()
+        return getattr(config, "STREAMS", {}) if config is not None else {}
+
+    def _streamOpName(self, prefix, stream_id):
+        """A legal operator name for one stage of one stream's chain."""
+        return tdu.validName(prefix + stream_id)
+
+    def _streamSource(self, stream_id, info):
+        """The path of the TOP a stream carries, or None if the entry names none."""
+        source = info.get("source")
+        if not source:
+            debug("WebGuiServerExt: stream '%s' has no 'source' TOP" % stream_id)
+            return None
+        return source
+
+    def _rebuildStreams(self):
+        """Make the generated video chains match the config's STREAMS.
+
+        Returns the live chains as a list of [select, flip, videostreamout], in
+        the config's stream order, for _layout to place. Diff-based like the
+        watchers: a stream dropped from the config takes its three operators with
+        it, so shrinking a wall is as supported as growing one.
+
+        Matched by NAME rather than by what each op points at, which is the
+        opposite of how the watchers match. The difference is that a watcher's
+        identity is the operator it watches — a DAT someone renamed is still
+        doing its job — whereas a chain's identity IS its stream id, and the id
+        is in the name. There is nothing else in a Select TOP to recognise it by.
+        """
+        chains = []
+        wanted = set()
+        for stream_id, info in self._streams().items():
+            source = self._streamSource(stream_id, info)
+            if source is None:
+                continue  # _streamSource already explained why
+            chain = self._applyStream(stream_id, info, source)
+            if chain is None:
+                continue  # _applyStream already explained why
+            chains.append(chain)
+            wanted.update(o.name for o in chain)
+
+        # Also sweeps up the stages of a chain that was abandoned part-built
+        # above, since those never reached `wanted` — which is why a refused
+        # stream leaves no half-chain behind.
+        for o in self.ownerComp.children:
+            if STREAM_TAG in o.tags and o.name not in wanted:
+                self._destroyWithNote(o)
+
+        return chains
+
+    def _getOrCreateStreamOp(self, optype, prefix, stream_id):
+        """One stage of one stream's chain, created if missing. None on a clash.
+
+        A stage found by name is adopted and re-tagged rather than rebuilt, which
+        is what carries a chain across a TDN reimport that dropped our tags. But
+        an operator of the WRONG type under that name is someone else's — writing
+        `flipx` to it would raise out of Rebuild and take the whole extension
+        init down with it, so the stream is refused by name instead.
+        """
+        name = self._streamOpName(prefix, stream_id)
+        o = self.ownerComp.op(name)
+        if o is not None and not isinstance(o, optype):
+            debug(
+                "WebGuiServerExt: stream '%s' needs to create '%s', but a %s "
+                "already has that name - rename it, or rename the stream"
+                % (stream_id, name, o.OPType)
+            )
+            return None
+        if o is None:
+            o = self.ownerComp.create(optype, name)
+            o.comment = GENERATED_COMMENT
+        o.tags.add(GENERATED_TAG)
+        o.tags.add(STREAM_TAG)
+        return o
+
+    def _wire(self, source, dest):
+        """Connect source -> dest's first input, unless it already is.
+
+        Rewiring an already-correct connection would dirty the chain on every
+        Rebuild, and a Rebuild runs on every extension reinit. Compared by .id
+        rather than identity, since two lookups of one operator need not hand
+        back the same Python wrapper.
+        """
+        if dest.inputs and dest.inputs[0].id == source.id:
+            return
+        dest.inputConnectors[0].connect(source)
+
+    def _applyStream(self, stream_id, info, source):
+        """Build (or update) one stream's select -> flip -> videostreamout chain.
+
+        Returns the three operators in flow order, or None if any of them could
+        not be created — see _getOrCreateStreamOp.
+        """
+        select = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
+        flip = self._getOrCreateStreamOp(flipTOP, _FLIP_PREFIX, stream_id)
+        out = self._getOrCreateStreamOp(videostreamoutTOP, _STREAMOUT_PREFIX, stream_id)
+        if select is None or flip is None or out is None:
+            return None
+
+        self._setPar(select.par.top, source)
+        self._setPar(flip.par.flipx, 1)
+
+        self._setPar(out.par.mode, "webrtc")
+        self._setPar(out.par.fps, _STREAM_FPS)
+        self._setPar(out.par.active, 1)
+        # webrtc / webrtcconnection / webrtcvideotrack are deliberately NOT set
+        # here. They are per-peer, they are menus the WebRTC DAT populates only
+        # once a connection exists, and webserver-callbacks.attach_streams sets
+        # them a frame after each negotiation. Writing them from a Rebuild would
+        # cut the live peer's video every time this file is edited.
+
+        self._wire(select, flip)
+        self._wire(flip, out)
+
+        self._setNoteText(self._getOrCreateNote(select), self._streamText(stream_id, info, source))
+        return [select, flip, out]
+
+    def _streamText(self, stream_id, info, source):
+        """Body text for a stream chain's note: which stream, from which TOP."""
+        return "stream: %s (%s)\nsource: %s\nflipx -> WebRTC track '%s' @ %d fps" % (
+            stream_id,
+            info.get("label", stream_id),
+            source,
+            stream_id,
+            _STREAM_FPS,
+        )
+
     # ── layout ────────────────────────────────────────────────────────────────
 
-    def _layout(self):
-        """Stack the generated DATs in a column right of the hand-built operators.
+    def _layout(self, chains):
+        """Place the generated operators right of the hand-built ones.
+
+        Two columns: the watcher DATs stack in the first, the stream chains run
+        left-to-right in the second, one row per stream.
 
         Operators created from Python land at (0, 0) on top of each other unless
         positioned, and these are created from Python. The anchor is computed from
         whatever else is in the component rather than hardcoded, because this
         component ships into projects whose layout this file cannot know.
         """
-        generated = self._generatedDats()
-        if not generated:
-            return
-
         # Annotations are excluded from the anchor. They are backgrounds and
         # decoration rather than operators — a group annotation is deliberately
         # wider than what it encloses, and Envoy draws a mascot out of them — so
-        # letting one set the anchor pushes the column off into empty space.
+        # letting one set the anchor pushes the columns off into empty space.
         others = [
             c
             for c in self.ownerComp.children
@@ -534,22 +746,64 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        # Step from the tallest actual tile plus its note, not a fixed offset —
-        # a column stepped by less than one DAT + its note overlaps.
-        tallest = max(d.nodeHeight for d in generated)
+        self._layoutWatchers(anchor_x, anchor_y)
+        # A note is centred on its host, so the watcher column is _NOTE_WIDTH
+        # wide however narrow the DATs are. Clearing that, plus a grid step, is
+        # what keeps the two columns from sharing a note's airspace.
+        self._layoutChains(anchor_x + _NOTE_WIDTH + _GRID, anchor_y, chains)
+
+    def _rowStep(self, ops):
+        """Vertical step that clears the tallest of `ops` plus its note.
+
+        Computed rather than fixed: a column stepped by less than one tile + its
+        note overlaps, and the tiles here range from a 90-tall TOP to whatever
+        height a Parameter Execute DAT's viewer is opened to.
+        """
+        tallest = max(o.nodeHeight for o in ops)
         unit = tallest + _NOTE_GAP_BELOW + _NOTE_HEIGHT + _NOTE_GAP_ABOVE
-        step = int(math.ceil(unit / float(_GRID)) * _GRID)
+        return int(math.ceil(unit / float(_GRID)) * _GRID)
 
-        for i, dat in enumerate(sorted(generated, key=lambda d: d.name)):
-            dat.nodeX = anchor_x
-            dat.nodeY = anchor_y - i * step
+    def _placeNote(self, host, x):
+        """Put a generated operator's note directly above it, centred on it.
 
-            # The note for this DAT may not exist yet on a component whose
-            # config was just widened — created here too so layout alone is
-            # enough to keep every DAT captioned, not just a Rebuild that
-            # happened to touch this key's watch this time.
-            note = self._getOrCreateNote(dat)
-            note.nodeX = anchor_x - (_NOTE_WIDTH - dat.nodeWidth) // 2
-            note.nodeY = dat.nodeY + dat.nodeHeight + _NOTE_GAP_BELOW
-            note.nodeWidth = _NOTE_WIDTH
-            note.nodeHeight = _NOTE_HEIGHT
+        The note may not exist yet on a component whose config was just widened —
+        created here too, so layout alone is enough to keep everything captioned
+        rather than only the entries a given Rebuild happened to touch.
+        """
+        note = self._getOrCreateNote(host)
+        note.nodeX = x - (_NOTE_WIDTH - host.nodeWidth) // 2
+        note.nodeY = host.nodeY + host.nodeHeight + _NOTE_GAP_BELOW
+        note.nodeWidth = _NOTE_WIDTH
+        note.nodeHeight = _NOTE_HEIGHT
+
+    def _layoutWatchers(self, x, top_y):
+        watchers = self._generatedWatchers()
+        if not watchers:
+            return
+
+        step = self._rowStep(watchers)
+        for i, dat in enumerate(sorted(watchers, key=lambda d: d.name)):
+            dat.nodeX = x
+            dat.nodeY = top_y - i * step
+            self._placeNote(dat, x)
+
+    def _layoutChains(self, x, top_y, chains):
+        """One row per stream, flowing left to right in the config's order.
+
+        Config order rather than alphabetical, because STREAMS' insertion order
+        is already load-bearing — webrtc-callbacks zips it against the video
+        m-lines of the negotiated SDP — so a wall read top to bottom here is the
+        wall the browser numbers the same way.
+        """
+        if not chains:
+            return
+
+        ops = [o for chain in chains for o in chain]
+        step_x = int(math.ceil((max(o.nodeWidth for o in ops) + _GRID) / float(_GRID)) * _GRID)
+        step_y = self._rowStep(ops)
+
+        for i, chain in enumerate(chains):
+            for j, o in enumerate(chain):
+                o.nodeX = x + j * step_x
+                o.nodeY = top_y - i * step_y
+            self._placeNote(chain[0], x)

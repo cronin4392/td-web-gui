@@ -16,6 +16,12 @@ config's `REGISTRY` and generates one per operator it references, each watching
 exactly that operator's registered parameters. Add a registry entry and the
 watcher follows.
 
+You never create a Video Stream Out TOP yourself either. The same extension reads
+`STREAMS` and generates a `select_<id> → flip_<id> → videostreamout_<id>` chain
+per entry, inside the component — so a stream is one config line naming the TOP
+you want on the web, and the mirroring TD's WebRTC encoder introduces is dealt
+with in the generated `flip_<id>`.
+
 Everything project-specific lives in your config: which operators and parameters
 to expose, and which TOPs carry which video streams. The three scripts find it
 through the `WebGuiServer` component's global OP shortcut, which is what lets

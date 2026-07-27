@@ -373,45 +373,33 @@ when several peers come up at once.
 > `.local` name and TD offers its LAN interface. They pair fine. Don't chase a
 > non-loopback candidate as the cause of a failure.
 
-**One Video Stream Out TOP per stream**, each with:
-
-| Parameter                                             | Value                                                                 |
-| ----------------------------------------------------- | --------------------------------------------------------------------- |
-| `Mode`                                                | `WebRTC`                                                              |
-| `FPS`                                                 | A constant (e.g. `30`), **not** the default `me.time.rate` expression |
-| `WebRTC` / `WebRTC Connection` / `WebRTC Video Track` | Left alone — the callbacks set these per peer                         |
-
-Pin `FPS` to a constant. At the default `me.time.rate`, eight encoders each run
-at your project's frame rate, which is how a 60fps project quietly spends its
-whole GPU budget on encoding.
-
-Then list the streams in your config:
+That's the whole of the video wiring. The encoders are generated — name the TOP
+you want on the web, per stream, and stop there:
 
 ```python
 WEBRTC = 'webrtc1'
 STREAMS = {
-    'tile1': {'top': '/project1/videostreamout_tile1', 'label': 'Tile 1'},
-    'tile2': {'top': '/project1/videostreamout_tile2', 'label': 'Tile 2'},
+    'tile1': {'source': '/project1/videowall/level_tile1', 'label': 'Tile 1'},
+    'tile2': {'source': '/project1/videowall/level_tile2', 'label': 'Tile 2'},
 }
 ```
+
+`source` is any TOP, anywhere in the project — the last op in your chain that is
+about the picture. Your chain ends there: **don't add a Flip TOP, and don't
+compensate for the mirroring TD's WebRTC encoder introduces.** That is handled
+downstream of `source`, and doing it twice cancels out.
+
+> Derivative's own WebRTC palette component compensates in CSS instead, on the
+> video container. Don't copy that: going fullscreen in Chrome drops the styling
+> and the mirror comes back
+> ([forum thread](https://forum.derivative.ca/t/stunned-by-webrtcpanel/293915)).
+> Flipping at the encoder fixes every consumer of the stream, in every browser
+> state.
 
 The `id` is what `<Video stream="tile1">` selects on. **Insertion order is
 load-bearing** — the callbacks zip this dict against the video m-lines of the
 negotiated SDP in order, so reordering entries reassigns which id names which
 track.
-
-### Flip the image in TD, not in CSS
-
-TD's WebRTC output arrives at the browser **mirrored in X**, even though the TD
-viewer shows the source the right way round. Feed each Video Stream Out TOP
-through a **Flip TOP with `flipx` on**.
-
-Derivative's own WebRTC palette component compensates with a CSS transform on the
-video container instead. Don't copy that: going fullscreen in Chrome drops the
-styling and the mirror comes back
-([forum thread](https://forum.derivative.ca/t/stunned-by-webrtcpanel/293915)).
-Flipping at the encoder fixes every consumer of the stream, in every browser
-state.
 
 ### The web side must offer enough m-lines
 

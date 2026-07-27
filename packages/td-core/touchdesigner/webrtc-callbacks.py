@@ -24,8 +24,9 @@ Set by hand, since they're parameters rather than values read from the config:
         WebRTC DAT            Callbacks DAT = this DAT.
                               ICE Servers = empty — browser and TD share a machine,
                               so host candidates are all that is ever needed.
-        Video Stream Out TOP  Mode = WebRTC; WebRTC = the WebRTC DAT; WebRTC
-                              Connection = the connection id; Track = the track name.
+
+The Video Stream Out TOPs are not among them: WebGuiServerExt generates one per
+STREAMS entry, and webserver-callbacks points it at the negotiated peer.
 
 See docs/protocol.md for the message catalog.
 """
@@ -67,7 +68,7 @@ def _server_callbacks():
 
 
 def _streams():
-    """The project's stream map: wire id -> {'top': ..., 'label': ...}.
+    """The project's stream map: wire id -> {'source': ..., 'label': ...}.
 
     Optional config — a project can expose params and no video at all.
     """

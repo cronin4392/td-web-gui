@@ -5,7 +5,8 @@ This is the ONE file you write per project. The other six scripts in this
 folder are project-agnostic and are dropped in unchanged:
 
         webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
-        webgui-server-ext.py     WebGuiServer extension    (generates the watchers below)
+        webgui-server-ext.py     WebGuiServer extension    (generates the watchers and
+                                                            video chains below)
         parameter-execute.py     Parameter Execute DATs    (TD -> web param broadcast)
         chop-execute.py          CHOP Execute DATs         (TD -> web readout broadcast)
         dat-execute.py           DAT Execute DATs          (TD -> web readout broadcast)
@@ -17,7 +18,8 @@ They read it back as `op.WebGuiServer.op('config').module`.
 
 REGISTRY and READOUTS below are the whole of the setup for TD -> web: the
 extension generates one watcher DAT per operator you name in either, so there is
-no watcher to create or keep in sync by hand.
+no watcher to create or keep in sync by hand. STREAMS works the same way for
+video — name the TOP you want streamed and the encoder chain is generated for it.
 
 The instance name the web app sees comes from WebGuiServer's `Identifier`
 parameter, not from anything in here.
@@ -153,10 +155,18 @@ READOUTS = {
 # a clear error instead of raising, and nothing on the parameter side is affected.
 WEBRTC = None
 
-# friendly stream id -> the Video Stream Out TOP carrying it.
+# friendly stream id -> the TOP whose picture that stream carries.
 #
-#   top:   Absolute path to a Video Stream Out TOP in WebRTC mode.
-#   label: Optional human-readable name, passed through to the browser.
+#   source: Absolute path to the TOP you want on the web. Any TOP, anywhere in
+#           the project — same path rule as REGISTRY, since these lookups run
+#           from inside WebGuiServer.
+#   label:  Optional human-readable name, passed through to the browser.
+#
+# **You do not build the encoder.** WebGuiServerExt generates one per entry,
+# inside WebGuiServer, on the next Rebuild — so an entry here is the whole of the
+# work. Your own chain ends at `source`: don't add a Flip TOP or otherwise
+# compensate for the mirroring TD's WebRTC encoder introduces, since that is
+# corrected downstream of `source` and doing it twice cancels out.
 #
 # The id is what `<Video stream="...">` selects on. The `mid` pairing an id to a
 # track is derived from the negotiated SDP, not authored here. A bare `<Video />`
@@ -171,5 +181,5 @@ WEBRTC = None
 # stream for N browsers. See docs/touchdesigner-setup.md § Video for the
 # single-viewer limit.
 STREAMS = {
-    # 'main': {'top': '/project1/videostreamout1', 'label': 'Main'},
+    # 'main': {'source': '/project1/render_out', 'label': 'Main'},
 }
