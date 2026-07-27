@@ -3,8 +3,8 @@
 Everything you build in TouchDesigner to make a `td-core` web UI talk to your
 project. Budget about fifteen minutes the first time.
 
-The whole TD side is **seven Python files and three operators**. Six of the
-files are project-agnostic — you drop them in unchanged, forever. The seventh,
+The whole TD side is **eight Python files and three operators**. Seven of the
+files are project-agnostic — you drop them in unchanged, forever. The eighth,
 your config, is the only one you edit.
 
 - [What you are building](#what-you-are-building)
@@ -36,6 +36,8 @@ op.WebGuiServer                    ← a Base COMP with a global OP shortcut
 ├── parexec_…               Parameter Execute DAT  ┤ your REGISTRY references
 ├── chopexec_…              CHOP Execute DAT       ┤ generated, one per CHOP/DAT
 ├── datexec_…               DAT Execute DAT        ┘ your READOUTS references
+├── config_watch            DAT Execute DAT    ← generated; re-runs Rebuild
+│                                                when config.py is saved
 │
 ├── webrtc1_callbacks       Text DAT   ← webrtc-callbacks.py     (unchanged)   ┐ video
 └── webrtc1                 WebRTC DAT                                          ┘ only
@@ -214,8 +216,13 @@ expanding a `number[]` entry to its ParGroup components, and setting the DAT
 Execute DAT's `Execute` to End of Frame (at Start of Frame it fires once per
 change within a frame instead of once total).
 
-To pick up a config change without restarting, pulse a rebuild from the
-textport:
+Saving `config.py` is enough — the watchers follow. The `config` DAT syncs from
+the file, and a generated `config_watch` DAT Execute DAT re-runs the rebuild the
+moment its text changes, so an added registry entry gets its watcher and a
+removed one loses it without a restart or a manual step.
+
+You can still pulse it by hand from the textport, which is the thing to reach for
+if you have edited the generated DATs directly and want them back in line:
 
 ```python
 op.WebGuiServer.Rebuild()
@@ -452,6 +459,7 @@ Schemas are per-instance, so each gets its own `createTDClient<Schema>()`. See
 | [`parameter-execute.py`](../touchdesigner/parameter-execute.py)     | Never   | Parameter Execute DAT: TD → web parameter broadcast              |
 | [`chop-execute.py`](../touchdesigner/chop-execute.py)               | Never   | CHOP Execute DAT: TD → web readout broadcast                     |
 | [`dat-execute.py`](../touchdesigner/dat-execute.py)                 | Never   | DAT Execute DAT: TD → web readout broadcast                      |
+| [`config-execute.py`](../touchdesigner/config-execute.py)           | Never   | DAT Execute DAT: re-runs `Rebuild()` when `config.py` is saved   |
 | [`webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py)       | Never   | WebRTC DAT callbacks: outbound signaling, `streams` announce     |
 | [`config-template.py`](../touchdesigner/config-template.py)         | **Yes** | Your registry, readouts, wiring names, and stream map            |
 

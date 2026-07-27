@@ -17,6 +17,13 @@ STREAM CHAINS, which carry TD -> web video:
         STREAMS   -> one select_ / flip_ / videostreamout_ chain per stream,
                      built inside this component            (webrtc-callbacks.py)
 
+Plus one operator that is not derived from the config but is what keeps the rest
+of them derived from it: a DAT Execute DAT watching the `config` DAT, which
+re-runs Rebuild whenever config.py changes on disk (config-execute.py). The DAT
+already hot-reloads the file's text; without this the two families above would
+stay as they were at the last extension init, so an edited config would look
+applied and behave as though it wasn't.
+
 Nothing here is project specific — drop this into any project unchanged, like
 the other scripts. It reads the same config the callbacks read, through the same
 `op.WebGuiServer` global shortcut.
@@ -86,6 +93,17 @@ _WATCH = {
     },
 }
 
+# The DAT Execute DAT that re-runs Rebuild when the config DAT's text changes,
+# which — because that DAT syncs from config.py — means whenever the file is
+# saved. Named for its role rather than with a watcher prefix: it is not one of
+# the generated watchers, it is what generates them again.
+#
+# Table Change is the hook, because the DAT Execute DAT has no text-change
+# callback. A Text DAT is a 1x1 table holding the whole file, so an edit to
+# config.py reads as a cell change; see config-execute.py.
+_CONFIG_WATCH_NAME = "config_watch"
+_CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
+
 # The per-stream video chain, in flow order. STREAMS names a SOURCE TOP — the
 # picture you want on the web — and these three ops are what turn it into a
 # WebRTC track:
@@ -124,6 +142,14 @@ GENERATED_TAG = "webgui-generated"
 # a watcher is defined as "ours, and not a stream op", so anything of ours that
 # is neither reads as an orphan and gets cleaned up rather than left behind.
 STREAM_TAG = "webgui-stream"
+
+# Marks the config watcher, for the same reason STREAM_TAG exists: reconciliation
+# recognises a watcher as "ours and not something with a role tag", and the config
+# watcher is a DAT Execute DAT pointed at a DAT — indistinguishable, on inspection
+# alone, from a READOUTS watcher for an operator the config no longer mentions.
+# Without a tag of its own it would be deleted as an orphan by the first Rebuild
+# it triggered, which is a bridge that works exactly once.
+CONFIG_TAG = "webgui-config-watch"
 
 # Shown on each generated operator, since the thing a reader most needs to know
 # about an operator they didn't create is that editing it is pointless.
@@ -192,7 +218,8 @@ class WebGuiServerExt:
     def Rebuild(self):
         """Make the generated operators match the config.
 
-        Watcher DATs from REGISTRY + READOUTS, video chains from STREAMS.
+        Watcher DATs from REGISTRY + READOUTS, video chains from STREAMS, and the
+        config watcher that calls this again the next time config.py is saved.
 
         Idempotent and diff-based: it compares what the config asks for against
         the operators that are live *right now*, and applies only the difference.
@@ -204,14 +231,24 @@ class WebGuiServerExt:
         Safe to call at any time, from any trigger, as often as you like. When
         nothing has changed it writes nothing.
         """
+        # First, and outside the early-out below: a config that can't be read
+        # right now is usually one being edited, and the watcher is what turns
+        # fixing the file into a working component again instead of requiring a
+        # manual Rebuild that nobody knows to run.
+        config_watch = self._ensureConfigWatcher()
+
         desired = self._desiredWatches()
         if desired is None:
-            return  # config unreadable; _config() already explained why
+            chains = []  # config unreadable; _config() already explained why
+        else:
+            self._warnIfNoCoreDir()
+            self._rebuildWatchers(desired)
+            chains = self._rebuildStreams()
 
-        self._warnIfNoCoreDir()
-        self._rebuildWatchers(desired)
-        chains = self._rebuildStreams()
-        self._layout(chains)
+        # Reached on the unreadable-config path too. Layout only moves operators,
+        # never deletes them, so it costs nothing there — and a config watcher
+        # created moments ago would otherwise be left sitting at (0, 0).
+        self._layout(chains, config_watch)
 
     def StreamTop(self, stream_id):
         """The generated Video Stream Out TOP carrying `stream_id`, or None.
@@ -239,6 +276,60 @@ class WebGuiServerExt:
             if dat is None:
                 dat = self._createWatcher(key)
             self._applyWatch(dat, key, desired[key])
+
+    # ── config watcher ────────────────────────────────────────────────────────
+
+    def _ensureConfigWatcher(self):
+        """The DAT Execute DAT that re-runs Rebuild when config.py is saved.
+
+        Created if missing, adopted by name if a previous one survived — the same
+        lookup-or-create the stream chains use, and for the same reason: a TDN
+        reimport of this component recreates its children, so anything that must
+        outlive one has to be recoverable from what is on the network rather than
+        from something remembered.
+
+        Returns the DAT, or None when there is nothing to watch or the name is
+        taken. Both are refusals rather than errors: raising out of here would
+        take the whole Rebuild — watchers and streams included — down with it.
+        """
+        if self.ownerComp.op("config") is None:
+            return None  # _config() reports the missing DAT when it's read
+
+        dat = self.ownerComp.op(_CONFIG_WATCH_NAME)
+        if dat is not None and not isinstance(dat, datexecuteDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, so config.py edits cannot be "
+                "watched - rename it and Rebuild" % (_CONFIG_WATCH_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(datexecuteDAT, _CONFIG_WATCH_NAME)
+            dat.viewer = True
+            dat.comment = (
+                "Generated by WebGuiServerExt. Re-runs Rebuild when the config "
+                "DAT changes, i.e. when config.py is saved. Edits are "
+                "overwritten on the next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(CONFIG_TAG)
+
+        self._setPar(dat.par.dat, "config")
+        self._setPar(dat.par.tablechange, 1)
+        # End of Frame, so a save that reaches the DAT in more than one piece
+        # rebuilds once. Same coalescing the READOUTS watchers get, and it matters
+        # more here: a rebuild is orders of magnitude more work than a broadcast.
+        self._setPar(dat.par.execute, "end")
+        self._setPar(dat.par.active, 1)
+
+        self._setExpr(dat.par.file, _CONFIG_WATCH_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "DAT: config\nre-runs Rebuild on every change, so saving config.py\n"
+            "reaches the network without a restart",
+        )
+        return dat
 
     # ── config ────────────────────────────────────────────────────────────────
 
@@ -368,16 +459,16 @@ class WebGuiServerExt:
     # ── reconciliation ────────────────────────────────────────────────────────
 
     def _generatedWatchers(self):
-        """Every watcher DAT we own — defined as ours and not part of a chain.
+        """Every watcher DAT we own — ours, and carrying no other role tag.
 
         By exclusion rather than by a role tag of its own, so that anything of
-        ours which is neither a watcher nor a chain op reads as an orphan to be
-        cleaned up rather than as something to leave alone.
+        ours which is neither a watcher, a chain op, nor the config watcher reads
+        as an orphan to be cleaned up rather than as something to leave alone.
         """
         return [
             c
             for c in self.ownerComp.children
-            if GENERATED_TAG in c.tags and STREAM_TAG not in c.tags
+            if GENERATED_TAG in c.tags and STREAM_TAG not in c.tags and CONFIG_TAG not in c.tags
         ]
 
     def _watchedBy(self, dat):
@@ -719,7 +810,7 @@ class WebGuiServerExt:
 
     # ── layout ────────────────────────────────────────────────────────────────
 
-    def _layout(self, chains):
+    def _layout(self, chains, config_watch):
         """Place the generated operators right of the hand-built ones.
 
         Two columns: the watcher DATs stack in the first, the stream chains run
@@ -746,7 +837,7 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        self._layoutWatchers(anchor_x, anchor_y)
+        self._layoutWatchers(anchor_x, anchor_y, config_watch)
         # A note is centred on its host, so the watcher column is _NOTE_WIDTH
         # wide however narrow the DATs are. Clearing that, plus a grid step, is
         # what keeps the two columns from sharing a note's airspace.
@@ -776,13 +867,22 @@ class WebGuiServerExt:
         note.nodeWidth = _NOTE_WIDTH
         note.nodeHeight = _NOTE_HEIGHT
 
-    def _layoutWatchers(self, x, top_y):
-        watchers = self._generatedWatchers()
+    def _layoutWatchers(self, x, top_y, config_watch):
+        """The watcher column, headed by the config watcher.
+
+        Pinned to the top rather than sorted in among the rest, because it is the
+        trigger the rest of the column is a product of — and because sorting it by
+        name would move it to a different row every time the config gains or loses
+        an entry, for a DAT that never changes.
+        """
+        watchers = sorted(self._generatedWatchers(), key=lambda d: d.name)
+        if config_watch is not None:
+            watchers.insert(0, config_watch)
         if not watchers:
             return
 
         step = self._rowStep(watchers)
-        for i, dat in enumerate(sorted(watchers, key=lambda d: d.name)):
+        for i, dat in enumerate(watchers):
             dat.nodeX = x
             dat.nodeY = top_y - i * step
             self._placeNote(dat, x)

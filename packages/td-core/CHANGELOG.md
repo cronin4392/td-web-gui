@@ -28,6 +28,16 @@ project. See [docs/protocol.md](docs/protocol.md).
   `REGISTRY` and `READOUTS` is a config error; the parameter wins and TD warns.
   See [docs/design-notes.md § Readouts](docs/design-notes.md#readouts).
 
+- `touchdesigner/config-execute.py` — editing `config.py` while TouchDesigner is
+  running now reaches the network on save. The `config` DAT already hot-reloaded
+  the file, but nothing re-ran `Rebuild()`, so the generated watchers and stream
+  chains silently described the config as it stood at the last extension init.
+  `WebGuiServerExt` now generates a single `config_watch` DAT Execute DAT
+  watching the config DAT, which re-runs `Rebuild()` on change. Table Change is
+  the hook — the DAT Execute DAT has no text-change callback, and a Text DAT is a
+  1×1 table holding the whole file — with `Execute = End of Frame` so a save that
+  lands in pieces rebuilds once.
+
 - `touchdesigner/chop-execute.py` and `touchdesigner/dat-execute.py` — the
   watcher callbacks behind readouts, generated per operator by `WebGuiServerExt`
   alongside the existing Parameter Execute DATs. Both only mark a name dirty;
