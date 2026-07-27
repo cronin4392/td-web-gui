@@ -26,13 +26,22 @@ rest of them derived from it:
                       text; without this the two families above would stay as they
                       were at the last extension init, so an edited config would
                       look applied and behave as though it wasn't.
-        exit_watch    an Execute DAT whose onExit drops every generated watcher
-                      when TouchDesigner closes (exit-execute.py), so the saved
-                      project holds none of them and the next open rebuilds them
-                      from the live config. They are a build product; saving them
-                      only preserves whatever the config said last time. Read that
-                      file before relying on it — TouchDesigner has no pre-save
-                      callback, which bounds what an exit hook can promise.
+        exit_watch    an Execute DAT bookending the same lifecycle from both
+                      ends (exit-execute.py): onCreate re-runs Rebuild, and
+                      onExit drops every generated watcher and stream chain.
+                      Create is what covers reloading this component from an
+                      External .tox while it's already live — that reload
+                      recreates every child node (Create fires again) but does
+                      NOT recompile the extension (onInitTD does not), so
+                      without this the rebuilt network would look like it
+                      still needed a `Rebuild()` nobody was going to run. Exit
+                      is what keeps the watchers and streams — a build
+                      product — out of the saved project, so the next open
+                      rebuilds them from the live config instead of reconciling
+                      away a stale snapshot. Read that file before relying on
+                      the Exit half — TouchDesigner has no callback proven to
+                      run BEFORE a save, which bounds what it can promise
+                      against a Save & Quit.
 
 Nothing here is project specific — drop this into any project unchanged, like
 the other scripts. It reads the same config the callbacks read, through the same
@@ -176,7 +185,7 @@ CONFIG_TAG = "webgui-config-watch"
 # consequence of omitting it is sharper than a bridge that works once: an Execute
 # DAT names no operator, so _watchedBy reads it as an orphan, and it would be
 # deleted by the very Rebuild that runs on open. It also has to be excluded from
-# _generatedWatchers so that DestroyWatchers does not delete the DAT that is
+# _generatedWatchers so that DestroyGenerated does not delete the DAT that is
 # calling it, mid-callback, on the way out.
 EXIT_TAG = "webgui-exit-watch"
 
@@ -240,7 +249,7 @@ class WebGuiServerExt:
         the generated DATs are meant to outlive a reinit — tearing them down here
         would delete the bridge every time this file is edited.
 
-        Deliberately still a no-op now that DestroyWatchers() exists. onDestroyTD
+        Deliberately still a no-op now that DestroyGenerated() exists. onDestroyTD
         cannot tell an application close from a reinit, and reinit is overwhelmingly
         the common case, so this is the wrong place to call it from: the hook that
         means "TouchDesigner is closing" is an Execute DAT's onExit, which is what
@@ -266,6 +275,7 @@ class WebGuiServerExt:
         Safe to call at any time, from any trigger, as often as you like. When
         nothing has changed it writes nothing.
         """
+        print("REBUILD")
         # First, and outside the early-out below: a config that can't be read
         # right now is usually one being edited, and the watcher is what turns
         # fixing the file into a working component again instead of requiring a
@@ -277,6 +287,7 @@ class WebGuiServerExt:
         exit_watch = self._ensureExitWatcher()
 
         desired = self._desiredWatches()
+        print(desired)
         if desired is None:
             chains = []  # config unreadable; _config() already explained why
         else:
@@ -299,31 +310,33 @@ class WebGuiServerExt:
         """
         return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
 
-    def DestroyWatchers(self):
-        """Delete every generated watcher DAT, with the note captioning each.
+    def DestroyGenerated(self):
+        """Delete every generated watcher DAT and stream chain, notes included.
 
         Public because the thing that calls it is a callback in another file —
         exit-execute.py, running from the generated exit_watch DAT when
-        TouchDesigner closes. Keeping the definition of "what counts as a watcher"
-        here means the callback never has to spell that rule out a second time.
+        TouchDesigner closes. Keeping the definition of "what's generated" here
+        means the callback never has to spell that rule out a second time.
 
-        The watchers are a build product of REGISTRY and READOUTS, so dropping
-        them costs nothing that Rebuild cannot reproduce — which is the whole
-        argument for not saving them into the project in the first place. What is
-        NOT dropped: the STREAMS chains (real network, not a callback bridge), and
-        the config and exit watchers themselves, both excluded by tag from
-        _generatedWatchers — the exit watcher most pointedly, since this runs from
-        inside its own callback.
+        Both families are build products of REGISTRY, READOUTS, and STREAMS, so
+        dropping them costs nothing that Rebuild cannot reproduce — which is the
+        whole argument for not saving them into the project in the first place.
+        What is NOT dropped: the config and exit watchers themselves, excluded by
+        tag from _generatedWatchers — the exit watcher most pointedly, since this
+        runs from inside its own callback.
 
         Safe to call at any time. It leaves the component in a state Rebuild()
         restores exactly, which is also how it is tested without closing TD.
         """
         for dat in self._generatedWatchers():
             self._destroyWithNote(dat)
+        for chain_op in self._generatedStreamOps():
+            self._destroyWithNote(chain_op)
 
     # ── watchers ──────────────────────────────────────────────────────────────
 
     def _rebuildWatchers(self, desired):
+        print("rebuild watchers")
         keep, orphans = self._matchExisting(desired)
 
         for dat in orphans:
@@ -395,7 +408,8 @@ class WebGuiServerExt:
     # ── exit watcher ──────────────────────────────────────────────────────────
 
     def _ensureExitWatcher(self):
-        """The Execute DAT that drops the watchers when TouchDesigner closes.
+        """The Execute DAT bookending the build product's lifecycle: Create builds
+        it, Exit drops it.
 
         Created if missing, adopted by name if a previous one survived — the same
         lookup-or-create as the config watcher, and for the same reason: a TDN
@@ -406,6 +420,20 @@ class WebGuiServerExt:
         dropping the component in, with nothing to wire up. It is also why it must
         NOT be hand-placed: a Rebuild would see an untagged Execute DAT, fail to
         match it to any watched operator, and delete it as an orphan.
+
+        Create matters for exactly the case onInitTD's deferred Rebuild does NOT
+        cover: reloading this component from an External .tox while it is already
+        live (Component Editor's Reinit Network / the enableexternaltoxpulse par).
+        Verified empirically (a project isn't documented to this level of detail):
+        that reload recreates every child node fresh — Create fires again on all
+        of them, exit_watch included — but it does NOT recompile the extension
+        object, so onInitTD does NOT fire unless Reinit Extensions is pulsed
+        separately. Extensions also initialize lazily (only once referenced or the
+        component cooks), which is a second, independent way the same reload can
+        leave Rebuild never having run. Routing through this DAT's onCreate
+        sidesteps both: it needs no extension access at all, just a node existing.
+        Start is deliberately left off — Rebuild already runs once via onInitTD at
+        genuine startup, and enabling both would just double that first call.
 
         Returns the DAT, or None if the name is taken by something else — a
         refusal rather than an error, because raising here would take the whole
@@ -422,16 +450,16 @@ class WebGuiServerExt:
             dat = self.ownerComp.create(executeDAT, _EXIT_WATCH_NAME)
             dat.viewer = True
             dat.comment = (
-                "Generated by WebGuiServerExt. Deletes the generated watcher DATs "
-                "when TouchDesigner closes, so they are never saved into the "
-                "project. Edits are overwritten on the next Rebuild."
+                "Generated by WebGuiServerExt. Rebuilds on Create (covers an "
+                "External .tox reinit, which reruns Create but not onInitTD), "
+                "and deletes the generated watchers and stream chains on Exit, "
+                "so TouchDesigner closing never saves them. Edits are "
+                "overwritten on the next Rebuild."
             )
         dat.tags.add(GENERATED_TAG)
         dat.tags.add(EXIT_TAG)
 
-        # Exit alone. Every other Execute DAT hook is left off: this DAT has one
-        # job, and Start/Create in particular would race the deferred Rebuild in
-        # onInitTD rather than add anything.
+        self._setPar(dat.par.create, 1)
         self._setPar(dat.par.exit, 1)
         self._setPar(dat.par.active, 1)
 
@@ -440,9 +468,9 @@ class WebGuiServerExt:
 
         self._setNoteText(
             self._getOrCreateNote(dat),
-            "on TouchDesigner exit: deletes the generated watcher DATs,\n"
-            "so the saved project holds none and the next open\n"
-            "rebuilds them from the live config",
+            "on Create: re-runs Rebuild (covers a live External .tox reinit)\n"
+            "on Exit: deletes the generated watchers and streams, so the\n"
+            "next open rebuilds them fresh from the live config",
         )
         return dat
 
@@ -581,9 +609,10 @@ class WebGuiServerExt:
         bridge DATs reads as an orphan to be cleaned up rather than as something to
         leave alone.
 
-        This is also the set DestroyWatchers deletes on the way out, which is why
-        the config and exit watchers must be excluded by tag: they are what makes
-        the next open able to rebuild everything this returns.
+        This is also half of the set DestroyGenerated deletes on the way out
+        (the other half is _generatedStreamOps), which is why the config and exit
+        watchers must be excluded by tag: they are what makes the next open able
+        to rebuild everything this returns.
         """
         return [
             c
@@ -593,6 +622,16 @@ class WebGuiServerExt:
             and CONFIG_TAG not in c.tags
             and EXIT_TAG not in c.tags
         ]
+
+    def _generatedStreamOps(self):
+        """Every stream-chain op we own — the other half of DestroyGenerated's set.
+
+        A role tag of its own here, rather than exclusion: STREAM_TAG is what
+        _generatedWatchers already relies on to tell a chain op apart from a
+        watcher, so reusing it is the one query that recognises exactly the same
+        ops Rebuild's own reconciliation does.
+        """
+        return [c for c in self.ownerComp.children if STREAM_TAG in c.tags]
 
     def _watchedBy(self, dat):
         """The (kind, watched op path) an existing generated DAT stands for.
