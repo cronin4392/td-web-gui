@@ -355,8 +355,8 @@ class WebGuiServerExt:
         """
         if self.ownerComp.op("config") is None:
             return None  # _config() reports the missing DAT when it's read
-
         dat = self.ownerComp.op(_CONFIG_WATCH_NAME)
+
         if dat is not None and not isinstance(dat, datexecuteDAT):
             debug(
                 "WebGuiServerExt: '%s' is a %s, so config.py edits cannot be "
@@ -936,8 +936,9 @@ class WebGuiServerExt:
     def _layout(self, chains, config_watch, exit_watch):
         """Place the generated operators right of the hand-built ones.
 
-        Two columns: the watcher DATs stack in the first, the stream chains run
-        left-to-right in the second, one row per stream.
+        Three columns, left to right: the config/exit watchers that drive
+        Rebuild's lifecycle, the per-config watcher DATs they drive, then the
+        stream chains, one row per stream.
 
         Operators created from Python land at (0, 0) on top of each other unless
         positioned, and these are created from Python. The anchor is computed from
@@ -960,11 +961,16 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        self._layoutWatchers(anchor_x, anchor_y, config_watch, exit_watch)
-        # A note is centred on its host, so the watcher column is _NOTE_WIDTH
-        # wide however narrow the DATs are. Clearing that, plus a grid step, is
-        # what keeps the two columns from sharing a note's airspace.
-        self._layoutChains(anchor_x + _NOTE_WIDTH + _GRID, anchor_y, chains)
+        # A note is centred on its host, so every column is _NOTE_WIDTH wide
+        # however narrow its DATs are. Clearing that, plus a grid step, before
+        # starting the next column is what keeps neighbouring columns from
+        # sharing a note's airspace.
+        watchers_x = anchor_x + _NOTE_WIDTH + _GRID
+        chains_x = watchers_x + _NOTE_WIDTH + _GRID
+
+        self._layoutLifecycleWatchers(anchor_x, anchor_y, config_watch, exit_watch)
+        self._layoutWatchers(watchers_x, anchor_y)
+        self._layoutChains(chains_x, anchor_y, chains)
 
     def _rowStep(self, ops):
         """Vertical step that clears the tallest of `ops` plus its note.
@@ -990,19 +996,27 @@ class WebGuiServerExt:
         note.nodeWidth = _NOTE_WIDTH
         note.nodeHeight = _NOTE_HEIGHT
 
-    def _layoutWatchers(self, x, top_y, config_watch, exit_watch):
-        """The watcher column, headed by the config and exit watchers.
+    def _layoutLifecycleWatchers(self, x, top_y, config_watch, exit_watch):
+        """The config/exit watcher column, left of the per-config watchers.
 
-        Pinned to the top rather than sorted in among the rest, because they are
-        the two ends of the rest of the column's life — the config watcher builds
-        it, the exit watcher drops it — and because sorting them by name would
-        move them to a different row every time the config gains or loses an
-        entry, for two DATs that never change.
+        A column of its own rather than rows pinned atop the watcher column:
+        these two aren't watchers over anything in the config, they're what
+        builds and tears down the ones that are, so they read as upstream of
+        that column rather than sorted in among its contents.
         """
+        pinned = [w for w in (exit_watch, config_watch) if w is not None]
+        if not pinned:
+            return
+
+        step = self._rowStep(pinned)
+        for i, dat in enumerate(pinned):
+            dat.nodeX = x
+            dat.nodeY = top_y - i * step
+            self._placeNote(dat, x)
+
+    def _layoutWatchers(self, x, top_y):
+        """The per-config watcher column: one row per REGISTRY/READOUTS watch."""
         watchers = sorted(self._generatedWatchers(), key=lambda d: d.name)
-        for pinned in (exit_watch, config_watch):
-            if pinned is not None:
-                watchers.insert(0, pinned)
         if not watchers:
             return
 
