@@ -1,10 +1,10 @@
 format: tdn
 version: '2.0'
-build: 1
+build: 4
 generator: Embody/6.0.154
 td_build: 099.2025.33070
 source_file: Example2.toe
-exported_at: '2026-07-27T13:53:39Z'
+exported_at: '2026-07-27T14:46:21Z'
 network_path: /project1/WebGuiServer
 options:
   include_dat_content: false
@@ -17,25 +17,6 @@ type_defaults:
     flags:
     - viewer
     color: [0.67, 0.67, 0.67]
-  parameterexecuteDAT:
-    parameters:
-      fromop: =parent()
-      file: =op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'
-      syncfile: true
-    size: [130, 90]
-    color: [0.67, 0.67, 0.67]
-    tags:
-    - webgui-generated
-  datexecuteDAT:
-    parameters:
-      fromop: =parent()
-      execute: end
-      file: =op.WebGuiServer.par.Tdcoredir.eval() + '/dat-execute.py'
-      syncfile: true
-    size: [130, 90]
-    color: [0.67, 0.67, 0.67]
-    tags:
-    - webgui-generated
   chopexecuteDAT:
     parameters:
       fromop: =parent()
@@ -57,14 +38,14 @@ custom_pars:
     clampMax: true
     normMin: 1.0
     normMax: 65535.0
-    value: 9983
+    value: 9981
   - name: Configfile
     style: File
     label: Config File
-    value: config-example.py
+    value: config.py
   - name: Identifier
     style: Str
-    value: example
+    value: example2
   - name: Tdcoredir
     style: Folder
     label: TD Core Dir
@@ -135,31 +116,18 @@ operators:
 - name: parexec_project1_params
   type: parameterexecuteDAT
   parameters:
+    fromop: =parent()
     op: /project1/params
-    pars: Message Intensity Enabled Gate Mute Blendmode Positionx Positiony Positionz Colorr Colorg Colorb Colora
+    pars: Message Intensity Enabled Colorr Colorg Colorb Colora
     builtin: false
-  position: [200, -283]
-  comment: Generated from the config REGISTRY by WebGuiServerExt. Edits are overwritten on the next Rebuild.
-- name: datexec_project1_readouts_cue_table
-  type: datexecuteDAT
-  parameters:
-    dat: /project1/readouts/cue_table
+    file: =op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'
+    syncfile: true
   position: [200, 317]
-  comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
-- name: parexec_project1_audiodevicein_demo
-  type: parameterexecuteDAT
-  parameters:
-    op: /project1/audiodevicein_demo
-    pars: device
-    custom: false
-  position: [200, -83]
+  size: [130, 90]
+  color: [0.67, 0.67, 0.67]
   comment: Generated from the config REGISTRY by WebGuiServerExt. Edits are overwritten on the next Rebuild.
-- name: datexec_project1_readouts_nowplaying
-  type: datexecuteDAT
-  parameters:
-    dat: /project1/readouts/nowplaying
-  position: [200, 117]
-  comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  tags:
+  - webgui-generated
 - name: chopexec_project1_readouts_null_bands
   type: chopexecuteDAT
   parameters:
@@ -171,6 +139,6 @@ operators:
   type: chopexecuteDAT
   parameters:
     chop: /project1/readouts/null_stats
-    channel: fps cook
+    channel: fps
   position: [200, 517]
   comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.

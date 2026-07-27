@@ -1,10 +1,10 @@
 format: tdn
 version: '2.0'
-build: 1
+build: 2
 generator: Embody/6.0.154
 td_build: 099.2025.33070
 source_file: Example.toe
-exported_at: '2026-07-27T13:53:18Z'
+exported_at: '2026-07-27T14:21:23Z'
 network_path: /project1/WebGuiServer
 options:
   include_dat_content: false
@@ -57,14 +57,13 @@ custom_pars:
     clampMax: true
     normMin: 1.0
     normMax: 65535.0
-    value: 9985
   - name: Configfile
     style: File
     label: Config File
-    value: config-example.py
+    value: config.py
   - name: Identifier
     style: Str
-    value: example
+    value: example1
   - name: Tdcoredir
     style: Folder
     label: TD Core Dir

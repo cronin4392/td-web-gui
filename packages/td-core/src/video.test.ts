@@ -160,6 +160,31 @@ describe('peer setup + offer (5.2)', () => {
     expect(h.signaling().at(-1)).toEqual({ type: 'rtc-answer', sdp: 'answer-sdp' });
     h.dispose();
   });
+
+  it('answers back-to-back offers one at a time', async () => {
+    // TD renegotiates more than once while it attaches tracks, so two offers in
+    // the same tick is ordinary traffic. Handled concurrently they interleave —
+    // the second setRemoteDescription lands before the first has answered — and
+    // the first setLocalDescription then throws `wrong signalingState: stable`,
+    // leaving TD in have-local-offer with no media flowing. Found live with two
+    // instances negotiating at once (Phase 6.6).
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const h = await setup({ offerRole: 'td' });
+    const peer = MockPeerConnection.latest();
+
+    h.td.socket().serverSend({ type: 'rtc-offer', sdp: 'td-offer-1' });
+    h.td.socket().serverSend({ type: 'rtc-offer', sdp: 'td-offer-2' });
+    await settle(40);
+
+    // Both answered, in order, and nothing logged as a failure.
+    expect(h.signaling()).toEqual([
+      { type: 'rtc-answer', sdp: 'answer-sdp' },
+      { type: 'rtc-answer', sdp: 'answer-sdp' },
+    ]);
+    expect(peer.localDescriptions.map((d) => d.type)).toEqual(['answer', 'answer']);
+    expect(error).not.toHaveBeenCalled();
+    h.dispose();
+  });
 });
 
 describe('trickle ICE both ways (5.2)', () => {
