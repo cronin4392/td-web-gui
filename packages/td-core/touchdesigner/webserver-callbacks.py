@@ -836,8 +836,21 @@ def _add_tracks(webrtc, connection):
             )
 
 
+def _stream_top(stream_id):
+    """The Video Stream Out TOP carrying `stream_id`.
+
+    Generated inside WebGuiServer by WebGuiServerExt, at the end of a
+    select -> flip -> videostreamout chain built from the config's STREAMS entry
+    — so it is asked for by stream id rather than looked up by path, and the
+    naming convention lives in that one file. None when the extension hasn't run
+    (or isn't there), which is a setup problem rather than a per-peer one.
+    """
+    getter = getattr(_webgui(), "StreamTop", None)
+    return getter(stream_id) if getter is not None else None
+
+
 def attach_streams(connection):
-    """Point every configured Video Stream Out TOP at this peer's track.
+    """Point every generated Video Stream Out TOP at this peer's track.
 
     Public because the deferred `run()` below has to name something.
 
@@ -846,6 +859,9 @@ def attach_streams(connection):
     `webrtcconnection` fills the track menu — so the values can't be selected
     until the DAT has cooked and published them. This only governs which TOP
     feeds pixels into the track; the SDP was already settled by _add_tracks.
+
+    These three pars are the whole of what is per-peer; everything else about the
+    TOP is settled by the Rebuild that generated it.
 
     One TOP carries one connection, so a second browser connecting re-points the
     same TOP and takes the stream away from the first. Serving several browsers
@@ -857,23 +873,16 @@ def attach_streams(connection):
     if webrtc is None or connection not in client_by_peer:
         return  # browser went away during the wait
 
-    for stream_id, info in _streams().items():
-        top = op(info["top"])
+    for stream_id in _streams():
+        top = _stream_top(stream_id)
         if top is None:
             print(
-                "webserver-callbacks: warning - stream '%s' has no TOP at '%s'"
-                % (stream_id, info["top"])
+                "webserver-callbacks: warning - no generated Video Stream Out TOP "
+                "for stream '%s'; call op.WebGuiServer.Rebuild()" % stream_id
             )
             continue
         # Lowercase: these are built-in pars. (Custom pars are capitalized — see
         # REGISTRY — which is not the same convention.)
-        if str(top.par.mode.eval()).lower() != "webrtc":
-            # Left as a warning rather than forced: the TOP's Mode is the user's
-            # authoring choice, and silently rewriting it would hide a mis-wire.
-            print(
-                "webserver-callbacks: warning - %s Mode is '%s', not 'webrtc'; "
-                "it will negotiate but send no video" % (top.path, top.par.mode.eval())
-            )
         _set_par(top, "webrtc", webrtc)
         _set_par(top, "webrtcconnection", connection)
         # Audio is out of scope for v1, so only the video track is claimed.

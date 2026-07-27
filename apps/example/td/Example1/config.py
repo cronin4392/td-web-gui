@@ -37,32 +37,26 @@ plus, for the TD-announced-menu demo:
 Video additionally expects:
         webrtc1                       WebRTC DAT inside WebGuiServer, beside the
                                       Web Server DAT's callbacks.
-        /project1/videowall           the four-tile wall: a source (through a Flip
-                                      TOP, see below) → res_cap → level_tile1…4 →
-                                      videostreamout_tile1…4, one Video Stream Out
-                                      TOP per stream.
+        /project1/videowall           the four-tile wall: in_source → res_cap →
+                                      level_tile1…4 → video1…4. It ends at those
+                                      Nulls; the encoders are generated from
+                                      STREAMS.
 
 All four tiles ride the **one** peer this instance opens — a peer carries many
 tracks, and that is why `<Video>` selects on a stream id rather than on a
-connection. Four rather than eight because the eight-stream target of Phase 6.7
-is now split across the two instances, four each: same total encoder load, two
-peers instead of one. Per-tile tinting is deliberate: four identical pictures
+connection. Four here and four in Example2: the same total encoder load as one
+eight-stream wall, across two peers instead of one. Per-tile tinting is
+deliberate: four identical pictures
 would hide a mid-to-id mis-mapping, and a scrambled colour order will not.
 Example2 tints its four with the other half of the same palette, so a tile
 rendered under the wrong instance is visible too.
 
-TD's WebRTC output arrives at the browser **mirrored in X**, even though the TD
-viewer shows the source the right way round. Feed the Video Stream Out TOP
-through a Flip TOP with `flipx` on. Derivative's own webRTC palette component
-instead compensates with a CSS transform on the video container, which is worth
-knowing about and not copying: going fullscreen in Chrome drops that styling and
-the mirror comes back (forum.derivative.ca/t/stunned-by-webrtcpanel/293915).
-Flipping at the encoder has no such failure mode, and fixes every consumer of the
-stream rather than one styled element in one browser state.
+The wall deliberately does NOT correct for the X-mirroring TD's WebRTC encoder
+introduces — that is handled downstream of the TOPs STREAMS names, and doing it
+here as well would cancel out.
 
-The watcher DATs are NOT set by hand. WebGuiServerExt generates them from
-REGISTRY and READOUTS: `parexec_…` per operator, `chopexec_…` per CHOP,
-`datexec_…` per DAT.
+The watcher DATs and the encoders are NOT set by hand. WebGuiServerExt generates
+them from REGISTRY, READOUTS and STREAMS.
 
 This project exercises both Parameter Execute toggle paths: `/project1/params`
 holds only custom pars, while `/project1/audiodevicein_demo` holds the built-in
@@ -76,11 +70,6 @@ from here:
                                 Port = `op.WebGuiServer.par.Port`.
         WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;
                                 ICE Servers = empty (browser and TD share a machine).
-        Video Stream Out TOP    Mode = WebRTC, one per stream. Its WebRTC /
-                                connection / track pars are set per-peer by the
-                                callbacks, not by hand. FPS is a constant 30 rather
-                                than the default `me.time.rate` expression, so eight
-                                encoders don't each run at the project's 60.
 """
 
 # The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to
@@ -97,9 +86,12 @@ CALLBACKS = "webserver1_callbacks"
 # the param side is unaffected.
 WEBRTC = "webrtc1"
 
-# friendly stream id -> the Video Stream Out TOP carrying it.
-#   top:   absolute path to a Video Stream Out TOP in WebRTC mode.
-#   label: optional human-readable name, passed through to the browser.
+# friendly stream id -> the TOP whose picture that stream carries.
+#   source: absolute path to the TOP you want on the web.
+#   label:  optional human-readable name, passed through to the browser.
+# The encoder is generated per entry inside WebGuiServer, so these paths name the
+# last op in the wall that is about the picture, and the wall ends there.
+#
 # The id is what `<Video stream="...">` selects on; the mid pairing an id to a
 # track is derived from the negotiated SDP, not authored here. A bare `<Video />`
 # takes the first entry, so `tile1` is the single-stream default.
@@ -116,38 +108,11 @@ WEBRTC = "webrtc1"
 # one peer per instance, so a single tab holds two peers of four tracks each.
 STREAM_COUNT = 4
 STREAMS = {
-    "tile1": {
-        "top": "/project1/videowall/videostreamout_tile1",
-        "label": "Tile 1",
-    },
-    "tile2": {
-        "top": "/project1/videowall/videostreamout_tile2",
-        "label": "Tile 2",
-    },
-    "tile3": {
-        "top": "/project1/videowall/videostreamout_tile3",
-        "label": "Tile 3",
-    },
-    "tile4": {
-        "top": "/project1/videowall/videostreamout_tile4",
-        "label": "Tile 4",
-    },
-    "tile5": {
-        "top": "/project1/videowall/videostreamout_tile5",
-        "label": "Tile 5",
-    },
-    "tile6": {
-        "top": "/project1/videowall/videostreamout_tile6",
-        "label": "Tile 6",
-    },
-    "tile7": {
-        "top": "/project1/videowall/videostreamout_tile7",
-        "label": "Tile 7",
-    },
-    "tile8": {
-        "top": "/project1/videowall/videostreamout_tile8",
-        "label": "Tile 8",
-    },
+    "tile%d" % n: {
+        "source": "/project1/videowall/video%d" % n,
+        "label": "Tile %d" % n,
+    }
+    for n in range(1, STREAM_COUNT + 1)
 }
 
 # friendly wire name -> backing parameter.

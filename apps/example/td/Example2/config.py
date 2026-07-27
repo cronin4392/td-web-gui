@@ -14,7 +14,7 @@ playback node — and its schema says so:
           control par beyond the colour, no table readout,
         - one entry, `opacity`, flagged `writable: False`.
 
-That is the point of Phase 6.6, and it is not cosmetic. The web app holds a
+That divergence is the point, and it is not cosmetic. The web app holds a
 separate `createTDClient<Schema>()` per instance, so these names are what
 autocompletes — and typing one of Example1's names into Example2's column is a
 compile error rather than a silently dropped `update`. It also shows the wire
@@ -42,43 +42,32 @@ plus `/project1/readouts` holding the CHOP sources for READOUTS:
         Reset      Pulse
         Color      RGBA    (Float, 0-1) -> Colorr/Colorg/Colorb/Colora
 
-This .toe was cloned from Example1, so it still carries that project's spare
-operators — a Blendmode menu par, an audiodevicein_demo CHOP, the nowplaying and
-cue_table DATs. Leaving them unregistered is deliberate: a TD project is usually
-larger than what it chooses to expose, and this is the case where that shows.
+This .toe also carries operators it never exposes — a Blendmode menu par, an
+audiodevicein_demo CHOP, the nowplaying and cue_table DATs. Leaving them
+unregistered is deliberate: a TD project is usually larger than what it chooses
+to expose, and this is the case where that shows.
 
 Video additionally expects:
         webrtc1                       WebRTC DAT inside WebGuiServer, beside the
                                       Web Server DAT's callbacks.
-        /project1/videowall           the four-tile wall: a source (through a Flip
-                                      TOP, see below) → res_cap → level_tile1…4 →
-                                      videostreamout_tile1…4, one Video Stream Out
-                                      TOP per stream.
+        /project1/videowall           the four-tile wall: in_source → res_cap →
+                                      level_tile1…4. It ends at those Level TOPs;
+                                      the encoders are generated from STREAMS.
 
 All four tiles ride the **one** peer this instance opens — a peer carries many
 tracks, and that is why `<Video>` selects on a stream id rather than on a
-connection. Four rather than eight because the eight-stream target of Phase 6.7
-is split across the two instances, four each: same total encoder load, two peers
-instead of one. These four are tinted with the half of Example1's palette its own
-wall no longer uses (they were literally its tiles 5-8, kept and renumbered), so
-a tile rendered under the wrong instance is as visible as a mis-mapped mid is
-inside one.
+connection. Four here and four in Example1: the same total encoder load as one
+eight-stream wall, across two peers instead of one. These four are tinted with
+the half of the palette Example1's wall doesn't use, so a tile rendered under the
+wrong instance is as visible as a mis-mapped mid is inside one.
 
-TD's WebRTC output arrives at the browser **mirrored in X**, even though the TD
-viewer shows the source the right way round. Feed the Video Stream Out TOP
-through a Flip TOP with `flipx` on. Derivative's own webRTC palette component
-instead compensates with a CSS transform on the video container, which is worth
-knowing about and not copying: going fullscreen in Chrome drops that styling and
-the mirror comes back (forum.derivative.ca/t/stunned-by-webrtcpanel/293915).
-Flipping at the encoder has no such failure mode, and fixes every consumer of the
-stream rather than one styled element in one browser state.
+The wall deliberately does NOT correct for the X-mirroring TD's WebRTC encoder
+introduces — that is handled downstream of the TOPs STREAMS names, and doing it
+here as well would cancel out.
 
-The watcher DATs are NOT set by hand. WebGuiServerExt generates them from
-REGISTRY and READOUTS: `parexec_…` per operator, `chopexec_…` per CHOP,
-`datexec_…` per DAT. Because this file registers fewer operators than the one it
-was cloned from, the first Rebuild after it changed *deleted* the watchers the
-dropped entries needed — reconciliation is diff-based, so shrinking a schema is
-as supported as growing one.
+The watcher DATs and the encoders are NOT set by hand. WebGuiServerExt generates
+them from REGISTRY, READOUTS and STREAMS, reconciling against whatever is live —
+so this file's smaller schema simply yields fewer watchers than Example1's.
 
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
@@ -86,11 +75,6 @@ from here:
                                 Port = `op.WebGuiServer.par.Port`.
         WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;
                                 ICE Servers = empty (browser and TD share a machine).
-        Video Stream Out TOP    Mode = WebRTC, one per stream. Its WebRTC /
-                                connection / track pars are set per-peer by the
-                                callbacks, not by hand. FPS is a constant 30 rather
-                                than the default `me.time.rate` expression, so the
-                                encoders don't each run at the project's 60.
 """
 
 # The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to
@@ -107,9 +91,12 @@ CALLBACKS = "webserver1_callbacks"
 # the param side is unaffected.
 WEBRTC = "webrtc1"
 
-# friendly stream id -> the Video Stream Out TOP carrying it.
-#   top:   absolute path to a Video Stream Out TOP in WebRTC mode.
-#   label: optional human-readable name, passed through to the browser.
+# friendly stream id -> the TOP whose picture that stream carries.
+#   source: absolute path to the TOP you want on the web.
+#   label:  optional human-readable name, passed through to the browser.
+# The encoder is generated per entry inside WebGuiServer, so these paths name the
+# last op in the wall that is about the picture, and the wall ends there.
+#
 # The id is what `<Video stream="...">` selects on; the mid pairing an id to a
 # track is derived from the negotiated SDP, not authored here. A bare `<Video />`
 # takes the first entry, so `tile1` is the single-stream default.
@@ -126,7 +113,7 @@ WEBRTC = "webrtc1"
 STREAM_COUNT = 4
 STREAMS = {
     "tile%d" % n: {
-        "top": "/project1/videowall/videostreamout_tile%d" % n,
+        "source": "/project1/videowall/level_tile%d" % n,
         "label": "Tile %d" % n,
     }
     for n in range(1, STREAM_COUNT + 1)

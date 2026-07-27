@@ -28,8 +28,13 @@ REGISTRY = {}
 
 WEBRTC = "webrtc1"
 
+# `source` names the TOP to stream; the encoder is generated inside each scene's
+# WebGuiServer from this entry.
+#
+# Repoint this at the TOP feeding `videostreamout1` and delete that TOP — it is a
+# redundant encoder now, and only passes its input through.
 STREAMS = {
-    "scene": {"top": "/Scene1/videostreamout1", "label": "Main"},
+    "scene": {"source": "/Scene1/videostreamout1", "label": "Main"},
 }
 
 READOUTS = {
