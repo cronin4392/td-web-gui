@@ -17,12 +17,22 @@ STREAM CHAINS, which carry TD -> web video:
         STREAMS   -> one select_ / flip_ / videostreamout_ chain per stream,
                      built inside this component            (webrtc-callbacks.py)
 
-Plus one operator that is not derived from the config but is what keeps the rest
-of them derived from it: a DAT Execute DAT watching the `config` DAT, which
-re-runs Rebuild whenever config.py changes on disk (config-execute.py). The DAT
-already hot-reloads the file's text; without this the two families above would
-stay as they were at the last extension init, so an edited config would look
-applied and behave as though it wasn't.
+Plus two operators that are not derived from the config but are what keep the
+rest of them derived from it:
+
+        config_watch  a DAT Execute DAT watching the `config` DAT, which re-runs
+                      Rebuild whenever config.py changes on disk
+                      (config-execute.py). The DAT already hot-reloads the file's
+                      text; without this the two families above would stay as they
+                      were at the last extension init, so an edited config would
+                      look applied and behave as though it wasn't.
+        exit_watch    an Execute DAT whose onExit drops every generated watcher
+                      when TouchDesigner closes (exit-execute.py), so the saved
+                      project holds none of them and the next open rebuilds them
+                      from the live config. They are a build product; saving them
+                      only preserves whatever the config said last time. Read that
+                      file before relying on it — TouchDesigner has no pre-save
+                      callback, which bounds what an exit hook can promise.
 
 Nothing here is project specific — drop this into any project unchanged, like
 the other scripts. It reads the same config the callbacks read, through the same
@@ -104,6 +114,17 @@ _WATCH = {
 _CONFIG_WATCH_NAME = "config_watch"
 _CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
 
+# The Execute DAT that deletes the generated watchers when TouchDesigner closes,
+# so they are never saved into the project — they are a build product of the
+# config, and Rebuild reproduces them on the next open. Named for its role, like
+# the config watcher, and for the same reason: it is not one of the watchers.
+#
+# An Execute DAT's onExit is the only hook that distinguishes "the application is
+# closing" from "this component is reinitializing"; see exit-execute.py, which
+# also documents what that does and does not guarantee against a Save & Quit.
+_EXIT_WATCH_NAME = "exit_watch"
+_EXIT_WATCH_FILE = _TDCOREDIR % "exit-execute.py"
+
 # The per-stream video chain, in flow order. STREAMS names a SOURCE TOP — the
 # picture you want on the web — and these three ops are what turn it into a
 # WebRTC track:
@@ -150,6 +171,14 @@ STREAM_TAG = "webgui-stream"
 # Without a tag of its own it would be deleted as an orphan by the first Rebuild
 # it triggered, which is a bridge that works exactly once.
 CONFIG_TAG = "webgui-config-watch"
+
+# Marks the exit watcher, for the same reason CONFIG_TAG exists — and here the
+# consequence of omitting it is sharper than a bridge that works once: an Execute
+# DAT names no operator, so _watchedBy reads it as an orphan, and it would be
+# deleted by the very Rebuild that runs on open. It also has to be excluded from
+# _generatedWatchers so that DestroyWatchers does not delete the DAT that is
+# calling it, mid-callback, on the way out.
+EXIT_TAG = "webgui-exit-watch"
 
 # Shown on each generated operator, since the thing a reader most needs to know
 # about an operator they didn't create is that editing it is pointless.
@@ -210,6 +239,12 @@ class WebGuiServerExt:
         The extension holds no timers, threads, or callback registrations, and
         the generated DATs are meant to outlive a reinit — tearing them down here
         would delete the bridge every time this file is edited.
+
+        Deliberately still a no-op now that DestroyWatchers() exists. onDestroyTD
+        cannot tell an application close from a reinit, and reinit is overwhelmingly
+        the common case, so this is the wrong place to call it from: the hook that
+        means "TouchDesigner is closing" is an Execute DAT's onExit, which is what
+        the generated exit_watch DAT is for.
         """
         pass
 
@@ -236,6 +271,10 @@ class WebGuiServerExt:
         # fixing the file into a working component again instead of requiring a
         # manual Rebuild that nobody knows to run.
         config_watch = self._ensureConfigWatcher()
+        # Likewise outside the early-out: the exit watcher is what keeps the
+        # watchers out of the saved project, and an unreadable config is no reason
+        # to save a stale set of them.
+        exit_watch = self._ensureExitWatcher()
 
         desired = self._desiredWatches()
         if desired is None:
@@ -248,7 +287,7 @@ class WebGuiServerExt:
         # Reached on the unreadable-config path too. Layout only moves operators,
         # never deletes them, so it costs nothing there — and a config watcher
         # created moments ago would otherwise be left sitting at (0, 0).
-        self._layout(chains, config_watch)
+        self._layout(chains, config_watch, exit_watch)
 
     def StreamTop(self, stream_id):
         """The generated Video Stream Out TOP carrying `stream_id`, or None.
@@ -259,6 +298,28 @@ class WebGuiServerExt:
         that renaming the chain is a change to this file alone.
         """
         return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
+
+    def DestroyWatchers(self):
+        """Delete every generated watcher DAT, with the note captioning each.
+
+        Public because the thing that calls it is a callback in another file —
+        exit-execute.py, running from the generated exit_watch DAT when
+        TouchDesigner closes. Keeping the definition of "what counts as a watcher"
+        here means the callback never has to spell that rule out a second time.
+
+        The watchers are a build product of REGISTRY and READOUTS, so dropping
+        them costs nothing that Rebuild cannot reproduce — which is the whole
+        argument for not saving them into the project in the first place. What is
+        NOT dropped: the STREAMS chains (real network, not a callback bridge), and
+        the config and exit watchers themselves, both excluded by tag from
+        _generatedWatchers — the exit watcher most pointedly, since this runs from
+        inside its own callback.
+
+        Safe to call at any time. It leaves the component in a state Rebuild()
+        restores exactly, which is also how it is tested without closing TD.
+        """
+        for dat in self._generatedWatchers():
+            self._destroyWithNote(dat)
 
     # ── watchers ──────────────────────────────────────────────────────────────
 
@@ -328,6 +389,60 @@ class WebGuiServerExt:
             self._getOrCreateNote(dat),
             "DAT: config\nre-runs Rebuild on every change, so saving config.py\n"
             "reaches the network without a restart",
+        )
+        return dat
+
+    # ── exit watcher ──────────────────────────────────────────────────────────
+
+    def _ensureExitWatcher(self):
+        """The Execute DAT that drops the watchers when TouchDesigner closes.
+
+        Created if missing, adopted by name if a previous one survived — the same
+        lookup-or-create as the config watcher, and for the same reason: a TDN
+        reimport recreates this component's children, so anything that must
+        outlive one has to be recoverable from the network rather than remembered.
+
+        Generated rather than hand-placed so that a project gets this behaviour by
+        dropping the component in, with nothing to wire up. It is also why it must
+        NOT be hand-placed: a Rebuild would see an untagged Execute DAT, fail to
+        match it to any watched operator, and delete it as an orphan.
+
+        Returns the DAT, or None if the name is taken by something else — a
+        refusal rather than an error, because raising here would take the whole
+        Rebuild, watchers and streams included, down with it.
+        """
+        dat = self.ownerComp.op(_EXIT_WATCH_NAME)
+        if dat is not None and not isinstance(dat, executeDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, so the generated watchers cannot "
+                "be dropped on exit - rename it and Rebuild" % (_EXIT_WATCH_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(executeDAT, _EXIT_WATCH_NAME)
+            dat.viewer = True
+            dat.comment = (
+                "Generated by WebGuiServerExt. Deletes the generated watcher DATs "
+                "when TouchDesigner closes, so they are never saved into the "
+                "project. Edits are overwritten on the next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(EXIT_TAG)
+
+        # Exit alone. Every other Execute DAT hook is left off: this DAT has one
+        # job, and Start/Create in particular would race the deferred Rebuild in
+        # onInitTD rather than add anything.
+        self._setPar(dat.par.exit, 1)
+        self._setPar(dat.par.active, 1)
+
+        self._setExpr(dat.par.file, _EXIT_WATCH_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "on TouchDesigner exit: deletes the generated watcher DATs,\n"
+            "so the saved project holds none and the next open\n"
+            "rebuilds them from the live config",
         )
         return dat
 
@@ -462,13 +577,21 @@ class WebGuiServerExt:
         """Every watcher DAT we own — ours, and carrying no other role tag.
 
         By exclusion rather than by a role tag of its own, so that anything of
-        ours which is neither a watcher, a chain op, nor the config watcher reads
-        as an orphan to be cleaned up rather than as something to leave alone.
+        ours which is neither a watcher, a chain op, nor one of the two role-tagged
+        bridge DATs reads as an orphan to be cleaned up rather than as something to
+        leave alone.
+
+        This is also the set DestroyWatchers deletes on the way out, which is why
+        the config and exit watchers must be excluded by tag: they are what makes
+        the next open able to rebuild everything this returns.
         """
         return [
             c
             for c in self.ownerComp.children
-            if GENERATED_TAG in c.tags and STREAM_TAG not in c.tags and CONFIG_TAG not in c.tags
+            if GENERATED_TAG in c.tags
+            and STREAM_TAG not in c.tags
+            and CONFIG_TAG not in c.tags
+            and EXIT_TAG not in c.tags
         ]
 
     def _watchedBy(self, dat):
@@ -810,7 +933,7 @@ class WebGuiServerExt:
 
     # ── layout ────────────────────────────────────────────────────────────────
 
-    def _layout(self, chains, config_watch):
+    def _layout(self, chains, config_watch, exit_watch):
         """Place the generated operators right of the hand-built ones.
 
         Two columns: the watcher DATs stack in the first, the stream chains run
@@ -837,7 +960,7 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        self._layoutWatchers(anchor_x, anchor_y, config_watch)
+        self._layoutWatchers(anchor_x, anchor_y, config_watch, exit_watch)
         # A note is centred on its host, so the watcher column is _NOTE_WIDTH
         # wide however narrow the DATs are. Clearing that, plus a grid step, is
         # what keeps the two columns from sharing a note's airspace.
@@ -867,17 +990,19 @@ class WebGuiServerExt:
         note.nodeWidth = _NOTE_WIDTH
         note.nodeHeight = _NOTE_HEIGHT
 
-    def _layoutWatchers(self, x, top_y, config_watch):
-        """The watcher column, headed by the config watcher.
+    def _layoutWatchers(self, x, top_y, config_watch, exit_watch):
+        """The watcher column, headed by the config and exit watchers.
 
-        Pinned to the top rather than sorted in among the rest, because it is the
-        trigger the rest of the column is a product of — and because sorting it by
-        name would move it to a different row every time the config gains or loses
-        an entry, for a DAT that never changes.
+        Pinned to the top rather than sorted in among the rest, because they are
+        the two ends of the rest of the column's life — the config watcher builds
+        it, the exit watcher drops it — and because sorting them by name would
+        move them to a different row every time the config gains or loses an
+        entry, for two DATs that never change.
         """
         watchers = sorted(self._generatedWatchers(), key=lambda d: d.name)
-        if config_watch is not None:
-            watchers.insert(0, config_watch)
+        for pinned in (exit_watch, config_watch):
+            if pinned is not None:
+                watchers.insert(0, pinned)
         if not watchers:
             return
 
