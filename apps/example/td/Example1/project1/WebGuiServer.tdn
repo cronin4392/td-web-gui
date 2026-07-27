@@ -1,10 +1,10 @@
 format: tdn
 version: '2.0'
-build: 2
+build: 3
 generator: Embody/6.0.154
 td_build: 099.2025.33070
 source_file: Example.toe
-exported_at: '2026-07-27T14:54:02Z'
+exported_at: '2026-07-27T16:28:50Z'
 network_path: /project1/WebGuiServer
 options:
   include_dat_content: false
@@ -22,6 +22,8 @@ type_defaults:
       fromop: =parent()
       file: =op.WebGuiServer.par.Tdcoredir.eval() + '/parameter-execute.py'
       syncfile: true
+    flags:
+    - viewer
     size: [130, 90]
     color: [0.67, 0.67, 0.67]
     tags:
@@ -32,6 +34,8 @@ type_defaults:
       execute: end
       file: =op.WebGuiServer.par.Tdcoredir.eval() + '/dat-execute.py'
       syncfile: true
+    flags:
+    - viewer
     size: [130, 90]
     color: [0.67, 0.67, 0.67]
     tags:
@@ -41,6 +45,8 @@ type_defaults:
       fromop: =parent()
       file: =op.WebGuiServer.par.Tdcoredir.eval() + '/chop-execute.py'
       syncfile: true
+    flags:
+    - viewer
     size: [130, 90]
     color: [0.67, 0.67, 0.67]
     tags:
@@ -137,13 +143,13 @@ operators:
     op: /project1/params
     pars: Message Intensity Enabled Gate Mute Blendmode Positionx Positiony Positionz Colorr Colorg Colorb Colora
     builtin: false
-  position: [200, -283]
-  comment: Generated from the config REGISTRY by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  position: [200, -1283]
+  comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
 - name: datexec_project1_readouts_cue_table
   type: datexecuteDAT
   parameters:
     dat: /project1/readouts/cue_table
-  position: [200, 317]
+  position: [200, -83]
   comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
 - name: parexec_project1_audiodevicein_demo
   type: parameterexecuteDAT
@@ -151,13 +157,13 @@ operators:
     op: /project1/audiodevicein_demo
     pars: device
     custom: false
-  position: [200, -83]
-  comment: Generated from the config REGISTRY by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+  position: [200, -883]
+  comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
 - name: datexec_project1_readouts_nowplaying
   type: datexecuteDAT
   parameters:
     dat: /project1/readouts/nowplaying
-  position: [200, 117]
+  position: [200, -483]
   comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
 - name: chopexec_project1_readouts_null_bands
   type: chopexecuteDAT
@@ -171,5 +177,60 @@ operators:
   parameters:
     chop: /project1/readouts/null_stats
     channel: fps cook
-  position: [200, 517]
+  position: [200, 317]
   comment: Generated from the config REGISTRY / READOUTS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
+annotations:
+- name: chopexec_project1_readouts_null_bands_note
+  mode: comment
+  title: Annotate
+  text: |-
+    CHOP: /project1/readouts/null_bands
+    channels: low, mid, high
+  position: [115, 827]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: chopexec_project1_readouts_null_stats_note
+  mode: comment
+  title: Annotate
+  text: |-
+    CHOP: /project1/readouts/null_stats
+    channels: fps, cook
+  position: [115, 427]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: datexec_project1_readouts_cue_table_note
+  mode: comment
+  title: Annotate
+  text: |-
+    DAT: /project1/readouts/cue_table
+    watches: whole table (Table Change)
+  position: [115, 27]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: datexec_project1_readouts_nowplaying_note
+  mode: comment
+  title: Annotate
+  text: |-
+    DAT: /project1/readouts/nowplaying
+    watches: whole table (Table Change)
+  position: [115, -373]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: parexec_project1_audiodevicein_demo_note
+  mode: comment
+  title: Annotate
+  text: |-
+    OP: /project1/audiodevicein_demo
+    parameters: device
+  position: [115, -773]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
+- name: parexec_project1_params_note
+  mode: comment
+  title: Annotate
+  text: |-
+    OP: /project1/params
+    parameters: Message, Intensity, Enabled, Gate, Mute, Blendmode, Positionx, Positiony, Positionz, Colorr, Colorg, Colorb, Colora
+  position: [115, -1173]
+  size: [300, 110]
+  color: [0.45, 0.45, 0.45]
