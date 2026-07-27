@@ -6,16 +6,16 @@
  * without a delete affordance can simply omit it.
  */
 
-import type { JSX } from 'solid-js'
-import { setPhraseDragData, type PhraseDragPayload } from '../dnd'
+import type { JSX } from 'solid-js';
+import { setPhraseDragData, type PhraseDragPayload } from '../dnd';
 
 export interface PhraseChipProps {
-  phrase: string
-  source: PhraseDragPayload['source']
-  tabId: string | null
-  index: number | null
-  onApply: (phrase: string) => void
-  onDelete?: () => void
+  phrase: string;
+  source: PhraseDragPayload['source'];
+  tabId: string | null;
+  index: number | null;
+  onApply: (phrase: string) => void;
+  onDelete?: () => void;
 }
 
 export function PhraseChip(props: PhraseChipProps): JSX.Element {
@@ -25,14 +25,14 @@ export function PhraseChip(props: PhraseChipProps): JSX.Element {
         type="button"
         draggable="true"
         onDragStart={(event) => {
-          if (!event.dataTransfer) return
+          if (!event.dataTransfer) return;
           setPhraseDragData(event.dataTransfer, {
             phrase: props.phrase,
             source: props.source,
             tabId: props.tabId,
             index: props.index,
-          })
-          event.dataTransfer.effectAllowed = 'copyMove'
+          });
+          event.dataTransfer.effectAllowed = 'copyMove';
         }}
         onClick={() => props.onApply(props.phrase)}
         class="min-w-0 flex-1 cursor-grab truncate px-2 py-1 text-left text-sm active:cursor-grabbing"
@@ -52,5 +52,5 @@ export function PhraseChip(props: PhraseChipProps): JSX.Element {
         </button>
       )}
     </div>
-  )
+  );
 }

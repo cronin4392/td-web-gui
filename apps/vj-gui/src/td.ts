@@ -4,10 +4,10 @@
  * not per-component.
  */
 
-import { createTDClient } from 'td-core'
-import type { VjGuiParams } from './td.config'
+import { createTDClient } from 'td-core';
+import type { VjGuiParams } from './td.config';
 
-export const TDClient = createTDClient<VjGuiParams>()
+export const TDClient = createTDClient<VjGuiParams>();
 
-export type VjGuiParamName = keyof VjGuiParams & string
-export type { SceneId, SceneTextParamName } from './td.config'
+export type VjGuiParamName = keyof VjGuiParams & string;
+export type { SceneId, SceneTextParamName } from './td.config';

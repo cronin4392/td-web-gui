@@ -1,17 +1,17 @@
-import { For, Show } from 'solid-js'
-import { createTDClient } from 'td-core'
-import { instances, VIDEO_TILES, type ExampleParams } from './td.config'
+import { For, Show } from 'solid-js';
+import { createTDClient } from 'td-core';
+import { instances, VIDEO_TILES, type ExampleParams } from './td.config';
 
 // One factory per TD instance, typed by that instance's param schema.
-const Example = createTDClient<ExampleParams>()
+const Example = createTDClient<ExampleParams>();
 
-const example = instances[0]
+const example = instances[0];
 
 const blendModes = [
   { value: 'over', label: 'Over' },
   { value: 'add', label: 'Add' },
   { value: 'multiply', label: 'Multiply' },
-]
+];
 
 /**
  * Connection-state readout. Reads the reactive `status`, `congested`,
@@ -21,20 +21,20 @@ const blendModes = [
  * freezing. Must render inside the `<Provider>` to see the connection.
  */
 function StatusBar() {
-  const conn = Example.useConnection()
+  const conn = Example.useConnection();
 
   const label = () => {
     switch (conn.status()) {
       case 'synced':
-        return 'connected'
+        return 'connected';
       case 'open':
-        return 'handshaking…'
+        return 'handshaking…';
       case 'connecting':
-        return 'reconnecting…'
+        return 'reconnecting…';
       case 'closed':
-        return 'closed'
+        return 'closed';
     }
-  }
+  };
 
   return (
     <p class="status">
@@ -54,7 +54,7 @@ function StatusBar() {
         )}
       </Show>
     </p>
-  )
+  );
 }
 
 /**
@@ -73,7 +73,7 @@ function StatusBar() {
  * on the chance someone plugged something in.
  */
 function AudioDevicePicker() {
-  const conn = Example.useConnection()
+  const conn = Example.useConnection();
 
   return (
     <section>
@@ -81,15 +81,19 @@ function AudioDevicePicker() {
         Audio input device
         <Example.Select name="audiodevice" />
       </label>
-      <button type="button" onClick={() => conn.requestMenus()} disabled={conn.status() !== 'synced'}>
+      <button
+        type="button"
+        onClick={() => conn.requestMenus()}
+        disabled={conn.status() !== 'synced'}
+      >
         Reload devices
       </button>
       <p class="caption">
-        Options come from TouchDesigner, not from this app — see <code>menus</code> in the
-        wire format. Plug in an interface, then hit reload.
+        Options come from TouchDesigner, not from this app — see <code>menus</code> in the wire
+        format. Plug in an interface, then hit reload.
       </p>
     </section>
-  )
+  );
 }
 
 /**
@@ -108,22 +112,20 @@ function AudioDevicePicker() {
  * with no explanation.
  */
 function VideoWall() {
-  const video = Example.useVideo()
+  const video = Example.useVideo();
 
   return (
     <section>
       <p>
-        Video wall — {video.streams().length} of {VIDEO_TILES} streams
-        announced
+        Video wall — {video.streams().length} of {VIDEO_TILES} streams announced
       </p>
       <div class="video-grid">
         <For
           each={video.streams()}
           fallback={
             <p class="caption">
-              No streams announced yet — check that the TD project’s config sets{' '}
-              <code>WEBRTC</code> and <code>STREAMS</code>, and that its Web Server DAT
-              is up.
+              No streams announced yet — check that the TD project’s config sets <code>WEBRTC</code>{' '}
+              and <code>STREAMS</code>, and that its Web Server DAT is up.
             </p>
           }
         >
@@ -146,7 +148,7 @@ function VideoWall() {
         </For>
       </div>
     </section>
-  )
+  );
 }
 
 export function App() {
@@ -163,11 +165,7 @@ export function App() {
           so the ceiling on how many tracks TD can attach when it answers: an
           answerer cannot add m-lines, so a wall of 8 needs all 8 offered up
           front or the surplus streams have nowhere to land. */}
-      <Example.Provider
-        url={example.url}
-        instance={example.id}
-        video={{ receivers: VIDEO_TILES }}
-      >
+      <Example.Provider url={example.url} instance={example.id} video={{ receivers: VIDEO_TILES }}>
         <StatusBar />
 
         <section>
@@ -239,5 +237,5 @@ export function App() {
         <VideoWall />
       </Example.Provider>
     </main>
-  )
+  );
 }

@@ -8,34 +8,34 @@
  * browser decodes it once no matter how many tiles show it.
  */
 
-import { createEffect, splitProps, type JSX } from 'solid-js'
-import { useTDVideoStream } from '../context'
+import { createEffect, splitProps, type JSX } from 'solid-js';
+import { useTDVideoStream } from '../context';
 
 export interface VideoProps extends JSX.VideoHTMLAttributes<HTMLVideoElement> {
   /** Announced stream id to render. Omit for the primary stream. */
-  stream?: string
+  stream?: string;
 }
 
 export function Video(props: VideoProps): JSX.Element {
-  const video = useTDVideoStream()
-  const [, rest] = splitProps(props, ['stream', 'muted'])
-  let element!: HTMLVideoElement
+  const video = useTDVideoStream();
+  const [, rest] = splitProps(props, ['stream', 'muted']);
+  let element!: HTMLVideoElement;
 
   createEffect(() => {
     // Re-runs when the track arrives or a renegotiation shifts this id onto a
     // different mid — that rebinding is the reason the id → mid map is explicit.
-    const media = video.stream(props.stream) as MediaStream | undefined
-    element.srcObject = media ?? null
-  })
+    const media = video.stream(props.stream) as MediaStream | undefined;
+    element.srcObject = media ?? null;
+  });
 
   createEffect(() => {
     // Muted is what makes autoplay allowed without a user gesture, and it has to
     // be set as a *property*: the `muted` content attribute only seeds
     // `defaultMuted`, which does nothing for an element created after parse.
-    element.muted = props.muted ?? true
-  })
+    element.muted = props.muted ?? true;
+  });
 
   // `playsinline` is belt-and-suspenders for the desktop-only target. Both it
   // and `autoplay` stay overridable through `rest`.
-  return <video ref={element} class="td-video" autoplay playsinline {...rest} />
+  return <video ref={element} class="td-video" autoplay playsinline {...rest} />;
 }

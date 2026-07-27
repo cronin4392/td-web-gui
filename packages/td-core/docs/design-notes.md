@@ -77,14 +77,14 @@ for exactly how each kind of drift fails.
 
 This stance shows up in three places, and is broken exactly once:
 
-| Thing | Authored where | Why |
-|---|---|---|
-| Parameter names and types | Web schema + TD registry | No introspection |
-| `<Select>` options | Web (`options` prop) | No introspection |
-| Read-only parameters | Web (`readonly` prop) | No introspection; no wire-format change |
-| **Menu options** | **TD (`menus` message)** | **Some menus cannot be authored — see below** |
+| Thing                     | Authored where           | Why                                           |
+| ------------------------- | ------------------------ | --------------------------------------------- |
+| Parameter names and types | Web schema + TD registry | No introspection                              |
+| `<Select>` options        | Web (`options` prop)     | No introspection                              |
+| Read-only parameters      | Web (`readonly` prop)    | No introspection; no wire-format change       |
+| **Menu options**          | **TD (`menus` message)** | **Some menus cannot be authored — see below** |
 
-If TD ever needs to drive *more* metadata to the web (`min`/`max`/labels/units),
+If TD ever needs to drive _more_ metadata to the web (`min`/`max`/labels/units),
 the escape hatch is a dedicated message alongside the snapshot — deliberately not
 folded into `snapshot`, which stays a flat `{name: value}` map in both directions.
 `menus` is what that hatch looks like.
@@ -112,7 +112,7 @@ much worse. **A single web write silently detaches a TD author's work, and the
 damage outlives the browser session that caused it.** That's why the DAT
 callbacks refuse the write rather than attempting it.
 
-`BIND` is refused alongside them. A two-way bind was measured to *propagate* the
+`BIND` is refused alongside them. A two-way bind was measured to _propagate_ the
 write to its master rather than break, so it isn't uniformly read-only the way
 the others are — but it can't be assumed writable either, and refusing is the
 recoverable direction: a visible error beats silently driving something the web
@@ -141,7 +141,7 @@ half-applied.
 
 ## TD-announced menus
 
-The no-introspection rule holds everywhere the web *can* author what it needs.
+The no-introspection rule holds everywhere the web _can_ author what it needs.
 Menu options are the one place it sometimes can't.
 
 The motivating case is an audio-device dropdown. Read off a real machine:
@@ -177,7 +177,7 @@ Design points, each load-bearing:
 ### Refreshing a stale menu
 
 > **This is an open TouchDesigner bug, confirmed present on 2025.33070.**
-> Menu *contents* changing raises **no callback**. A Parameter Execute DAT fires
+> Menu _contents_ changing raises **no callback**. A Parameter Execute DAT fires
 > on a parameter's value, mode, enable, and export; plugging in an audio
 > interface changes none of them — the value is untouched and only the set of
 > legal values grows.
@@ -185,17 +185,17 @@ Design points, each load-bearing:
 The obvious workaround does not work, and it's worth not spending an afternoon
 rediscovering that: a **Parameter DAT** with Menu Names/Labels output, watched by
 a **DAT Execute**, fires `onTableChange` **zero** times when `menuNames` changes,
-and **once** when the same parameter's *value* changes. So the wiring is sound
+and **once** when the same parameter's _value_ changes. So the wiring is sound
 and the menu change genuinely doesn't notify. Derivative logged this in April
 2021 ([forum thread](https://forum.derivative.ca/t/breaking-binding-a-dropdown-menu-out-to-a-perform-ui/13123),
 where staff confirm the members "should be dependable") and it is still open. The
-DAT's content *is* fresh whenever you pull it; what never arrives is the nudge to
+DAT's content _is_ fresh whenever you pull it; what never arrives is the nudge to
 pull.
 
 So something has to look again. Three ways, best first:
 
-**0. The pulse that causes the change** — when a TD *action* rebuilds the menu (a
-Screen Grab TOP's *Refresh Sources*, say), hook that pulse with `onPulse` and
+**0. The pulse that causes the change** — when a TD _action_ rebuilds the menu (a
+Screen Grab TOP's _Refresh Sources_, say), hook that pulse with `onPulse` and
 re-announce. A real event: no poll, no button. Audio devices don't qualify, since
 the OS changes that list rather than a parameter.
 
@@ -221,7 +221,7 @@ menu parameter per tick, forever, for something most projects never need.
 
 Both funnel through the same diff, which is what makes either safe to call
 freely — an unchanged list sends nothing, so no client is woken for a no-op. A
-*real* change is broadcast to **every** client, not just the requester: a new
+_real_ change is broadcast to **every** client, not just the requester: a new
 device is news for every open browser.
 
 ## Optimistic writes and echo suppression
@@ -255,7 +255,7 @@ that's a steady inbound stream. Three things keep it cheap:
 **Lazy allocation.** A signal exists only for a name something has actually
 bound. The connection's routing table maps name → signal, and an inbound update
 for an unbound name is a map miss — dropped with no allocation and no reactive
-work. Dispatch cost scales with what your app *uses*, not with everything TD
+work. Dispatch cost scales with what your app _uses_, not with everything TD
 broadcasts.
 
 **Shared signals.** All binders of a name share one signal, so a TD update fans
@@ -288,7 +288,7 @@ optimistic local write stays immediate — only the wire send is deferred — so
 nothing feels laggy.
 
 **Backpressure-aware, not just rate-limited.** The rAF throttle bounds send
-*frequency* but not the socket's send buffer. If TD stops draining the socket — a
+_frequency_ but not the socket's send buffer. If TD stops draining the socket — a
 re-cooking DAT, a stalled `.toe` — `bufferedAmount` grows without bound while
 controls keep posting at 60fps, and across 8 instances that compounds. So the
 outbound path also checks `bufferedAmount` against a high-water mark and skips
@@ -323,7 +323,7 @@ lost, which is the correct semantics for a missed button press.
 **The handshake needs its own watchdog.** A socket opening is not the same as TD
 being ready to talk. If the TD-side callback throws or never replies, the
 connection would sit un-`synced` forever — the `ping`/`pong` heartbeat only
-guards an *already established* session. So a watchdog requires `welcome` **and**
+guards an _already established_ session. So a watchdog requires `welcome` **and**
 `snapshot` within a window of `onopen`, and otherwise abandons the attempt into
 the normal backoff path rather than wedging.
 
@@ -388,7 +388,7 @@ a brief WebSocket hiccup. Video is **not** torn down when the socket drops.
 Instead, on reconnect each peer's `connectionState` is checked and only dead ones
 are rebuilt.
 
-**Renegotiation deferred across the gap.** Renegotiation *needs* the signaling
+**Renegotiation deferred across the gap.** Renegotiation _needs_ the signaling
 channel, so a negotiation requested while the socket is down is recorded rather
 than dropped, and the same reconnect hook flushes it on still-alive peers. That
 closes the gap between "media survives a blip" and "tracks can change at any
@@ -427,14 +427,13 @@ to `CONSTANT` and permanently detaches the expression. See
 [Parameter modes](#parameter-modes).
 
 **An unknown menu key silently selects entry 0.** Assigning a Menu parameter a
-key it doesn't have raises nothing and takes its *first* entry — and the
+key it doesn't have raises nothing and takes its _first_ entry — and the
 Parameter Execute DAT then broadcasts that value back as though the user had
 chosen it. Since `<Select>` options are web-authored by design, drift is an
 expected failure, so writes validate against `par.menuNames` first and return
 `param_type_mismatch`.
 
-**`menuNames` changes fire no `onTableChange`.** An open Derivative bug since
-2021. See [TD-announced menus](#td-announced-menus).
+**`menuNames` changes fire no `onTableChange`.** An open Derivative bug since 2021. See [TD-announced menus](#td-announced-menus).
 
 **Built-in parameters are lowercase; custom parameters are capitalized.**
 `webrtc`, `mode`, and `device` are built-ins; `Intensity` and `Color` are custom.
@@ -443,7 +442,7 @@ Getting this backwards fails silently.
 **`addTrack` must precede `createAnswer`.** Skip it and the answer negotiates
 perfectly happily, but its video m-line comes back `a=inactive`: a live-but-muted
 receiver, a peer that reaches `connected`, and no error on either side. Pointing
-the Video Stream Out TOP at the track is a *separate* step — its
+the Video Stream Out TOP at the track is a _separate_ step — its
 `webrtc`/`webrtcconnection`/`webrtcvideotrack` parameters are menus that only
 select among tracks that already exist, and they must be set a frame later, once
 the DAT has cooked and published those menus.
@@ -469,9 +468,9 @@ frozen pixels.
 the machine at 8 simultaneous encoder sessions.
 
 **`<For>` recycles `<option>` elements in place.** When a menu's list changes, the
-browser keeps the selected *index* while the values shift underneath, silently
+browser keeps the selected _index_ while the values shift underneath, silently
 showing a neighbouring device as selected. `<Select>` binds `selected` per option
-so selection follows the data. An effect re-asserting `select.value` does *not*
+so selection follows the data. An effect re-asserting `select.value` does _not_
 fix this — it runs before `For` updates the DOM.
 
 **`muted` must be set as a property, not a JSX attribute.** The `muted` content

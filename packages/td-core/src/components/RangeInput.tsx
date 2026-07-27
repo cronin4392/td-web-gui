@@ -14,23 +14,25 @@
  * on every input event) for a low-frequency use.
  */
 
-import { splitProps, type JSX } from 'solid-js'
-import { createTDSignal } from '../context'
-import { callHandler } from './TextInput'
+import { splitProps, type JSX } from 'solid-js';
+import { createTDSignal } from '../context';
+import { callHandler } from './TextInput';
 
-export interface RangeInputProps
-  extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'name' | 'value' | 'type'> {
+export interface RangeInputProps extends Omit<
+  JSX.InputHTMLAttributes<HTMLInputElement>,
+  'name' | 'value' | 'type'
+> {
   /** TD parameter name to bind. */
-  name: string
-  min?: number
-  max?: number
-  step?: number | string
+  name: string;
+  min?: number;
+  max?: number;
+  step?: number | string;
   /** rAF-coalesce outbound sends. Default `true`. */
-  throttle?: boolean
+  throttle?: boolean;
 }
 
 export function RangeInput(props: RangeInputProps): JSX.Element {
-  const binding = createTDSignal<number>(props.name)
+  const binding = createTDSignal<number>(props.name);
   const [, rest] = splitProps(props, [
     'name',
     'throttle',
@@ -38,7 +40,7 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
     'onInput',
     'onFocus',
     'onBlur',
-  ])
+  ]);
 
   return (
     <input
@@ -50,17 +52,17 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
       onInput={(event) => {
         binding.setValue(Number(event.currentTarget.value), {
           throttle: props.throttle !== false,
-        })
-        callHandler(props.onInput, event)
+        });
+        callHandler(props.onInput, event);
       }}
       onFocus={(event) => {
-        binding.beginEdit()
-        callHandler(props.onFocus, event)
+        binding.beginEdit();
+        callHandler(props.onFocus, event);
       }}
       onBlur={(event) => {
-        binding.endEdit()
-        callHandler(props.onBlur, event)
+        binding.endEdit();
+        callHandler(props.onBlur, event);
       }}
     />
-  )
+  );
 }

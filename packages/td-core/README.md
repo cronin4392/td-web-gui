@@ -97,10 +97,10 @@ REGISTRY = {
 ```ts
 // src/td.config.ts
 export interface MixerParams {
-  message: string
-  intensity: number
-  tint: number[]
-  reset: boolean
+  message: string;
+  intensity: number;
+  tint: number[];
+  reset: boolean;
 }
 ```
 
@@ -111,10 +111,10 @@ deliberate trade, explained in
 ### 3. Build the UI
 
 ```tsx
-import { createTDClient } from 'td-core'
-import type { MixerParams } from './td.config'
+import { createTDClient } from 'td-core';
+import type { MixerParams } from './td.config';
 
-const Mixer = createTDClient<MixerParams>()
+const Mixer = createTDClient<MixerParams>();
 
 export function App() {
   return (
@@ -128,9 +128,11 @@ export function App() {
       <Mixer.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
 
       <Mixer.Vector name="tint" labels={['r', 'g', 'b']} step={0.01} />
-      <Mixer.Button name="reset" mode="pulse">Reset</Mixer.Button>
+      <Mixer.Button name="reset" mode="pulse">
+        Reset
+      </Mixer.Button>
     </Mixer.Provider>
-  )
+  );
 }
 ```
 
@@ -156,16 +158,16 @@ all. `receivers` is how many tracks TD can attach, so it must be at least your
 **Components** — every one binds a parameter by `name`, passes through HTML
 props, and carries a stable `td-*` class hook.
 
-| | |
-|---|---|
-| `<TextInput>` | String parameters. `commitOn="input" \| "enter"`, `multiline`. |
-| `<NumberInput>` `<RangeInput>` | Numbers, with `min`/`max`/`step`. Sliders throttle by default. |
-| `<Toggle>` | Bool parameters. |
-| `<Button>` | `mode="pulse" \| "hold" \| "toggle"` — momentary, held, or latching. |
-| `<Select>` | Menu parameters. Options authored by you, or announced by TD. |
-| `<Vector>` `<Color>` | Multi-component ParGroups — XYZ, RGB, RGBA. |
-| `<Value>` | Read-only readout, with an optional `format`. |
-| `<Video>` | One WebRTC stream, selected by announced id. |
+|                                |                                                                      |
+| ------------------------------ | -------------------------------------------------------------------- |
+| `<TextInput>`                  | String parameters. `commitOn="input" \| "enter"`, `multiline`.       |
+| `<NumberInput>` `<RangeInput>` | Numbers, with `min`/`max`/`step`. Sliders throttle by default.       |
+| `<Toggle>`                     | Bool parameters.                                                     |
+| `<Button>`                     | `mode="pulse" \| "hold" \| "toggle"` — momentary, held, or latching. |
+| `<Select>`                     | Menu parameters. Options authored by you, or announced by TD.        |
+| `<Vector>` `<Color>`           | Multi-component ParGroups — XYZ, RGB, RGBA.                          |
+| `<Value>`                      | Read-only readout, with an optional `format`.                        |
+| `<Video>`                      | One WebRTC stream, selected by announced id.                         |
 
 **Connection** — `createTDClient<Schema>()` for typed UI;
 `createTDConnection(url)` standalone, with no context or component tree.
@@ -182,14 +184,14 @@ implementing the other half of the protocol, and a commented config template.
 
 ## Documentation
 
-| | |
-|---|---|
-| **[TouchDesigner setup](docs/touchdesigner-setup.md)** | Start here. Building the TD side, step by step. |
-| [Components](docs/components.md) | Every component, every prop, and the styling hooks. |
-| [API reference](docs/api.md) | Factory, provider, connection, video, primitives. |
-| [Wire protocol](docs/protocol.md) | The message catalog, for debugging or reimplementing the TD side. |
-| [Design notes](docs/design-notes.md) | Why it works this way — including TouchDesigner behavior that contradicts the obvious assumption. |
-| [Troubleshooting](docs/troubleshooting.md) | Symptoms and causes. |
+|                                                        |                                                                                                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| **[TouchDesigner setup](docs/touchdesigner-setup.md)** | Start here. Building the TD side, step by step.                                                   |
+| [Components](docs/components.md)                       | Every component, every prop, and the styling hooks.                                               |
+| [API reference](docs/api.md)                           | Factory, provider, connection, video, primitives.                                                 |
+| [Wire protocol](docs/protocol.md)                      | The message catalog, for debugging or reimplementing the TD side.                                 |
+| [Design notes](docs/design-notes.md)                   | Why it works this way — including TouchDesigner behavior that contradicts the obvious assumption. |
+| [Troubleshooting](docs/troubleshooting.md)             | Symptoms and causes.                                                                              |
 
 New to the project? [TouchDesigner setup](docs/touchdesigner-setup.md), then
 [Components](docs/components.md). Debugging something strange?
@@ -198,12 +200,12 @@ New to the project? [TouchDesigner setup](docs/touchdesigner-setup.md), then
 
 ## Requirements
 
-| | |
-|---|---|
+|               |                                                                                                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | TouchDesigner | Developed and tested against **2025.33070**. Needs a Web Server DAT and the generated Parameter Execute DATs; video additionally needs a WebRTC DAT. Older builds are untested. |
-| Solid.js | ^1.9.0 |
-| Browsers | Desktop Chrome and Firefox |
-| Video | NVIDIA GPU on Windows — the Video Stream Out TOP requires NVIDIA's hardware encoder. GeForce cards cap the machine at 8 encoder sessions. |
+| Solid.js      | ^1.9.0                                                                                                                                                                          |
+| Browsers      | Desktop Chrome and Firefox                                                                                                                                                      |
+| Video         | NVIDIA GPU on Windows — the Video Stream Out TOP requires NVIDIA's hardware encoder. GeForce cards cap the machine at 8 encoder sessions.                                       |
 
 Parameters work on any platform TouchDesigner runs on; only video carries the
 NVIDIA/Windows requirement.

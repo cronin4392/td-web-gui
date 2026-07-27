@@ -11,35 +11,35 @@
  */
 
 export interface PhraseTab {
-  id: string
-  name: string
-  phrases: string[]
+  id: string;
+  name: string;
+  phrases: string[];
 }
 
 export interface Library {
-  tabs: PhraseTab[]
-  recent: string[]
+  tabs: PhraseTab[];
+  recent: string[];
 }
 
 function isStringArray(x: unknown): x is string[] {
-  return Array.isArray(x) && x.every((v) => typeof v === 'string')
+  return Array.isArray(x) && x.every((v) => typeof v === 'string');
 }
 
 function isPhraseTab(x: unknown): x is PhraseTab {
-  if (typeof x !== 'object' || x === null) return false
-  const t = x as Record<string, unknown>
-  return typeof t.id === 'string' && typeof t.name === 'string' && isStringArray(t.phrases)
+  if (typeof x !== 'object' || x === null) return false;
+  const t = x as Record<string, unknown>;
+  return typeof t.id === 'string' && typeof t.name === 'string' && isStringArray(t.phrases);
 }
 
 export function isLibrary(x: unknown): x is Library {
-  if (typeof x !== 'object' || x === null) return false
-  const l = x as Record<string, unknown>
-  if (!Array.isArray(l.tabs) || l.tabs.length === 0 || !l.tabs.every(isPhraseTab)) return false
-  if (!isStringArray(l.recent)) return false
-  return true
+  if (typeof x !== 'object' || x === null) return false;
+  const l = x as Record<string, unknown>;
+  if (!Array.isArray(l.tabs) || l.tabs.length === 0 || !l.tabs.every(isPhraseTab)) return false;
+  if (!isStringArray(l.recent)) return false;
+  return true;
 }
 
 /** A single empty `List 1` tab and no recent history — the always-at-least-one-tab baseline. */
 export function defaultLibrary(): Library {
-  return { tabs: [{ id: crypto.randomUUID(), name: 'List 1', phrases: [] }], recent: [] }
+  return { tabs: [{ id: crypto.randomUUID(), name: 'List 1', phrases: [] }], recent: [] };
 }

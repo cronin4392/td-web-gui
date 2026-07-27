@@ -19,35 +19,44 @@
  * change what an existing web-authored `<Select>` renders.
  */
 
-import { createMemo, For, splitProps, type JSX } from 'solid-js'
-import { createTDSignal, useTDConnection } from '../context'
-import { callHandler } from './TextInput'
+import { createMemo, For, splitProps, type JSX } from 'solid-js';
+import { createTDSignal, useTDConnection } from '../context';
+import { callHandler } from './TextInput';
 
 export interface SelectOption {
   /** Wire value — the TD menu's string key. */
-  value: string
+  value: string;
   /** Display label. */
-  label: string
+  label: string;
 }
 
-export interface SelectProps
-  extends Omit<JSX.SelectHTMLAttributes<HTMLSelectElement>, 'name' | 'value' | 'children'> {
+export interface SelectProps extends Omit<
+  JSX.SelectHTMLAttributes<HTMLSelectElement>,
+  'name' | 'value' | 'children'
+> {
   /** TD parameter name to bind. */
-  name: string
+  name: string;
   /**
    * Web-authored menu options; wire value is `option.value` (the menu key).
    * Omit to use the options TD announces for this param — required
    * for menus whose contents only TD knows.
    */
-  options?: SelectOption[]
+  options?: SelectOption[];
 }
 
 export function Select(props: SelectProps): JSX.Element {
-  const binding = createTDSignal<string>(props.name)
-  const connection = useTDConnection()
-  const [, rest] = splitProps(props, ['name', 'options', 'disabled', 'onChange', 'onFocus', 'onBlur'])
+  const binding = createTDSignal<string>(props.name);
+  const connection = useTDConnection();
+  const [, rest] = splitProps(props, [
+    'name',
+    'options',
+    'disabled',
+    'onChange',
+    'onFocus',
+    'onBlur',
+  ]);
 
-  const announced = () => props.options ?? connection.menuOptions(props.name) ?? []
+  const announced = () => props.options ?? connection.menuOptions(props.name) ?? [];
 
   /**
    * TD's current value with no matching option — a device unplugged since it was
@@ -58,15 +67,15 @@ export function Select(props: SelectProps): JSX.Element {
    * misreports TD's actual state as though the user had chosen it.
    */
   const orphan = createMemo(() => {
-    const current = binding.value()
-    if (!current || announced().some((o) => o.value === current)) return undefined
-    return { value: current, label: `${current} (unavailable)`, unavailable: true }
-  })
+    const current = binding.value();
+    if (!current || announced().some((o) => o.value === current)) return undefined;
+    return { value: current, label: `${current} (unavailable)`, unavailable: true };
+  });
 
   const options = createMemo<(SelectOption & { unavailable?: boolean })[]>(() => {
-    const missing = orphan()
-    return missing ? [missing, ...announced()] : announced()
-  })
+    const missing = orphan();
+    return missing ? [missing, ...announced()] : announced();
+  });
 
   return (
     <select
@@ -74,16 +83,16 @@ export function Select(props: SelectProps): JSX.Element {
       {...rest}
       disabled={props.disabled ?? binding.readonly()}
       onChange={(event) => {
-        binding.setValue(event.currentTarget.value)
-        callHandler(props.onChange, event)
+        binding.setValue(event.currentTarget.value);
+        callHandler(props.onChange, event);
       }}
       onFocus={(event) => {
-        binding.beginEdit()
-        callHandler(props.onFocus, event)
+        binding.beginEdit();
+        callHandler(props.onFocus, event);
       }}
       onBlur={(event) => {
-        binding.endEdit()
-        callHandler(props.onBlur, event)
+        binding.endEdit();
+        callHandler(props.onBlur, event);
       }}
     >
       {/* Selection is bound per-option rather than as `value` on the <select>.
@@ -103,5 +112,5 @@ export function Select(props: SelectProps): JSX.Element {
         )}
       </For>
     </select>
-  )
+  );
 }

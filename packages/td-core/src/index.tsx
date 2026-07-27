@@ -26,7 +26,7 @@
  * Library version. Distinct from `PROTOCOL_VERSION`, which only changes on a
  * breaking wire change (see ./wire).
  */
-export const version = '0.1.0'
+export const version = '0.1.0';
 
 // Wire format
 export {
@@ -53,7 +53,7 @@ export {
   type StreamsMessage,
   type UpdateMessage,
   type WelcomeMessage,
-} from './wire'
+} from './wire';
 
 // Connection primitive
 export {
@@ -66,10 +66,10 @@ export {
   type TDConnectionOptions,
   type TDSendOptions,
   type TDStatus,
-} from './connection'
+} from './connection';
 
 // Scheduler (injectable clock; default backed by the platform globals)
-export { defaultScheduler, type TDScheduler } from './scheduler'
+export { defaultScheduler, type TDScheduler } from './scheduler';
 
 // WebRTC peer
 export {
@@ -81,7 +81,7 @@ export {
   type TDPeerStatus,
   type TDVideoStream,
   type TDVideoStreamOptions,
-} from './video'
+} from './video';
 
 // Factory + context
 export {
@@ -90,16 +90,16 @@ export {
   useTDConnection,
   useTDVideoStream,
   type TDProviderProps,
-} from './context'
+} from './context';
 
 // Components
-export { Button, type ButtonProps } from './components/Button'
-export { Color, type ColorProps } from './components/Color'
-export { NumberInput, type NumberInputProps } from './components/NumberInput'
-export { RangeInput, type RangeInputProps } from './components/RangeInput'
-export { Select, type SelectOption, type SelectProps } from './components/Select'
-export { TextInput, type TextInputProps } from './components/TextInput'
-export { Toggle, type ToggleProps } from './components/Toggle'
-export { Value, type ValueProps } from './components/Value'
-export { Vector, type VectorProps } from './components/Vector'
-export { Video, type VideoProps } from './components/Video'
+export { Button, type ButtonProps } from './components/Button';
+export { Color, type ColorProps } from './components/Color';
+export { NumberInput, type NumberInputProps } from './components/NumberInput';
+export { RangeInput, type RangeInputProps } from './components/RangeInput';
+export { Select, type SelectOption, type SelectProps } from './components/Select';
+export { TextInput, type TextInputProps } from './components/TextInput';
+export { Toggle, type ToggleProps } from './components/Toggle';
+export { Value, type ValueProps } from './components/Value';
+export { Vector, type VectorProps } from './components/Vector';
+export { Video, type VideoProps } from './components/Video';

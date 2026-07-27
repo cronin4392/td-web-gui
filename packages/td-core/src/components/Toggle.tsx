@@ -7,19 +7,21 @@
  * param — see docs/design-notes.md § "Parameter modes".
  */
 
-import { splitProps, type JSX } from 'solid-js'
-import { createTDSignal } from '../context'
-import { callHandler } from './TextInput'
+import { splitProps, type JSX } from 'solid-js';
+import { createTDSignal } from '../context';
+import { callHandler } from './TextInput';
 
-export interface ToggleProps
-  extends Omit<JSX.InputHTMLAttributes<HTMLInputElement>, 'name' | 'value' | 'type' | 'checked'> {
+export interface ToggleProps extends Omit<
+  JSX.InputHTMLAttributes<HTMLInputElement>,
+  'name' | 'value' | 'type' | 'checked'
+> {
   /** TD parameter name to bind. */
-  name: string
+  name: string;
 }
 
 export function Toggle(props: ToggleProps): JSX.Element {
-  const binding = createTDSignal<boolean>(props.name)
-  const [, rest] = splitProps(props, ['name', 'disabled', 'onChange', 'onFocus', 'onBlur'])
+  const binding = createTDSignal<boolean>(props.name);
+  const [, rest] = splitProps(props, ['name', 'disabled', 'onChange', 'onFocus', 'onBlur']);
 
   return (
     <input
@@ -29,17 +31,17 @@ export function Toggle(props: ToggleProps): JSX.Element {
       checked={binding.value() ?? false}
       disabled={props.disabled ?? binding.readonly()}
       onChange={(event) => {
-        binding.setValue(event.currentTarget.checked)
-        callHandler(props.onChange, event)
+        binding.setValue(event.currentTarget.checked);
+        callHandler(props.onChange, event);
       }}
       onFocus={(event) => {
-        binding.beginEdit()
-        callHandler(props.onFocus, event)
+        binding.beginEdit();
+        callHandler(props.onFocus, event);
       }}
       onBlur={(event) => {
-        binding.endEdit()
-        callHandler(props.onBlur, event)
+        binding.endEdit();
+        callHandler(props.onBlur, event);
       }}
     />
-  )
+  );
 }

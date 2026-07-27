@@ -56,8 +56,8 @@
  *    forwards the signaling `type`s untouched.
  */
 
-import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js'
-import { defaultScheduler, type TDScheduler } from './scheduler'
+import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
+import { defaultScheduler, type TDScheduler } from './scheduler';
 import {
   parse,
   PROTOCOL_VERSION,
@@ -67,7 +67,7 @@ import {
   type ParamMap,
   type ParamValue,
   type ServerMessage,
-} from './wire'
+} from './wire';
 
 /**
  * Connection lifecycle as a coarse reactive status. `connecting` → `open`
@@ -75,7 +75,7 @@ import {
  * unexpected drop returns to `connecting` while backoff runs; `closed` is
  * terminal and only reached via `close()`/teardown.
  */
-export type TDStatus = 'connecting' | 'open' | 'synced' | 'closed'
+export type TDStatus = 'connecting' | 'open' | 'synced' | 'closed';
 
 /** Options for the per-write send path (see {@link TDBinding.setValue}). */
 export interface TDSendOptions {
@@ -85,7 +85,7 @@ export interface TDSendOptions {
    * write still happens immediately; only the wire send is deferred to the frame
    * boundary. Defaults to `false` (send immediately).
    */
-  throttle?: boolean
+  throttle?: boolean;
 }
 
 /**
@@ -95,26 +95,26 @@ export interface TDSendOptions {
  */
 export interface TDBinding<T extends ParamValue = ParamValue> {
   /** Reactive accessor for the current value (`undefined` until first synced). */
-  value: Accessor<T | undefined>
+  value: Accessor<T | undefined>;
   /** Optimistic local write: updates the shared signal *and* sends an `update`. */
-  setValue: (value: T, options?: TDSendOptions) => void
+  setValue: (value: T, options?: TDSendOptions) => void;
   /** Mark this binder as actively editing (focus / drag-start). */
-  beginEdit: () => void
+  beginEdit: () => void;
   /** Release the active-editing mark (blur / drag-end). */
-  endEdit: () => void
+  endEdit: () => void;
   /**
    * Reactive: whether this name is currently read-only — either
    * statically declared via `<Provider readonly>`, or marked so at runtime by
    * an inbound `param_not_writable` error. Bound controls disable on this.
    */
-  readonly: Accessor<boolean>
+  readonly: Accessor<boolean>;
 }
 
 /** Per-name routing entry: the shared signal plus its active-editor count. */
 interface SignalEntry {
-  read: Accessor<ParamValue | undefined>
-  write: (value: ParamValue | undefined) => void
-  editors: number
+  read: Accessor<ParamValue | undefined>;
+  write: (value: ParamValue | undefined) => void;
+  editors: number;
 }
 
 /**
@@ -123,18 +123,18 @@ interface SignalEntry {
  * can be injected in tests without implementing the full DOM interface.
  */
 export interface WebSocketLike {
-  readonly OPEN: number
-  readyState: number
+  readonly OPEN: number;
+  readyState: number;
   /** Bytes buffered but not yet sent; read by the backpressure check. */
-  readonly bufferedAmount?: number
-  send(data: string): void
-  close(): void
-  addEventListener(type: string, listener: (event: any) => void): void
+  readonly bufferedAmount?: number;
+  send(data: string): void;
+  close(): void;
+  addEventListener(type: string, listener: (event: any) => void): void;
 }
 
 /** Constructor for a {@link WebSocketLike}. */
 export interface WebSocketLikeConstructor {
-  new (url: string): WebSocketLike
+  new (url: string): WebSocketLike;
 }
 
 /**
@@ -143,96 +143,94 @@ export interface WebSocketLikeConstructor {
  * that plain `interface` declarations (which lack an index signature) satisfy
  * it — the `interface MixerParams { … }` style apps actually write.
  */
-export type ParamSchema<Schema> = { [K in keyof Schema]: ParamValue }
+export type ParamSchema<Schema> = { [K in keyof Schema]: ParamValue };
 
 /** Reconnect backoff timing. */
 export interface BackoffOptions {
   /** First retry delay before jitter (ms). Default 500. */
-  min?: number
+  min?: number;
   /** Retry-delay ceiling before jitter (ms). Default 10000. */
-  max?: number
+  max?: number;
 }
 
 /** App-level heartbeat timing. */
 export interface HeartbeatOptions {
   /** Interval between `ping`s once synced (ms). Default 5000. */
-  interval?: number
+  interval?: number;
   /** Grace for a `pong` before forcing reconnect (ms). Default 10000. */
-  timeout?: number
+  timeout?: number;
 }
 
 /** Backpressure thresholds. */
 export interface BackpressureOptions {
   /** `bufferedAmount` above which `update`s are skipped (bytes). Default 1 MiB. */
-  highWaterMark?: number
+  highWaterMark?: number;
   /** Sustained-congestion window before forcing a reconnect (ms). Default 5000. */
-  timeout?: number
+  timeout?: number;
 }
 
 export interface TDConnectionOptions {
   /** Protocol version advertised in `hello`. Defaults to {@link PROTOCOL_VERSION}. */
-  protocol?: number
+  protocol?: number;
   /**
    * WebSocket constructor to use. Defaults to the global `WebSocket`. Injected
    * by tests to drive a mock TD server without a live socket.
    */
-  WebSocket?: WebSocketLikeConstructor
+  WebSocket?: WebSocketLikeConstructor;
   /**
    * Timer / animation-frame scheduler. Defaults to the platform globals;
    * injected in tests to drive the timing paths deterministically.
    */
-  scheduler?: TDScheduler
+  scheduler?: TDScheduler;
   /**
    * Handler for inbound `error` messages. Defaults to a `console.error`. Never
    * fatal — the socket stays up regardless.
    */
-  onError?: (error: ErrorMessage) => void
+  onError?: (error: ErrorMessage) => void;
   /** Auto-reconnect on unexpected drop. Default `true`. */
-  reconnect?: boolean
+  reconnect?: boolean;
   /** Reconnect backoff timing. */
-  backoff?: BackoffOptions
+  backoff?: BackoffOptions;
   /** Handshake watchdog window in ms. Default 5000. */
-  handshakeTimeout?: number
+  handshakeTimeout?: number;
   /** Heartbeat timing, or `false` to disable the heartbeat. */
-  heartbeat?: HeartbeatOptions | false
+  heartbeat?: HeartbeatOptions | false;
   /** Backpressure thresholds. */
-  backpressure?: BackpressureOptions
+  backpressure?: BackpressureOptions;
   /** Jitter source for backoff. Defaults to `Math.random`; injected in tests. */
-  random?: () => number
+  random?: () => number;
   /**
    * Names to statically declare read-only — authored beside the
    * schema, forwarded from `<Provider readonly>`. Bound controls render
    * disabled and warn in dev; never sent over the wire.
    */
-  readonly?: string[]
+  readonly?: string[];
 }
 
 /** Schema-bound connection; defaults to an open `name → value` map. */
-export interface TDConnection<
-  Schema extends ParamSchema<Schema> = Record<string, ParamValue>,
-> {
+export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>> {
   /** Reactive connection status. */
-  status: Accessor<TDStatus>
+  status: Accessor<TDStatus>;
   /**
    * Reactive backpressure flag: `true` while `update` sends are
    * being skipped because the socket's send buffer is over the high-water mark.
    */
-  congested: Accessor<boolean>
+  congested: Accessor<boolean>;
   /** The most recent inbound `error` message, if any. */
-  lastError: Accessor<ErrorMessage | undefined>
+  lastError: Accessor<ErrorMessage | undefined>;
   /**
    * Create-or-return the shared binding for `name` (lazy allocation). All
    * callers for the same name share one signal and one editor count.
    */
-  signal: <K extends keyof Schema & string>(name: K) => TDBinding<Schema[K]>
+  signal: <K extends keyof Schema & string>(name: K) => TDBinding<Schema[K]>;
   /**
    * Fire a momentary TD parameter. Immediate, throttle-exempt;
    * still dropped (debug-logged) while disconnected or backpressured. Holds no
    * state — there is nothing to read back.
    */
-  pulse: (name: keyof Schema & string) => void
+  pulse: (name: keyof Schema & string) => void;
   /** Reactive: whether `name` is currently read-only. */
-  isReadonly: (name: string) => boolean
+  isReadonly: (name: string) => boolean;
   /**
    * Reactive: the menu options TD announced for `name`, or `undefined` if it
    * announced none.
@@ -242,7 +240,7 @@ export interface TDConnection<
    * prop never consults this. It exists for menus that *can't* be authored in
    * advance, an audio-device list being the motivating case.
    */
-  menuOptions: (name: string) => MenuOption[] | undefined
+  menuOptions: (name: string) => MenuOption[] | undefined;
   /**
    * Ask TD to re-read and re-announce its menus — the "reload
    * devices" action beside a TD-driven `<Select>`.
@@ -251,9 +249,9 @@ export interface TDConnection<
    * per-name request would cost a wire field to save nothing. Dropped silently
    * while disconnected, like any other send.
    */
-  requestMenus: () => void
+  requestMenus: () => void;
   /** Low-level send of a client message (no-op unless the socket is open). */
-  send: (message: ClientMessage) => void
+  send: (message: ClientMessage) => void;
   /**
    * Observe every parsed inbound message, *after* the connection's own handling
    * of it. WebRTC signaling rides this socket, so a peer observes messages here
@@ -262,118 +260,119 @@ export interface TDConnection<
    * Malformed and unknown-`type` frames never reach listeners — they're dropped
    * by `parse` first.
    */
-  subscribe: (listener: (message: ServerMessage) => void) => () => void
+  subscribe: (listener: (message: ServerMessage) => void) => () => void;
   /** Close the socket, cancel all timers, and drop the routing table. */
-  close: () => void
+  close: () => void;
 }
 
 // Timing defaults. All overridable per-connection so a slower/remote
 // deployment can loosen them without a protocol change. See docs/api.md
 // § "options" for the full table.
-const DEFAULT_BACKOFF_MIN = 500
-const DEFAULT_BACKOFF_MAX = 10_000
-const DEFAULT_HANDSHAKE_TIMEOUT = 5_000
-const DEFAULT_PING_INTERVAL = 5_000
-const DEFAULT_PONG_TIMEOUT = 10_000
-const DEFAULT_HIGH_WATER_MARK = 1 << 20 // 1 MiB
-const DEFAULT_CONGESTION_TIMEOUT = 5_000
+const DEFAULT_BACKOFF_MIN = 500;
+const DEFAULT_BACKOFF_MAX = 10_000;
+const DEFAULT_HANDSHAKE_TIMEOUT = 5_000;
+const DEFAULT_PING_INTERVAL = 5_000;
+const DEFAULT_PONG_TIMEOUT = 10_000;
+const DEFAULT_HIGH_WATER_MARK = 1 << 20; // 1 MiB
+const DEFAULT_CONGESTION_TIMEOUT = 5_000;
 
-export function createTDConnection<
-  Schema extends ParamSchema<Schema> = Record<string, ParamValue>,
->(url: string, options: TDConnectionOptions = {}): TDConnection<Schema> {
-  const WS: WebSocketLikeConstructor = options.WebSocket ?? globalThis.WebSocket
-  const scheduler = options.scheduler ?? defaultScheduler
-  const protocol = options.protocol ?? PROTOCOL_VERSION
-  const random = options.random ?? Math.random
+export function createTDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>>(
+  url: string,
+  options: TDConnectionOptions = {},
+): TDConnection<Schema> {
+  const WS: WebSocketLikeConstructor = options.WebSocket ?? globalThis.WebSocket;
+  const scheduler = options.scheduler ?? defaultScheduler;
+  const protocol = options.protocol ?? PROTOCOL_VERSION;
+  const random = options.random ?? Math.random;
 
-  const reconnectEnabled = options.reconnect !== false
-  const backoffMin = options.backoff?.min ?? DEFAULT_BACKOFF_MIN
-  const backoffMax = options.backoff?.max ?? DEFAULT_BACKOFF_MAX
-  const handshakeTimeout = options.handshakeTimeout ?? DEFAULT_HANDSHAKE_TIMEOUT
+  const reconnectEnabled = options.reconnect !== false;
+  const backoffMin = options.backoff?.min ?? DEFAULT_BACKOFF_MIN;
+  const backoffMax = options.backoff?.max ?? DEFAULT_BACKOFF_MAX;
+  const handshakeTimeout = options.handshakeTimeout ?? DEFAULT_HANDSHAKE_TIMEOUT;
 
-  const heartbeat = options.heartbeat === false ? null : (options.heartbeat ?? {})
-  const pingInterval = heartbeat?.interval ?? DEFAULT_PING_INTERVAL
-  const pongTimeout = heartbeat?.timeout ?? DEFAULT_PONG_TIMEOUT
+  const heartbeat = options.heartbeat === false ? null : (options.heartbeat ?? {});
+  const pingInterval = heartbeat?.interval ?? DEFAULT_PING_INTERVAL;
+  const pongTimeout = heartbeat?.timeout ?? DEFAULT_PONG_TIMEOUT;
 
-  const highWaterMark = options.backpressure?.highWaterMark ?? DEFAULT_HIGH_WATER_MARK
-  const congestionTimeout = options.backpressure?.timeout ?? DEFAULT_CONGESTION_TIMEOUT
+  const highWaterMark = options.backpressure?.highWaterMark ?? DEFAULT_HIGH_WATER_MARK;
+  const congestionTimeout = options.backpressure?.timeout ?? DEFAULT_CONGESTION_TIMEOUT;
 
-  const [status, setStatus] = createSignal<TDStatus>('connecting')
-  const [congested, setCongested] = createSignal(false)
-  const [lastError, setLastError] = createSignal<ErrorMessage | undefined>(undefined)
+  const [status, setStatus] = createSignal<TDStatus>('connecting');
+  const [congested, setCongested] = createSignal(false);
+  const [lastError, setLastError] = createSignal<ErrorMessage | undefined>(undefined);
   const [readonlyNames, setReadonlyNames] = createSignal<ReadonlySet<string>>(
     new Set(options.readonly ?? []),
-  )
-  const [menus, setMenus] = createSignal<Record<string, MenuOption[]>>({})
-  const entries = new Map<string, SignalEntry>()
-  const listeners = new Set<(message: ServerMessage) => void>()
+  );
+  const [menus, setMenus] = createSignal<Record<string, MenuOption[]>>({});
+  const entries = new Map<string, SignalEntry>();
+  const listeners = new Set<(message: ServerMessage) => void>();
 
-  let socket: WebSocketLike | null = null
-  let disposed = false
+  let socket: WebSocketLike | null = null;
+  let disposed = false;
   // Monotonic id of the current connect attempt. Bumping it invalidates the
   // previous socket's listeners (they guard on `isCurrent`), so a stale close/
   // error event from a socket we've already torn down can't drive a second
   // reconnect.
-  let attemptId = 0
-  let reconnectAttempt = 0
+  let attemptId = 0;
+  let reconnectAttempt = 0;
 
-  let reconnectTimer: number | null = null
-  let watchdogTimer: number | null = null
-  let pingTimer: number | null = null
-  let pongTimer: number | null = null
-  let congestionTimer: number | null = null
-  let frameHandle: number | null = null
-  let awaitingPong = false
+  let reconnectTimer: number | null = null;
+  let watchdogTimer: number | null = null;
+  let pingTimer: number | null = null;
+  let pongTimer: number | null = null;
+  let congestionTimer: number | null = null;
+  let frameHandle: number | null = null;
+  let awaitingPong = false;
 
   // Throttle buffer (3.4): name → latest value pending this frame.
-  const pendingUpdates = new Map<string, ParamValue>()
+  const pendingUpdates = new Map<string, ParamValue>();
 
   // ── timer bookkeeping ──────────────────────────────────────────────────────
 
   function clearReconnect() {
     if (reconnectTimer !== null) {
-      scheduler.clearTimeout(reconnectTimer)
-      reconnectTimer = null
+      scheduler.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
   }
   function clearWatchdog() {
     if (watchdogTimer !== null) {
-      scheduler.clearTimeout(watchdogTimer)
-      watchdogTimer = null
+      scheduler.clearTimeout(watchdogTimer);
+      watchdogTimer = null;
     }
   }
   function clearHeartbeat() {
     if (pingTimer !== null) {
-      scheduler.clearTimeout(pingTimer)
-      pingTimer = null
+      scheduler.clearTimeout(pingTimer);
+      pingTimer = null;
     }
     if (pongTimer !== null) {
-      scheduler.clearTimeout(pongTimer)
-      pongTimer = null
+      scheduler.clearTimeout(pongTimer);
+      pongTimer = null;
     }
-    awaitingPong = false
+    awaitingPong = false;
   }
   function clearCongestionTimer() {
     if (congestionTimer !== null) {
-      scheduler.clearTimeout(congestionTimer)
-      congestionTimer = null
+      scheduler.clearTimeout(congestionTimer);
+      congestionTimer = null;
     }
   }
   function clearFrame() {
     if (frameHandle !== null) {
-      scheduler.cancelFrame(frameHandle)
-      frameHandle = null
+      scheduler.cancelFrame(frameHandle);
+      frameHandle = null;
     }
-    pendingUpdates.clear()
+    pendingUpdates.clear();
   }
 
   /** Everything scoped to a single socket session (reconnect timer excepted). */
   function clearSessionTimers() {
-    clearWatchdog()
-    clearHeartbeat()
-    clearCongestionTimer()
-    clearFrame()
-    if (congested()) setCongested(false)
+    clearWatchdog();
+    clearHeartbeat();
+    clearCongestionTimer();
+    clearFrame();
+    if (congested()) setCongested(false);
   }
 
   // ── sending ────────────────────────────────────────────────────────────────
@@ -381,7 +380,7 @@ export function createTDConnection<
   /** Raw send of a control message; silently dropped unless the socket is open. */
   function rawSend(message: ClientMessage) {
     if (socket && socket.readyState === socket.OPEN) {
-      socket.send(JSON.stringify(message))
+      socket.send(JSON.stringify(message));
     }
   }
 
@@ -393,73 +392,73 @@ export function createTDConnection<
    */
   function sendUpdate(params: ParamMap) {
     if (!socket || socket.readyState !== socket.OPEN) {
-      console.debug('[td-core] dropping update while disconnected', params)
-      return
+      console.debug('[td-core] dropping update while disconnected', params);
+      return;
     }
     if ((socket.bufferedAmount ?? 0) > highWaterMark) {
-      markCongested()
-      console.debug('[td-core] backpressure: dropping update', params)
-      return
+      markCongested();
+      console.debug('[td-core] backpressure: dropping update', params);
+      return;
     }
-    socket.send(JSON.stringify({ type: 'update', params }))
-    clearCongested()
+    socket.send(JSON.stringify({ type: 'update', params }));
+    clearCongested();
   }
 
   function markCongested() {
-    if (!congested()) setCongested(true)
+    if (!congested()) setCongested(true);
     if (congestionTimer === null) {
       // Sustained high-water is treated like a half-open socket: force a
       // reconnect if a successful send doesn't clear it within the window.
       congestionTimer = scheduler.setTimeout(() => {
-        congestionTimer = null
-        reconnectNow('congestion')
-      }, congestionTimeout)
+        congestionTimer = null;
+        reconnectNow('congestion');
+      }, congestionTimeout);
     }
   }
 
   function clearCongested() {
-    if (congested()) setCongested(false)
-    clearCongestionTimer()
+    if (congested()) setCongested(false);
+    clearCongestionTimer();
   }
 
   /** Queue a throttled update; flush the whole buffer as one message on rAF. */
   function enqueueThrottled(name: string, value: ParamValue) {
-    pendingUpdates.set(name, value)
+    pendingUpdates.set(name, value);
     if (frameHandle === null) {
       frameHandle = scheduler.requestFrame(() => {
-        frameHandle = null
-        if (pendingUpdates.size === 0) return
-        const params = Object.fromEntries(pendingUpdates)
-        pendingUpdates.clear()
-        sendUpdate(params)
-      })
+        frameHandle = null;
+        if (pendingUpdates.size === 0) return;
+        const params = Object.fromEntries(pendingUpdates);
+        pendingUpdates.clear();
+        sendUpdate(params);
+      });
     }
   }
 
   // ── read-only params (4.10) ────────────────────────────────────────────────
 
   function isReadonly(name: string): boolean {
-    return readonlyNames().has(name)
+    return readonlyNames().has(name);
   }
 
   /** The menu options TD announced for `name`, if any. */
   function menuOptions(name: string): MenuOption[] | undefined {
-    return menus()[name]
+    return menus()[name];
   }
 
   /** Ask TD to re-read and re-announce its menus. */
   function requestMenus() {
-    rawSend({ type: 'menus-request' })
+    rawSend({ type: 'menus-request' });
   }
 
   /** Mark `name` read-only from now on (runtime safety net for `param_not_writable`). */
   function markReadonly(name: string) {
     setReadonlyNames((prev) => {
-      if (prev.has(name)) return prev
-      const next = new Set(prev)
-      next.add(name)
-      return next
-    })
+      if (prev.has(name)) return prev;
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
   }
 
   /**
@@ -470,16 +469,16 @@ export function createTDConnection<
    */
   function sendPulse(name: string) {
     if (!socket || socket.readyState !== socket.OPEN) {
-      console.debug('[td-core] dropping pulse while disconnected', name)
-      return
+      console.debug('[td-core] dropping pulse while disconnected', name);
+      return;
     }
     if ((socket.bufferedAmount ?? 0) > highWaterMark) {
-      markCongested()
-      console.debug('[td-core] backpressure: dropping pulse', name)
-      return
+      markCongested();
+      console.debug('[td-core] backpressure: dropping pulse', name);
+      return;
     }
-    socket.send(JSON.stringify({ type: 'pulse', name }))
-    clearCongested()
+    socket.send(JSON.stringify({ type: 'pulse', name }));
+    clearCongested();
   }
 
   // ── inbound ──────────────────────────────────────────────────────────────
@@ -489,55 +488,53 @@ export function createTDConnection<
     // One reactive flush per message regardless of how many params it carries.
     batch(() => {
       for (const name of Object.keys(params)) {
-        const entry = entries.get(name)
-        if (!entry) continue // unbound name → map miss, dropped (no allocation)
-        if (entry.editors > 0) continue // local edit wins while focused/dragging
-        entry.write(params[name])
+        const entry = entries.get(name);
+        if (!entry) continue; // unbound name → map miss, dropped (no allocation)
+        if (entry.editors > 0) continue; // local edit wins while focused/dragging
+        entry.write(params[name]);
       }
-    })
+    });
   }
 
   function handleMessage(raw: string) {
-    const message = parse(raw)
+    const message = parse(raw);
     if (!message) {
       // Malformed JSON or unknown type → dropped, socket stays up (3.6).
-      console.debug('[td-core] dropping unparseable/unknown message')
-      return
+      console.debug('[td-core] dropping unparseable/unknown message');
+      return;
     }
 
     switch (message.type) {
       case 'welcome':
         if (message.protocol !== protocol) {
           // Closed system: warn and proceed best-effort rather than hard-reject.
-          console.warn(
-            `[td-core] protocol mismatch: web=${protocol} td=${message.protocol}`,
-          )
+          console.warn(`[td-core] protocol mismatch: web=${protocol} td=${message.protocol}`);
         }
-        rawSend({ type: 'snapshot-request' })
-        break
+        rawSend({ type: 'snapshot-request' });
+        break;
       case 'snapshot':
-        applyParams(message.params)
-        onSynced()
-        break
+        applyParams(message.params);
+        onSynced();
+        break;
       case 'update':
-        applyParams(message.params)
-        break
+        applyParams(message.params);
+        break;
       case 'pong':
-        awaitingPong = false
+        awaitingPong = false;
         if (pongTimer !== null) {
-          scheduler.clearTimeout(pongTimer)
-          pongTimer = null
+          scheduler.clearTimeout(pongTimer);
+          pongTimer = null;
         }
-        break
+        break;
       case 'error':
-        handleError(message)
-        break
+        handleError(message);
+        break;
       case 'menus':
         // Replaces the announced set wholesale rather than merging: a device
         // that has been unplugged has to *disappear* from the dropdown, and a
         // merge would leave it selectable forever.
-        setMenus(message.menus)
-        break
+        setMenus(message.menus);
+        break;
       // WebRTC signaling (`rtc-offer`/`rtc-answer`/`rtc-ice`/`streams`) is not
       // handled here — it's dispatched to subscribers below, so the connection
       // stays ignorant of peers.
@@ -558,24 +555,24 @@ export function createTDConnection<
     ) {
       for (const listener of listeners) {
         try {
-          listener(message)
+          listener(message);
         } catch (error) {
           // A throwing subscriber must not wedge the socket's read loop.
-          console.error('[td-core] message subscriber threw', error)
+          console.error('[td-core] message subscriber threw', error);
         }
       }
     }
   }
 
   function onSynced() {
-    clearWatchdog()
-    reconnectAttempt = 0 // a healthy sync resets the backoff schedule
-    setStatus('synced')
-    startHeartbeat()
+    clearWatchdog();
+    reconnectAttempt = 0; // a healthy sync resets the backoff schedule
+    setStatus('synced');
+    startHeartbeat();
   }
 
   function handleError(error: ErrorMessage) {
-    setLastError(error)
+    setLastError(error);
     if (error.code === 'param_not_writable' && error.ref) {
       // Runtime safety net: TD refused the write because the backing par isn't
       // in CONSTANT mode (it guards rather than applying — on 2025.33070 an
@@ -584,63 +581,63 @@ export function createTDConnection<
       // control) and re-request a snapshot so the optimistic edit that never
       // landed snaps back to TD's real value rather than "sticking" until an
       // unrelated resync.
-      markReadonly(error.ref)
-      rawSend({ type: 'snapshot-request' })
+      markReadonly(error.ref);
+      rawSend({ type: 'snapshot-request' });
     }
     if (options.onError) {
-      options.onError(error)
+      options.onError(error);
     } else {
       console.error(
         `[td-core] TD error ${error.code}` +
           (error.ref ? ` (${error.ref})` : '') +
           (error.message ? `: ${error.message}` : ''),
-      )
+      );
     }
   }
 
   // ── heartbeat (3.3) ────────────────────────────────────────────────────────
 
   function startHeartbeat() {
-    if (!heartbeat) return
-    clearHeartbeat()
-    scheduleNextPing()
+    if (!heartbeat) return;
+    clearHeartbeat();
+    scheduleNextPing();
   }
 
   function scheduleNextPing() {
     pingTimer = scheduler.setTimeout(() => {
-      pingTimer = null
-      if (!socket || socket.readyState !== socket.OPEN) return
-      rawSend({ type: 'ping' })
+      pingTimer = null;
+      if (!socket || socket.readyState !== socket.OPEN) return;
+      rawSend({ type: 'ping' });
       // Arm the pong deadline only on the *first* unanswered ping. When the ping
       // interval is shorter than the pong timeout, later pings must not push the
       // deadline out — otherwise a half-open socket that never answers would
       // never trip. A `pong` clears `awaitingPong` (and the deadline), so the
       // next ping re-arms it.
       if (!awaitingPong) {
-        awaitingPong = true
+        awaitingPong = true;
         pongTimer = scheduler.setTimeout(() => {
-          pongTimer = null
-          if (awaitingPong) reconnectNow('pong-timeout')
-        }, pongTimeout)
+          pongTimer = null;
+          if (awaitingPong) reconnectNow('pong-timeout');
+        }, pongTimeout);
       }
-      scheduleNextPing()
-    }, pingInterval)
+      scheduleNextPing();
+    }, pingInterval);
   }
 
   // ── connect / reconnect (3.1, 3.2) ─────────────────────────────────────────
 
   function connect() {
-    if (disposed) return
-    const myId = ++attemptId
-    const isCurrent = () => myId === attemptId && !disposed
+    if (disposed) return;
+    const myId = ++attemptId;
+    const isCurrent = () => myId === attemptId && !disposed;
 
-    setStatus('connecting')
-    const s = new WS(url)
-    socket = s
+    setStatus('connecting');
+    const s = new WS(url);
+    socket = s;
 
     s.addEventListener('open', () => {
-      if (!isCurrent()) return
-      setStatus('open')
+      if (!isCurrent()) return;
+      setStatus('open');
       // Arm the handshake watchdog *before* sending `hello`: welcome+snapshot
       // must land within the window, else abandon into backoff. It's cleared the
       // moment `snapshot` applies (onSynced). Arming first matters because a TD
@@ -649,23 +646,23 @@ export function createTDConnection<
       // would leave a watchdog that onSynced already ran past, and it would fire
       // a spurious reconnect on an already-synced socket.
       watchdogTimer = scheduler.setTimeout(() => {
-        watchdogTimer = null
-        reconnectNow('handshake-timeout')
-      }, handshakeTimeout)
-      rawSend({ type: 'hello', protocol })
-    })
+        watchdogTimer = null;
+        reconnectNow('handshake-timeout');
+      }, handshakeTimeout);
+      rawSend({ type: 'hello', protocol });
+    });
     s.addEventListener('message', (event: MessageEvent) => {
-      if (!isCurrent()) return
-      if (typeof event.data === 'string') handleMessage(event.data)
-    })
+      if (!isCurrent()) return;
+      if (typeof event.data === 'string') handleMessage(event.data);
+    });
     s.addEventListener('close', () => {
-      if (!isCurrent()) return
-      reconnectNow('close')
-    })
+      if (!isCurrent()) return;
+      reconnectNow('close');
+    });
     s.addEventListener('error', () => {
-      if (!isCurrent()) return
-      reconnectNow('error')
-    })
+      if (!isCurrent()) return;
+      reconnectNow('error');
+    });
   }
 
   /**
@@ -675,99 +672,99 @@ export function createTDConnection<
    * socket's listeners so its own close event can't re-enter here.
    */
   function reconnectNow(reason: string) {
-    if (disposed) return
-    attemptId++
-    clearSessionTimers()
+    if (disposed) return;
+    attemptId++;
+    clearSessionTimers();
     try {
-      socket?.close()
+      socket?.close();
     } catch {
       // ignore — socket may already be closing
     }
-    socket = null
-    setStatus('connecting')
-    console.debug('[td-core] reconnecting:', reason)
-    scheduleReconnect()
+    socket = null;
+    setStatus('connecting');
+    console.debug('[td-core] reconnecting:', reason);
+    scheduleReconnect();
   }
 
   function scheduleReconnect() {
-    if (disposed || !reconnectEnabled) return
-    if (reconnectTimer !== null) return // already scheduled
-    const base = Math.min(backoffMax, backoffMin * 2 ** reconnectAttempt)
-    reconnectAttempt++
+    if (disposed || !reconnectEnabled) return;
+    if (reconnectTimer !== null) return; // already scheduled
+    const base = Math.min(backoffMax, backoffMin * 2 ** reconnectAttempt);
+    reconnectAttempt++;
     // Half jitter: a random point in the upper half of [0, base], so retries
     // spread out (avoids a thundering herd across up to 8 instances) while still
     // growing toward the ceiling.
-    const delay = base / 2 + random() * (base / 2)
+    const delay = base / 2 + random() * (base / 2);
     reconnectTimer = scheduler.setTimeout(() => {
-      reconnectTimer = null
-      connect()
-    }, delay)
+      reconnectTimer = null;
+      connect();
+    }, delay);
   }
 
   // ── bindings ───────────────────────────────────────────────────────────────
 
   function signal<K extends keyof Schema & string>(name: K): TDBinding<Schema[K]> {
-    let entry = entries.get(name)
+    let entry = entries.get(name);
     if (!entry) {
-      const [read, setRaw] = createSignal<ParamValue | undefined>(undefined)
+      const [read, setRaw] = createSignal<ParamValue | undefined>(undefined);
       entry = {
         read,
         // Wrap in a thunk so array values are never mistaken for Solid updaters.
         write: (value) => setRaw(() => value),
         editors: 0,
-      }
-      entries.set(name, entry)
+      };
+      entries.set(name, entry);
     }
 
     if (isReadonly(name)) {
-      console.warn(`[td-core] "${name}" is bound to a read-only param — control disabled`)
+      console.warn(`[td-core] "${name}" is bound to a read-only param — control disabled`);
     }
 
-    const bound = entry
+    const bound = entry;
     return {
       value: bound.read as Accessor<Schema[K] | undefined>,
       setValue: (value, sendOptions) => {
-        bound.write(value) // optimistic: UI updates before any TD echo
-        if (sendOptions?.throttle) enqueueThrottled(name, value)
-        else sendUpdate({ [name]: value })
+        bound.write(value); // optimistic: UI updates before any TD echo
+        if (sendOptions?.throttle) enqueueThrottled(name, value);
+        else sendUpdate({ [name]: value });
       },
       beginEdit: () => {
-        bound.editors++
+        bound.editors++;
       },
       endEdit: () => {
-        if (bound.editors > 0) bound.editors--
+        if (bound.editors > 0) bound.editors--;
       },
       readonly: () => isReadonly(name),
-    }
+    };
   }
 
   function close() {
-    disposed = true
-    clearReconnect()
-    clearSessionTimers()
-    attemptId++ // invalidate any in-flight socket listeners
+    disposed = true;
+    clearReconnect();
+    clearSessionTimers();
+    attemptId++; // invalidate any in-flight socket listeners
     try {
-      socket?.close()
+      socket?.close();
     } catch {
       // ignore
     }
-    socket = null
-    entries.clear() // drop routing table + per-param signals
-    listeners.clear()
-    setStatus('closed')
+    socket = null;
+    entries.clear(); // drop routing table + per-param signals
+    listeners.clear();
+    setStatus('closed');
   }
 
   function subscribe(listener: (message: ServerMessage) => void): () => void {
-    listeners.add(listener)
-    return () => listeners.delete(listener)
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   }
 
-  connect()
+  connect();
 
   // Automatic teardown when used inside a component tree; harmless/skipped when
   // standalone (no owner). Each provider owns its own connection, so this tears
   // down only this instance.
-  if (getOwner()) onCleanup(close)
+  if (getOwner()) onCleanup(close);
 
   return {
     status,
@@ -781,5 +778,5 @@ export function createTDConnection<
     send: rawSend,
     subscribe,
     close,
-  }
+  };
 }

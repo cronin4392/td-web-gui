@@ -23,11 +23,11 @@ NVIDIA GPU on Windows — see
 
 ## What's here
 
-| File | |
-|---|---|
+| File                                   |                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | [`src/td.config.ts`](src/td.config.ts) | The instance list and the typed parameter schema. This is the file that must agree with TouchDesigner's `REGISTRY`. |
-| [`src/App.tsx`](src/App.tsx) | Every control, a live connection-status readout, and the video wall. |
-| [`src/index.css`](src/index.css) | Plain CSS against `td-core`'s class hooks — the library ships none. |
+| [`src/App.tsx`](src/App.tsx)           | Every control, a live connection-status readout, and the video wall.                                                |
+| [`src/index.css`](src/index.css)       | Plain CSS against `td-core`'s class hooks — the library ships none.                                                 |
 
 Worth reading in `App.tsx`:
 

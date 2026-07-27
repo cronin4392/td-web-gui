@@ -16,43 +16,43 @@ else: the factory, the provider, the connection, video, and the primitives.
 ## `createTDClient`
 
 ```ts
-function createTDClient<Schema extends Record<string, ParamValue>>(): TDClient<Schema>
+function createTDClient<Schema extends Record<string, ParamValue>>(): TDClient<Schema>;
 ```
 
 Returns a **schema-bound bundle** for one TD instance. Call it once, at module
 scope.
 
 ```ts
-import { createTDClient } from 'td-core'
+import { createTDClient } from 'td-core';
 
 interface MixerParams {
-  message: string
-  intensity: number
-  enabled: boolean
-  position: number[]
+  message: string;
+  intensity: number;
+  enabled: boolean;
+  position: number[];
 }
 
-const Mixer = createTDClient<MixerParams>()
+const Mixer = createTDClient<MixerParams>();
 ```
 
 The bundle:
 
-| Member | Type |
-|---|---|
-| `Provider` | Context provider owning one connection (see below) |
-| `signal(name)` | `TDBinding<Schema[K]>` — bind a signal to a parameter |
-| `pulse(name)` | `void` — fire a momentary parameter |
-| `useConnection()` | `TDConnection` — the nearest provider's connection |
-| `useVideo()` | `TDVideoStream` — the nearest provider's peer |
-| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` | Bound controls, `name` narrowed to matching schema keys |
-| `Video` | Bound video; not schema-typed (stream ids aren't parameters) |
+| Member                                                                                     | Type                                                         |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `Provider`                                                                                 | Context provider owning one connection (see below)           |
+| `signal(name)`                                                                             | `TDBinding<Schema[K]>` — bind a signal to a parameter        |
+| `pulse(name)`                                                                              | `void` — fire a momentary parameter                          |
+| `useConnection()`                                                                          | `TDConnection` — the nearest provider's connection           |
+| `useVideo()`                                                                               | `TDVideoStream` — the nearest provider's peer                |
+| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` | Bound controls, `name` narrowed to matching schema keys      |
+| `Video`                                                                                    | Bound video; not schema-typed (stream ids aren't parameters) |
 
 ### Why a factory rather than plain components
 
 TypeScript can't flow a generic from `<Provider<Schema>>` down into a
 free-floating `<TextInput>` child — a standalone component's prop types can't
 depend on which provider happens to sit above it. Binding the schema once into a
-component bundle is what makes `name` checked *where you actually write it*, in
+component bundle is what makes `name` checked _where you actually write it_, in
 JSX, with autocomplete.
 
 `name` is narrowed per component to the schema keys whose type matches:
@@ -75,13 +75,13 @@ its subtree.
 </Mixer.Provider>
 ```
 
-| Prop | Type | Description |
-|---|---|---|
-| `url` | `string` | WebSocket URL of this instance's Web Server DAT. Read once at setup. |
-| `instance` | `string` | Config id for this instance. Authoritative over TD's `welcome` metadata. |
-| `readonly` | `string[]` | Parameter names to declare read-only. Bound controls render disabled and warn; never sent over the wire. |
-| `options` | `TDConnectionOptions` | Per-connection tuning, forwarded to `createTDConnection`. |
-| `video` | `boolean \| TDVideoStreamOptions` | Open a WebRTC peer. Opt-in — without it, no `RTCPeerConnection` is created. |
+| Prop       | Type                              | Description                                                                                              |
+| ---------- | --------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `url`      | `string`                          | WebSocket URL of this instance's Web Server DAT. Read once at setup.                                     |
+| `instance` | `string`                          | Config id for this instance. Authoritative over TD's `welcome` metadata.                                 |
+| `readonly` | `string[]`                        | Parameter names to declare read-only. Bound controls render disabled and warn; never sent over the wire. |
+| `options`  | `TDConnectionOptions`             | Per-connection tuning, forwarded to `createTDConnection`.                                                |
+| `video`    | `boolean \| TDVideoStreamOptions` | Open a WebRTC peer. Opt-in — without it, no `RTCPeerConnection` is created.                              |
 
 Everything is read once at setup. Changing `url` or `video` mid-life would mean
 tearing down a socket or peer, which unmounting the provider already does.
@@ -97,9 +97,12 @@ Author it beside your schema. This is a web-side declaration — no wire-format
 change, and TD isn't consulted:
 
 ```ts
-interface MixerParams { intensity: number; fps: number }
+interface MixerParams {
+  intensity: number;
+  fps: number;
+}
 
-const readonly = ['fps'] as const satisfies readonly (keyof MixerParams)[]
+const readonly = ['fps'] as const satisfies readonly (keyof MixerParams)[];
 ```
 
 ```tsx
@@ -120,20 +123,20 @@ Every timing constant is a per-connection option with a sane default, not
 something baked into the wire format — a slower or remote deployment can loosen
 them without a protocol change.
 
-| Option | Default | Description |
-|---|---|---|
-| `reconnect` | `true` | Auto-reconnect on an unexpected drop. |
-| `backoff.min` / `backoff.max` | `500` / `10000` ms | First retry delay and ceiling, before jitter. |
-| `handshakeTimeout` | `5000` ms | Window for `welcome` **and** `snapshot` after the socket opens. |
+| Option                            | Default             | Description                                                                                            |
+| --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `reconnect`                       | `true`              | Auto-reconnect on an unexpected drop.                                                                  |
+| `backoff.min` / `backoff.max`     | `500` / `10000` ms  | First retry delay and ceiling, before jitter.                                                          |
+| `handshakeTimeout`                | `5000` ms           | Window for `welcome` **and** `snapshot` after the socket opens.                                        |
 | `heartbeat.interval` / `.timeout` | `5000` / `10000` ms | `ping` cadence, and grace for a `pong` before forcing a reconnect. Pass `heartbeat: false` to disable. |
-| `backpressure.highWaterMark` | `1048576` bytes | `bufferedAmount` above which `update`s are skipped. |
-| `backpressure.timeout` | `5000` ms | Sustained congestion before forcing a reconnect. |
-| `protocol` | `PROTOCOL_VERSION` | Version advertised in `hello`. |
-| `onError` | `console.error` | Handler for inbound `error` messages. Never fatal. |
-| `readonly` | `[]` | Same as the `readonly` prop, which takes precedence. |
-| `WebSocket` | global | Constructor override. For tests. |
-| `scheduler` | platform timers | Timer/rAF override. For tests. |
-| `random` | `Math.random` | Backoff jitter source. For tests. |
+| `backpressure.highWaterMark`      | `1048576` bytes     | `bufferedAmount` above which `update`s are skipped.                                                    |
+| `backpressure.timeout`            | `5000` ms           | Sustained congestion before forcing a reconnect.                                                       |
+| `protocol`                        | `PROTOCOL_VERSION`  | Version advertised in `hello`.                                                                         |
+| `onError`                         | `console.error`     | Handler for inbound `error` messages. Never fatal.                                                     |
+| `readonly`                        | `[]`                | Same as the `readonly` prop, which takes precedence.                                                   |
+| `WebSocket`                       | global              | Constructor override. For tests.                                                                       |
+| `scheduler`                       | platform timers     | Timer/rAF override. For tests.                                                                         |
+| `random`                          | `Math.random`       | Backoff jitter source. For tests.                                                                      |
 
 ## Connection
 
@@ -141,24 +144,24 @@ them without a protocol change.
 
 ```tsx
 function StatusBar() {
-  const conn = Mixer.useConnection()
-  return <span>{conn.status()}</span>
+  const conn = Mixer.useConnection();
+  return <span>{conn.status()}</span>;
 }
 ```
 
-| Member | Type | Description |
-|---|---|---|
-| `status()` | `'connecting' \| 'open' \| 'synced' \| 'closed'` | Reactive lifecycle. |
-| `congested()` | `boolean` | Reactive: `update` sends are being skipped for backpressure. |
-| `lastError()` | `ErrorMessage \| undefined` | Most recent inbound `error`. |
-| `signal(name)` | `TDBinding` | Create-or-return the shared binding for a name. |
-| `pulse(name)` | `void` | Fire a momentary parameter. |
-| `isReadonly(name)` | `boolean` | Reactive read-only state. |
-| `menuOptions(name)` | `MenuOption[] \| undefined` | Menu options TD announced for a name. |
-| `requestMenus()` | `void` | Ask TD to re-read and re-announce its menus. |
-| `send(message)` | `void` | Low-level client-message send. No-op unless open. |
-| `subscribe(listener)` | `() => void` | Observe every parsed inbound message. Returns an unsubscribe. |
-| `close()` | `void` | Close the socket, cancel timers, drop the routing table. |
+| Member                | Type                                             | Description                                                   |
+| --------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| `status()`            | `'connecting' \| 'open' \| 'synced' \| 'closed'` | Reactive lifecycle.                                           |
+| `congested()`         | `boolean`                                        | Reactive: `update` sends are being skipped for backpressure.  |
+| `lastError()`         | `ErrorMessage \| undefined`                      | Most recent inbound `error`.                                  |
+| `signal(name)`        | `TDBinding`                                      | Create-or-return the shared binding for a name.               |
+| `pulse(name)`         | `void`                                           | Fire a momentary parameter.                                   |
+| `isReadonly(name)`    | `boolean`                                        | Reactive read-only state.                                     |
+| `menuOptions(name)`   | `MenuOption[] \| undefined`                      | Menu options TD announced for a name.                         |
+| `requestMenus()`      | `void`                                           | Ask TD to re-read and re-announce its menus.                  |
+| `send(message)`       | `void`                                           | Low-level client-message send. No-op unless open.             |
+| `subscribe(listener)` | `() => void`                                     | Observe every parsed inbound message. Returns an unsubscribe. |
+| `close()`             | `void`                                           | Close the socket, cancel timers, drop the routing table.      |
 
 ### `status`
 
@@ -183,11 +186,11 @@ components use it internally.
 
 ```ts
 interface TDBinding<T> {
-  value: Accessor<T | undefined>
-  setValue: (value: T, options?: { throttle?: boolean }) => void
-  beginEdit: () => void
-  endEdit: () => void
-  readonly: Accessor<boolean>
+  value: Accessor<T | undefined>;
+  setValue: (value: T, options?: { throttle?: boolean }) => void;
+  beginEdit: () => void;
+  endEdit: () => void;
+  readonly: Accessor<boolean>;
 }
 ```
 
@@ -205,7 +208,7 @@ animation frame. The local write is still immediate.
 
 ```tsx
 function Knob(props: { name: string }) {
-  const binding = createTDSignal<number>(props.name)
+  const binding = createTDSignal<number>(props.name);
   return (
     <input
       type="range"
@@ -215,7 +218,7 @@ function Knob(props: { name: string }) {
       onFocus={() => binding.beginEdit()}
       onBlur={() => binding.endEdit()}
     />
-  )
+  );
 }
 ```
 
@@ -228,17 +231,17 @@ provider without threading an instance through.
 `useVideo()` returns the nearest provider's peer. Throws if the provider didn't
 opt into `video`.
 
-| Member | Type | Description |
-|---|---|---|
-| `status()` | `'connecting' \| 'connected' \| 'reconnecting' \| 'closed'` | Reactive peer-wide status. |
-| `streams()` | `StreamInfo[]` | Reactive `{ id, mid, label }` list TD last announced. |
-| `stream(id?)` | `MediaStream \| undefined` | Decoded stream for an id. Omit `id` for the primary. |
-| `streamStatus(id?)` | `TDPeerStatus` | Per-stream status. |
-| `rebuild()` | `void` | Tear down and renegotiate from scratch. |
-| `close()` | `void` | Close the peer, stop every track, unsubscribe from signaling. |
+| Member              | Type                                                        | Description                                                   |
+| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `status()`          | `'connecting' \| 'connected' \| 'reconnecting' \| 'closed'` | Reactive peer-wide status.                                    |
+| `streams()`         | `StreamInfo[]`                                              | Reactive `{ id, mid, label }` list TD last announced.         |
+| `stream(id?)`       | `MediaStream \| undefined`                                  | Decoded stream for an id. Omit `id` for the primary.          |
+| `streamStatus(id?)` | `TDPeerStatus`                                              | Per-stream status.                                            |
+| `rebuild()`         | `void`                                                      | Tear down and renegotiate from scratch.                       |
+| `close()`           | `void`                                                      | Close the peer, stop every track, unsubscribe from signaling. |
 
 **Read `streamStatus(id)`, not `status()`, for a per-tile overlay.** The peer
-reaches `connected` as soon as *any* track flows, so a tile still waiting for its
+reaches `connected` as soon as _any_ track flows, so a tile still waiting for its
 own track would otherwise show a frozen black box with no explanation.
 
 ```tsx
@@ -255,19 +258,19 @@ own track would otherwise show a frozen black box with no explanation.
 ```
 
 Driving the grid off `streams()` rather than a fixed count is what makes a short
-announce visible as *missing* tiles instead of silently black ones.
+announce visible as _missing_ tiles instead of silently black ones.
 
 ### Options
 
-| Option | Default | Description |
-|---|---|---|
-| `receivers` | `1` | How many `recvonly` video m-lines the offer carries — the ceiling on how many tracks TD can attach. Must be ≥ your `STREAMS` count. |
-| `iceServers` | `[]` | Browser and TD share a machine, so host candidates always pair. Kept as an option in case TD ever runs elsewhere. |
-| `offerRole` | `'browser'` | Which side sends the initial offer. |
-| `disconnectedGrace` | `2000` ms | How long a `disconnected` peer is tolerated before rebuild. |
-| `RTCPeerConnection` / `MediaStream` / `scheduler` | globals | Overrides. For tests. |
+| Option                                            | Default     | Description                                                                                                                         |
+| ------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `receivers`                                       | `1`         | How many `recvonly` video m-lines the offer carries — the ceiling on how many tracks TD can attach. Must be ≥ your `STREAMS` count. |
+| `iceServers`                                      | `[]`        | Browser and TD share a machine, so host candidates always pair. Kept as an option in case TD ever runs elsewhere.                   |
+| `offerRole`                                       | `'browser'` | Which side sends the initial offer.                                                                                                 |
+| `disconnectedGrace`                               | `2000` ms   | How long a `disconnected` peer is tolerated before rebuild.                                                                         |
+| `RTCPeerConnection` / `MediaStream` / `scheduler` | globals     | Overrides. For tests.                                                                                                               |
 
-One peer per instance carries *all* of that instance's tracks, which keeps
+One peer per instance carries _all_ of that instance's tracks, which keeps
 connection and ICE overhead down. `<Video stream="…">` selects among them.
 
 ## Multiple instances
@@ -297,10 +300,10 @@ config-agnostic and just receives URLs:
 
 ```ts
 // src/td.config.ts
-const host = import.meta.env.VITE_TD_HOST ?? 'localhost'
-const port = import.meta.env.VITE_TD_PORT ?? '9980'
+const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
+const port = import.meta.env.VITE_TD_PORT ?? '9980';
 
-export const instances = [{ id: 'mixer', url: `ws://${host}:${port}` }] as const
+export const instances = [{ id: 'mixer', url: `ws://${host}:${port}` }] as const;
 ```
 
 **The config `id` is authoritative; TD's `welcome` metadata is advisory.** If
@@ -313,13 +316,13 @@ TD project can't silently steal another instance's bindings.
 code can talk to TD directly.
 
 ```ts
-import { createTDConnection } from 'td-core'
+import { createTDConnection } from 'td-core';
 
-const conn = createTDConnection('ws://localhost:9980')
-const intensity = conn.signal('intensity')
+const conn = createTDConnection('ws://localhost:9980');
+const intensity = conn.signal('intensity');
 
-createEffect(() => console.log(intensity.value()))
-intensity.setValue(0.5)
+createEffect(() => console.log(intensity.value()));
+intensity.setValue(0.5);
 ```
 
 Inside a component tree it registers its own `onCleanup`. Standalone, call
@@ -330,12 +333,12 @@ connection to ride and observes signaling through `subscribe()`.
 
 ## Wire helpers
 
-| Export | Description |
-|---|---|
-| `PROTOCOL_VERSION` | Wire protocol integer. See [protocol.md](protocol.md). |
-| `parse(raw)` | Parse an inbound payload to a `Message`, or `null` if malformed/unknown. |
-| `escapeNewlines(text)` | Real newlines → TD's two-character `\n` escape. |
-| `unescapeNewlines(wire)` | The inverse, for showing a TD string in a `<textarea>`. |
+| Export                   | Description                                                              |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `PROTOCOL_VERSION`       | Wire protocol integer. See [protocol.md](protocol.md).                   |
+| `parse(raw)`             | Parse an inbound payload to a `Message`, or `null` if malformed/unknown. |
+| `escapeNewlines(text)`   | Real newlines → TD's two-character `\n` escape.                          |
+| `unescapeNewlines(wire)` | The inverse, for showing a TD string in a `<textarea>`.                  |
 
 `unescapeNewlines` is deliberately naive — it doesn't honour a backslash-escaped
 backslash, so text whose literal content is `C:\name` comes back with a line
@@ -357,7 +360,7 @@ backpressure — runs deterministically with no real timers:
 const conn = createTDConnection('ws://test', {
   WebSocket: MockWebSocket,
   scheduler: testScheduler,
-})
+});
 ```
 
 `RTCPeerConnection` and `MediaStream` are injectable the same way on

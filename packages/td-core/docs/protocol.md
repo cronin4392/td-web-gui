@@ -1,6 +1,6 @@
 # Wire protocol
 
-The contract between the browser and TouchDesigner. You don't need this to *use*
+The contract between the browser and TouchDesigner. You don't need this to _use_
 `td-core` — the bundled DAT callbacks already speak it. Read it if you're
 implementing the TD side yourself, debugging frames in devtools, or extending the
 protocol.
@@ -57,7 +57,7 @@ web                              TD
 `status()` flips to `synced` once the snapshot applies.
 
 **No ordering race, by construction.** A single WebSocket delivers in FIFO order,
-and TD generates the snapshot *after* receiving `snapshot-request` — so the
+and TD generates the snapshot _after_ receiving `snapshot-request` — so the
 snapshot already reflects every update sent before it, and anything sent
 afterward arrives after it. The web applies messages in arrival order: snapshot
 as authoritative baseline, live updates on top. No buffering, no reordering.
@@ -74,30 +74,30 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 
 ### web → TD
 
-| Message | Payload |
-|---|---|
-| `hello` | `{ protocol: number }` |
-| `snapshot-request` | — |
-| `menus-request` | — |
-| `update` | `{ params: { [name]: value } }` |
-| `pulse` | `{ name: string }` |
-| `ping` | — |
-| `rtc-offer` | `{ sdp: string }` |
-| `rtc-answer` | `{ sdp: string }` |
-| `rtc-ice` | `{ candidate: string \| null, sdpMid?, sdpMLineIndex? }` |
+| Message            | Payload                                                  |
+| ------------------ | -------------------------------------------------------- |
+| `hello`            | `{ protocol: number }`                                   |
+| `snapshot-request` | —                                                        |
+| `menus-request`    | —                                                        |
+| `update`           | `{ params: { [name]: value } }`                          |
+| `pulse`            | `{ name: string }`                                       |
+| `ping`             | —                                                        |
+| `rtc-offer`        | `{ sdp: string }`                                        |
+| `rtc-answer`       | `{ sdp: string }`                                        |
+| `rtc-ice`          | `{ candidate: string \| null, sdpMid?, sdpMLineIndex? }` |
 
 ### TD → web
 
-| Message | Payload |
-|---|---|
-| `welcome` | `{ protocol: number, instance?: string }` |
-| `snapshot` | `{ params: { [name]: value } }` |
-| `update` | `{ params: { [name]: value } }` |
-| `menus` | `{ menus: { [name]: { value, label }[] } }` |
-| `pong` | — |
-| `error` | `{ code: string, message?: string, ref?: string }` |
-| `streams` | `{ streams: { id, mid, label? }[] }` |
-| `rtc-offer` / `rtc-answer` / `rtc-ice` | as above |
+| Message                                | Payload                                            |
+| -------------------------------------- | -------------------------------------------------- |
+| `welcome`                              | `{ protocol: number, instance?: string }`          |
+| `snapshot`                             | `{ params: { [name]: value } }`                    |
+| `update`                               | `{ params: { [name]: value } }`                    |
+| `menus`                                | `{ menus: { [name]: { value, label }[] } }`        |
+| `pong`                                 | —                                                  |
+| `error`                                | `{ code: string, message?: string, ref?: string }` |
+| `streams`                              | `{ streams: { id, mid, label? }[] }`               |
+| `rtc-offer` / `rtc-answer` / `rtc-ice` | as above                                           |
 
 ```jsonc
 { "type": "update",   "params": { "intensity": 0.5, "color": [1, 0, 0, 1], "enabled": true } }
@@ -153,11 +153,11 @@ where parameter-type information already lives. The web's TypeScript schema line
 up 1:1 with the wire and never has to know that a TD Toggle is really a 0/1 float
 or that a color is four separate pars.
 
-| Wire type | TD → web (read) | web → TD (write) |
-|---|---|---|
-| `bool` | `bool(par.eval())` | `par.val = v` |
-| `number` | `par.eval()` | `par.val = v` |
-| `string` | `par.eval()` | `par.val = v` |
+| Wire type  | TD → web (read)                | web → TD (write)        |
+| ---------- | ------------------------------ | ----------------------- |
+| `bool`     | `bool(par.eval())`             | `par.val = v`           |
+| `number`   | `par.eval()`                   | `par.val = v`           |
+| `string`   | `par.eval()`                   | `par.val = v`           |
 | `number[]` | `[p.eval() for p in parGroup]` | each component in order |
 
 **Menus carry the string key, not the index.** `par.eval()` on a Menu par returns
@@ -165,7 +165,7 @@ the key, which survives TD-side menu reordering where an index wouldn't.
 
 **Arrays map to a ParGroup.** A color or XYZ value is several component pars, so
 an array registry entry names the ParGroup — and the group's fixed component
-order *is* the array order on the wire. Not a `pars('Color*')` name glob, which
+order _is_ the array order on the wire. Not a `pars('Color*')` name glob, which
 would sweep up an unrelated `Colormode` sitting beside `Colorr/g/b/a` and order by
 the operator's parameter list rather than by component.
 
@@ -178,14 +178,14 @@ round on write while `par.eval()` returns its native type on read.
 An `error` is **surfaced, never fatal**. It routes to the connection's
 `lastError` signal and `onError` handler; the socket stays up.
 
-| Code | `ref` | Meaning |
-|---|---|---|
-| `unknown_param` | yes | No such name in the registry, or the wrong message kind for it (an `update` aimed at a pulse param). |
-| `missing_param` | yes | Registered, but its operator or parameter isn't in this project. |
-| `param_not_writable` | yes | Registered `writable: False`, or a backing par isn't in `CONSTANT` mode. |
-| `param_type_mismatch` | yes | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key. |
-| `video_unavailable` | no | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator. |
-| `video_single_viewer` | no | Another browser was streaming; video moved here and its tiles froze. |
+| Code                  | `ref` | Meaning                                                                                              |
+| --------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| `unknown_param`       | yes   | No such name in the registry, or the wrong message kind for it (an `update` aimed at a pulse param). |
+| `missing_param`       | yes   | Registered, but its operator or parameter isn't in this project.                                     |
+| `param_not_writable`  | yes   | Registered `writable: False`, or a backing par isn't in `CONSTANT` mode.                             |
+| `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.     |
+| `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.            |
+| `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                 |
 
 **`ref` is what makes recovery possible.** A param-scoped error carries the
 offending name, so handlers can act on that one parameter — `td-core` keys its
@@ -211,7 +211,7 @@ socket.
 broadcast-bus model — the web skips names it isn't bound to, no error raised.
 
 So: add a message type, and old clients ignore it. Add a parameter, and old
-clients don't see it. Only a change to the *meaning* of an existing field needs
+clients don't see it. Only a change to the _meaning_ of an existing field needs
 a `PROTOCOL_VERSION` bump.
 
 ## Keeping the two sides in sync
@@ -219,10 +219,10 @@ a `PROTOCOL_VERSION` bump.
 Two hand-authored declarations describe the same parameters, and **nothing checks
 that they agree**:
 
-| Side | File | Declares |
-|---|---|---|
+| Side          | File                     | Declares                              |
+| ------------- | ------------------------ | ------------------------------------- |
 | TouchDesigner | your config's `REGISTRY` | name → operator, parameter, wire type |
-| Web | your `Schema` interface | name → TypeScript type |
+| Web           | your `Schema` interface  | name → TypeScript type                |
 
 This duplication is deliberate. The alternative — the web introspecting TD's
 network — would couple your UI to TD's node layout and make the whole app depend
@@ -238,9 +238,9 @@ Practical consequences:
   `number` entry returns `param_type_mismatch` at runtime.
 - **`<Select options>` drifting from TD's menu** returns `param_type_mismatch`
   with the keys TD actually offers. Without that check an unrecognized key would
-  silently select TD's *first* menu entry — and the Parameter Execute DAT would
+  silently select TD's _first_ menu entry — and the Parameter Execute DAT would
   then broadcast that back as though the user had picked it.
 
-The one exception where TD *is* introspected is menu options, for menus the web
+The one exception where TD _is_ introspected is menu options, for menus the web
 cannot author ahead of time. See
 [design-notes.md § TD-announced menus](design-notes.md#td-announced-menus).

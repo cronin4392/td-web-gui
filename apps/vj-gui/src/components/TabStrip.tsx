@@ -12,37 +12,38 @@
  * pinned one included.
  */
 
-import { For, Show, createSignal, type JSX } from 'solid-js'
-import { RECENT_TAB_ID, type VjGuiStore } from '../store'
-import { TAB_MIME, adjustReorderTarget, hasDragMime } from '../dnd'
+import { For, Show, createSignal, type JSX } from 'solid-js';
+import { RECENT_TAB_ID, type VjGuiStore } from '../store';
+import { TAB_MIME, adjustReorderTarget, hasDragMime } from '../dnd';
 
 export interface TabStripProps {
-  store: VjGuiStore
+  store: VjGuiStore;
 }
 
 export function TabStrip(props: TabStripProps): JSX.Element {
-  const { state } = props.store
-  const [renamingId, setRenamingId] = createSignal<string | null>(null)
-  const [confirmDeleteId, setConfirmDeleteId] = createSignal<string | null>(null)
-  const [dragIndex, setDragIndex] = createSignal<number | null>(null)
-  const tabRefs = new Map<string, HTMLButtonElement>()
+  const { state } = props.store;
+  const [renamingId, setRenamingId] = createSignal<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = createSignal<string | null>(null);
+  const [dragIndex, setDragIndex] = createSignal<number | null>(null);
+  const tabRefs = new Map<string, HTMLButtonElement>();
 
   function commitRename(id: string, value: string) {
-    const trimmed = value.trim()
-    if (trimmed) props.store.renameTab(id, trimmed)
-    setRenamingId(null)
+    const trimmed = value.trim();
+    if (trimmed) props.store.renameTab(id, trimmed);
+    setRenamingId(null);
   }
 
   function onTabKeyDown(event: KeyboardEvent, id: string) {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
-    event.preventDefault()
-    const ids = [RECENT_TAB_ID, ...state.tabs.map((t) => t.id)]
-    const index = ids.indexOf(id)
-    const nextIndex = event.key === 'ArrowRight' ? (index + 1) % ids.length : (index - 1 + ids.length) % ids.length
-    const next = ids[nextIndex]
-    if (!next) return
-    props.store.setActiveTab(next)
-    tabRefs.get(next)?.focus()
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    event.preventDefault();
+    const ids = [RECENT_TAB_ID, ...state.tabs.map((t) => t.id)];
+    const index = ids.indexOf(id);
+    const nextIndex =
+      event.key === 'ArrowRight' ? (index + 1) % ids.length : (index - 1 + ids.length) % ids.length;
+    const next = ids[nextIndex];
+    if (!next) return;
+    props.store.setActiveTab(next);
+    tabRefs.get(next)?.focus();
   }
 
   return (
@@ -77,20 +78,20 @@ export function TabStrip(props: TabStripProps): JSX.Element {
             classList={{ 'border-neutral-600 bg-neutral-800': dragIndex() === i() }}
             draggable={renamingId() !== tab.id}
             onDragStart={(event) => {
-              event.dataTransfer?.setData(TAB_MIME, String(i()))
-              setDragIndex(i())
+              event.dataTransfer?.setData(TAB_MIME, String(i()));
+              setDragIndex(i());
             }}
             onDragOver={(event) => {
-              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return
-              event.preventDefault()
+              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
+              event.preventDefault();
             }}
             onDrop={(event) => {
-              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return
-              event.preventDefault()
-              const from = dragIndex()
-              setDragIndex(null)
-              if (from === null) return
-              props.store.reorderTabs(from, adjustReorderTarget(from, i()))
+              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
+              event.preventDefault();
+              const from = dragIndex();
+              setDragIndex(null);
+              if (from === null) return;
+              props.store.reorderTabs(from, adjustReorderTarget(from, i()));
             }}
             onDragEnd={() => setDragIndex(null)}
           >
@@ -120,23 +121,26 @@ export function TabStrip(props: TabStripProps): JSX.Element {
             >
               <form
                 onSubmit={(event) => {
-                  event.preventDefault()
-                  commitRename(tab.id, (event.currentTarget.elements.namedItem('rename') as HTMLInputElement).value)
+                  event.preventDefault();
+                  commitRename(
+                    tab.id,
+                    (event.currentTarget.elements.namedItem('rename') as HTMLInputElement).value,
+                  );
                 }}
               >
                 <input
                   name="rename"
                   ref={(el) => {
                     queueMicrotask(() => {
-                      el.focus()
-                      el.select()
-                    })
+                      el.focus();
+                      el.select();
+                    });
                   }}
                   value={tab.name}
                   class="w-24 border border-neutral-600 bg-neutral-800 px-1 py-0.5 text-sm text-neutral-100"
                   onBlur={(event) => commitRename(tab.id, event.currentTarget.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Escape') setRenamingId(null)
+                    if (event.key === 'Escape') setRenamingId(null);
                   }}
                 />
               </form>
@@ -165,8 +169,8 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   tabIndex={-1}
                   class="text-red-400"
                   onClick={() => {
-                    props.store.deleteTab(tab.id)
-                    setConfirmDeleteId(null)
+                    props.store.deleteTab(tab.id);
+                    setConfirmDeleteId(null);
                   }}
                 >
                   Yes
@@ -188,5 +192,5 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         +
       </button>
     </div>
-  )
+  );
 }

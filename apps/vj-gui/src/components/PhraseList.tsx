@@ -4,41 +4,46 @@
  * drop-indicator line, and the one-shot A→Z sort.
  */
 
-import { For, Show, createMemo, createSignal, type JSX } from 'solid-js'
-import type { PhraseTab, VjGuiStore } from '../store'
-import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from '../dnd'
-import { PhraseChip } from './PhraseChip'
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import type { PhraseTab, VjGuiStore } from '../store';
+import {
+  adjustReorderTarget,
+  dropIndexForRow,
+  hasPhraseDragData,
+  readPhraseDragData,
+} from '../dnd';
+import { PhraseChip } from './PhraseChip';
 
 export interface PhraseListProps {
-  store: VjGuiStore
-  tab: PhraseTab
-  onApply: (phrase: string) => void
+  store: VjGuiStore;
+  tab: PhraseTab;
+  onApply: (phrase: string) => void;
 }
 
 export function PhraseList(props: PhraseListProps): JSX.Element {
-  const [filter, setFilter] = createSignal('')
-  const [adding, setAdding] = createSignal(false)
-  const [dropIndex, setDropIndex] = createSignal<number | null>(null)
-  let addInputRef: HTMLTextAreaElement | undefined
+  const [filter, setFilter] = createSignal('');
+  const [adding, setAdding] = createSignal(false);
+  const [dropIndex, setDropIndex] = createSignal<number | null>(null);
+  let addInputRef: HTMLTextAreaElement | undefined;
 
-  const isFiltered = createMemo(() => filter().trim().length > 0)
+  const isFiltered = createMemo(() => filter().trim().length > 0);
 
   // Split so a filter keystroke only re-filters — it doesn't reallocate the
   // per-phrase objects, letting <For>'s identity-based diffing leave
   // unaffected rows (and their DOM) untouched.
-  const indexed = createMemo(() => props.tab.phrases.map((phrase, index) => ({ phrase, index })))
+  const indexed = createMemo(() => props.tab.phrases.map((phrase, index) => ({ phrase, index })));
   const rows = createMemo(() => {
-    const q = filter().trim().toLowerCase()
-    return q ? indexed().filter((row) => row.phrase.toLowerCase().includes(q)) : indexed()
-  })
+    const q = filter().trim().toLowerCase();
+    return q ? indexed().filter((row) => row.phrase.toLowerCase().includes(q)) : indexed();
+  });
 
   function toggleAdd() {
     if (adding()) {
-      setAdding(false)
-      return
+      setAdding(false);
+      return;
     }
-    setAdding(true)
-    queueMicrotask(() => addInputRef?.focus())
+    setAdding(true);
+    queueMicrotask(() => addInputRef?.focus());
   }
 
   return (
@@ -80,11 +85,11 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
         <form
           class="mt-2 shrink-0"
           onSubmit={(event) => {
-            event.preventDefault()
-            const value = addInputRef?.value ?? ''
-            props.store.addPhrase(props.tab.id, value)
-            if (addInputRef) addInputRef.value = ''
-            addInputRef?.focus()
+            event.preventDefault();
+            const value = addInputRef?.value ?? '';
+            props.store.addPhrase(props.tab.id, value);
+            if (addInputRef) addInputRef.value = '';
+            addInputRef?.focus();
           }}
         >
           <textarea
@@ -95,15 +100,15 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
             class="w-full resize-y rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
-                setAdding(false)
-                return
+                setAdding(false);
+                return;
               }
               // A textarea raises no implicit submit; Enter commits here
               // (Shift+Enter still inserts a line break), matching
               // TextField/TDClient.TextInput's multiline commit behavior.
               if (event.key === 'Enter' && !event.isComposing && !event.shiftKey) {
-                event.preventDefault()
-                event.currentTarget.form?.requestSubmit()
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
               }
             }}
           />
@@ -116,21 +121,30 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
             <li
               class="relative"
               onDragOver={(event) => {
-                if (isFiltered() || !hasPhraseDragData(event.dataTransfer!)) return
-                event.preventDefault()
-                setDropIndex(dropIndexForRow(event, event.currentTarget, row.index))
+                if (isFiltered() || !hasPhraseDragData(event.dataTransfer!)) return;
+                event.preventDefault();
+                setDropIndex(dropIndexForRow(event, event.currentTarget, row.index));
               }}
               onDragLeave={() => setDropIndex(null)}
               onDrop={(event) => {
-                setDropIndex(null)
-                if (isFiltered()) return
-                const payload = readPhraseDragData(event.dataTransfer!)
-                if (!payload) return
-                event.preventDefault()
+                setDropIndex(null);
+                if (isFiltered()) return;
+                const payload = readPhraseDragData(event.dataTransfer!);
+                if (!payload) return;
+                event.preventDefault();
                 // No cross-tab moves in v1: reject a drop whose tabId isn't the active tab.
-                if (payload.source !== 'list' || payload.tabId !== props.tab.id || payload.index === null) return
-                const to = dropIndexForRow(event, event.currentTarget, row.index)
-                props.store.reorderPhrase(props.tab.id, payload.index, adjustReorderTarget(payload.index, to))
+                if (
+                  payload.source !== 'list' ||
+                  payload.tabId !== props.tab.id ||
+                  payload.index === null
+                )
+                  return;
+                const to = dropIndexForRow(event, event.currentTarget, row.index);
+                props.store.reorderPhrase(
+                  props.tab.id,
+                  payload.index,
+                  adjustReorderTarget(payload.index, to),
+                );
               }}
             >
               <Show when={dropIndex() === row.index}>
@@ -154,5 +168,5 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
         </Show>
       </ul>
     </div>
-  )
+  );
 }

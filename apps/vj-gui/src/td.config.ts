@@ -12,23 +12,23 @@
 
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
 export interface TDInstanceConfig {
-  id: string
-  url: string
+  id: string;
+  url: string;
 }
 
-const host = import.meta.env.VITE_TD_HOST ?? 'localhost'
-const port = import.meta.env.VITE_TD_PORT ?? '9980'
+const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
+const port = import.meta.env.VITE_TD_PORT ?? '9980';
 
 export const instances = [
   { id: 'vj-gui', url: `ws://${host}:${port}` },
-] as const satisfies readonly TDInstanceConfig[]
+] as const satisfies readonly TDInstanceConfig[];
 
 /** The eight external scene loaders, matching `SCENE_IDS` in `td/config.py`. */
-export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
-export type SceneId = (typeof sceneIds)[number]
+export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+export type SceneId = (typeof sceneIds)[number];
 
 /** Wire names of the per-loader text params, e.g. `sceneAText1`. */
-export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`
+export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
 
 /**
  * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
@@ -36,7 +36,7 @@ export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`
  */
 export interface VjGuiParams extends Record<SceneTextParamName, string> {
   /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
-  selectedLoader: string
+  selectedLoader: string;
 }
 
 /** Wire name of a scene's text param — the TS half of the naming contract above. */
@@ -44,17 +44,17 @@ export function sceneTextParam<N extends 1 | 2>(
   scene: SceneId,
   slot: N,
 ): `scene${SceneId}Text${N}` {
-  return `scene${scene}Text${slot}`
+  return `scene${scene}Text${slot}`;
 }
 
-const LOADER_PATH_PREFIX = '/GUI/ExternalScenes/Scene'
+const LOADER_PATH_PREFIX = '/GUI/ExternalScenes/Scene';
 
 /**
  * Scene id behind a `selectedLoader` path, or `undefined` while the value is
  * still unsynced or points at something that isn't one of the eight loaders.
  */
 export function sceneIdFromLoaderPath(path: string | undefined): SceneId | undefined {
-  if (path === undefined || !path.startsWith(LOADER_PATH_PREFIX)) return undefined
-  const id = path.slice(LOADER_PATH_PREFIX.length)
-  return sceneIds.find((scene) => scene === id)
+  if (path === undefined || !path.startsWith(LOADER_PATH_PREFIX)) return undefined;
+  const id = path.slice(LOADER_PATH_PREFIX.length);
+  return sceneIds.find((scene) => scene === id);
 }
