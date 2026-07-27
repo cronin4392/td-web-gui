@@ -1,7 +1,13 @@
 """
-Project configuration for the TD Web GUI bridge — the reference project
-(td/Example.toe, driving apps/example). One registry entry per control kind in
-that app, so every control there has a working backing par.
+Project configuration for the TD Web GUI bridge — instance 1 of the
+multi-instance reference project (td/Example1/Example.toe, driving the left
+column of apps/example). One registry entry per control kind in that app, so
+every control there has a working backing par.
+
+Its sibling is td/Example2/Example2.toe, a second TouchDesigner process on its
+own port with a deliberately DIFFERENT schema — see that file's config.py. The
+two are independent: separate WebSocket, separate WebRTC peer, separate
+reconnect lifecycle. Nothing but the web page knows they are related.
 
 The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
 are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
@@ -31,15 +37,19 @@ plus, for the TD-announced-menu demo:
 Video additionally expects:
         webrtc1                       WebRTC DAT inside WebGuiServer, beside the
                                       Web Server DAT's callbacks.
-        /project1/videowall           the eight-tile wall: a source (through a Flip
-                                      TOP, see below) → res_cap → level_tile1…8 →
-                                      videostreamout_tile1…8, one Video Stream Out
+        /project1/videowall           the four-tile wall: a source (through a Flip
+                                      TOP, see below) → res_cap → level_tile1…4 →
+                                      videostreamout_tile1…4, one Video Stream Out
                                       TOP per stream.
 
-All eight tiles ride the **one** peer this instance opens — a peer carries many
+All four tiles ride the **one** peer this instance opens — a peer carries many
 tracks, and that is why `<Video>` selects on a stream id rather than on a
-connection. Per-tile tinting is deliberate: eight identical pictures would hide a
-mid-to-id mis-mapping, and a scrambled colour order will not.
+connection. Four rather than eight because the eight-stream target of Phase 6.7
+is now split across the two instances, four each: same total encoder load, two
+peers instead of one. Per-tile tinting is deliberate: four identical pictures
+would hide a mid-to-id mis-mapping, and a scrambled colour order will not.
+Example2 tints its four with the other half of the same palette, so a tile
+rendered under the wrong instance is visible too.
 
 TD's WebRTC output arrives at the browser **mirrored in X**, even though the TD
 viewer shows the source the right way round. Feed the Video Stream Out TOP
@@ -99,10 +109,12 @@ WEBRTC = "webrtc1"
 # reassigns which tile each id names. Keep them in tile order.
 #
 # One TOP serves one peer — its WebRTC Connection par holds a single value — so
-# these eight are eight streams for ONE browser, not one stream for eight
-# browsers. Serving a second viewer simultaneously needs a second set of eight
-# TOPs; v1 is single-viewer and the callbacks warn when a second one negotiates.
-STREAM_COUNT = 8
+# these four are four streams for ONE browser, not one stream for four browsers.
+# Serving a second viewer simultaneously needs a second set of four TOPs; v1 is
+# single-viewer and the callbacks warn when a second one negotiates. Note that
+# the two instances are NOT a second viewer of each other: each browser tab opens
+# one peer per instance, so a single tab holds two peers of four tracks each.
+STREAM_COUNT = 4
 STREAMS = {
     "tile%d" % n: {
         "top": "/project1/videowall/videostreamout_tile%d" % n,

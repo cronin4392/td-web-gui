@@ -1,11 +1,23 @@
 import { For, Show } from 'solid-js';
-import { createTDClient } from 'td-core';
-import { instances, readonlyParams, VIDEO_TILES, type ExampleParams } from './td.config';
+import { createTDClient, useTDConnection, useTDVideoStream, Video } from 'td-core';
+import {
+  example1Readonly,
+  example2Readonly,
+  instances,
+  VIDEO_TILES,
+  type Example1Params,
+  type Example2Params,
+} from './td.config';
 
-// One factory per TD instance, typed by that instance's param schema.
-const Example = createTDClient<ExampleParams>();
+// One factory per TD instance, typed by that instance's param schema. The
+// factories are purely compile-time: `Example1.TextInput` and
+// `Example2.TextInput` are the same component behind different `name` types, and
+// each binds to whichever `<Provider>` it renders inside. That is what makes the
+// two columns below independent without either knowing the other exists.
+const Example1 = createTDClient<Example1Params>();
+const Example2 = createTDClient<Example2Params>();
 
-const example = instances[0];
+const [example1, example2] = instances;
 
 const blendModes = [
   { value: 'over', label: 'Over' },
@@ -18,10 +30,17 @@ const blendModes = [
  * and `lastError` off the nearest provider's connection — the same surface the
  * reconnect/backoff, heartbeat, and backpressure logic drives — so the UI can
  * show a live "reconnecting…" / "congested" indicator instead of silently
- * freezing. Must render inside the `<Provider>` to see the connection.
+ * freezing. Must render inside a `<Provider>` to see the connection.
+ *
+ * Shared by both columns, and deliberately **not** built from either factory:
+ * `useTDConnection` reads the nearest provider from context, so one untyped
+ * component serves every instance. Only the parts that name a parameter need the
+ * schema typing. With two instances live, this is also the clearest proof they
+ * have independent lifecycles — close one `.toe` and only its column drops to
+ * "reconnecting…".
  */
-function StatusBar() {
-  const conn = Example.useConnection();
+function StatusBar(props: { id: string; url: string }) {
+  const conn = useTDConnection();
 
   const label = () => {
     switch (conn.status()) {
@@ -53,13 +72,18 @@ function StatusBar() {
           </span>
         )}
       </Show>
+      <span class="caption">
+        {' · '}
+        <code>{props.id}</code> at <code>{props.url}</code>
+      </span>
     </p>
   );
 }
 
 /**
  * Audio device picker — a `<Select>` whose options come from
- * TouchDesigner rather than from this app.
+ * TouchDesigner rather than from this app. Instance 1 only; instance 2's schema
+ * has no menu-backed param at all.
  *
  * Every other control here binds a param whose *options* (if any) are authored
  * on the web side. This one can't be: TD's device menu keys are machine-specific
@@ -73,13 +97,13 @@ function StatusBar() {
  * on the chance someone plugged something in.
  */
 function AudioDevicePicker() {
-  const conn = Example.useConnection();
+  const conn = useTDConnection();
 
   return (
     <section>
       <label>
         Audio input device
-        <Example.Select name="audiodevice" />
+        <Example1.Select name="audiodevice" />
       </label>
       <button
         type="button"
@@ -97,26 +121,26 @@ function AudioDevicePicker() {
 }
 
 /**
- * Readouts — CHOP channels and DAT cells read straight out of the operator, with
- * no parameter behind them. One-way TD → web.
+ * Instance 1's readouts — CHOP channels and DAT cells read straight out of the
+ * operator, with no parameter behind them. One-way TD → web.
  *
  * They bind exactly like the parameters above: same names, same components. Only
- * `readonlyParams` on the `<Provider>` marks them out.
+ * `example1Readonly` on the `<Provider>` marks them out.
  */
-function Readouts() {
+function Example1Readouts() {
   return (
     <section>
-      <h2>Readouts</h2>
+      <h3>Readouts</h3>
 
       <p>
-        Frame rate: <Example.Value name="fps" format={(v) => `${Number(v).toFixed(1)} fps`} />
+        Frame rate: <Example1.Value name="fps" format={(v) => `${Number(v).toFixed(1)} fps`} />
         {' · '}
-        last frame <Example.Value name="cooking" format={(v) => (v ? 'cooked' : 'skipped')} />
+        last frame <Example1.Value name="cooking" format={(v) => (v ? 'cooked' : 'skipped')} />
       </p>
 
       <p>
         Bands (three CHOP channels as one array):{' '}
-        <Example.Value
+        <Example1.Value
           name="bands"
           format={(v) =>
             Array.isArray(v) ? v.map((n) => Number(n).toFixed(3)).join(' · ') : String(v)
@@ -125,15 +149,15 @@ function Readouts() {
       </p>
       {/* The same array in <Vector>: a readout needs no special component, since
           the wire shape matches a ParGroup's. Disabled, being read-only. */}
-      <Example.Vector name="bands" labels={['low', 'mid', 'high']} step={0.001} />
+      <Example1.Vector name="bands" labels={['low', 'mid', 'high']} step={0.001} />
 
       <p>
-        Now playing: <Example.Value name="track" />
+        Now playing: <Example1.Value name="track" />
       </p>
 
       <p>Cue table (a whole DAT, as string[][])</p>
       {/* Row 0 holds the column names, so `header` lifts it into a <thead>. */}
-      <Example.Table name="cues" header />
+      <Example1.Table name="cues" header />
       <p class="caption">
         Sources are in <code>/project1/readouts</code>. Edit <code>nowplaying</code> or{' '}
         <code>cue_table</code> in TouchDesigner and these update live.
@@ -143,13 +167,19 @@ function Readouts() {
 }
 
 /**
- * The video wall — every stream this instance announces, rendered
- * at once. `<Provider video>` opens **one** WebRTC peer and every tile is a
- * track on it, which is why the grid is driven by `video.streams()` (the id →
- * mid map TD announces) rather than by a peer per tile.
+ * One instance's video wall — every stream that instance announces, rendered at
+ * once. `<Provider video>` opens **one** WebRTC peer per instance and every tile
+ * is a track on it, which is why the grid is driven by `video.streams()` (the id
+ * → mid map TD announces) rather than by a peer per tile.
+ *
+ * Shared by both columns for the same reason `StatusBar` is: a stream id is not
+ * part of the param schema, so `<Video>` was never schema-typed, and
+ * `useTDVideoStream` finds the nearest provider's peer. Two of these on one page
+ * are two peers — the ids repeat across them (`tile1`…`tile4` in both configs)
+ * and never collide, because each resolves inside its own provider.
  *
  * The tile count is whatever TD announces, up to the `receivers` m-lines our
- * offer carried. Rendering the list rather than a fixed eight is what makes a
+ * offer carried. Rendering the list rather than a fixed four is what makes a
  * short announce visible as missing tiles instead of as silently black ones.
  *
  * Each overlay reads that stream's own `streamStatus(id)`, not the peer-wide
@@ -158,19 +188,19 @@ function Readouts() {
  * with no explanation.
  */
 function VideoWall() {
-  const video = Example.useVideo();
+  const video = useTDVideoStream();
 
   return (
     <section>
-      <p>
+      <h3>
         Video wall — {video.streams().length} of {VIDEO_TILES} streams announced
-      </p>
+      </h3>
       <div class="video-grid">
         <For
           each={video.streams()}
           fallback={
             <p class="caption">
-              No streams announced yet — check that the TD project’s config sets <code>WEBRTC</code>{' '}
+              No streams announced yet — check that this instance’s config sets <code>WEBRTC</code>{' '}
               and <code>STREAMS</code>, and that its Web Server DAT is up.
             </p>
           }
@@ -181,7 +211,7 @@ function VideoWall() {
                 {/* Selects by announced id: several tiles on one id would share
                     a single decode, and a renegotiation that shifts mids rebinds
                     here without remounting. */}
-                <Example.Video stream={stream.id} />
+                <Video stream={stream.id} />
                 <Show when={video.streamStatus(stream.id) !== 'connected'}>
                   <div class="video-overlay">{video.streamStatus(stream.id)}…</div>
                 </Show>
@@ -197,100 +227,200 @@ function VideoWall() {
   );
 }
 
+/**
+ * Instance 1 — the kitchen sink: one control of every kind, every readout shape,
+ * both menu cases, and a four-tile wall.
+ */
+function Example1Panel() {
+  return (
+    // `video` is opt-in per provider — without it no RTCPeerConnection is
+    // created at all, which is exactly why it is per-provider: this page opens
+    // two peers because two providers asked for one, not one shared peer split
+    // between them. `receivers` is how many recvonly video m-lines each offer
+    // carries, and so the ceiling on how many tracks that TD can attach when it
+    // answers: an answerer cannot add m-lines, so a wall of four needs all four
+    // offered up front or the surplus streams have nowhere to land.
+    //
+    // `readonly` is web-side only, never sent over the wire — it just disables
+    // readout controls from the first paint.
+    <Example1.Provider
+      url={example1.url}
+      instance={example1.id}
+      readonly={[...example1Readonly]}
+      video={{ receivers: VIDEO_TILES }}
+    >
+      <h2>Instance 1 · control surface</h2>
+      <StatusBar id={example1.id} url={example1.url} />
+
+      <section>
+        <label>
+          Message
+          <Example1.TextInput name="message" placeholder="Type a message…" />
+        </label>
+      </section>
+
+      <section>
+        <label>
+          Intensity
+          <Example1.NumberInput name="intensity" min={0} max={1} step={0.01} />
+        </label>
+        {/* Slider sends are rAF-throttled by default; the readout
+            still tracks every optimistic move. */}
+        <Example1.RangeInput name="intensity" min={0} max={1} step={0.01} />
+        <p>
+          Current: <Example1.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
+        </p>
+      </section>
+
+      <section>
+        <label>
+          Enabled
+          <Example1.Toggle name="enabled" />
+        </label>
+      </section>
+
+      <section>
+        <p>Button modes</p>
+        {/* Fire-and-forget: sends a `pulse` message, holds no state. */}
+        <Example1.Button name="reset" mode="pulse">
+          Reset (pulse)
+        </Example1.Button>
+        {/* Momentary bool: true while held, false on release. */}
+        <Example1.Button name="gate" mode="hold">
+          Gate (hold)
+        </Example1.Button>
+        {/* Same wire path as <Toggle>, rendered as a button. */}
+        <Example1.Button name="mute" mode="toggle">
+          Mute (toggle)
+        </Example1.Button>
+      </section>
+
+      <section>
+        <label>
+          Blend mode
+          {/* Web-authored options: the keys are stable, documented TD menu
+              strings, so hardcoding them is fine and stays the default. */}
+          <Example1.Select name="blendmode" options={blendModes} />
+        </label>
+      </section>
+
+      <AudioDevicePicker />
+
+      <section>
+        <p>Position</p>
+        <Example1.Vector name="position" labels={['x', 'y', 'z']} step={0.01} />
+      </section>
+
+      <section>
+        <label>
+          Color
+          <Example1.Color name="color" alpha />
+        </label>
+      </section>
+
+      <Example1Readouts />
+
+      <VideoWall />
+    </Example1.Provider>
+  );
+}
+
+/**
+ * Instance 2 — a second TD process on its own port, with its own vocabulary.
+ *
+ * Nothing here is shared with the column beside it but the page. Its parameter
+ * names differ (`label`/`opacity`/`tint` against instance 1's
+ * `message`/`intensity`/`color`) even where the same TD parameter backs them,
+ * which is the compile-time half of the isolation; the runtime half is a
+ * separate socket, a separate peer, and a separate reconnect clock.
+ */
+function Example2Panel() {
+  return (
+    <Example2.Provider
+      url={example2.url}
+      instance={example2.id}
+      readonly={[...example2Readonly]}
+      video={{ receivers: VIDEO_TILES }}
+    >
+      <h2>Instance 2 · playback node</h2>
+      <StatusBar id={example2.id} url={example2.url} />
+
+      <section>
+        <label>
+          Label
+          <Example2.TextInput name="label" placeholder="Type a label…" />
+        </label>
+      </section>
+
+      <section>
+        <label>
+          Opacity
+          {/* Renders disabled: `opacity` is in example2Readonly, because TD's
+              registry flags it `writable: False`. The slider still tracks TD. */}
+          <Example2.RangeInput name="opacity" min={0} max={1} step={0.01} />
+        </label>
+        <p>
+          Current: <Example2.Value name="opacity" format={(v) => Number(v).toFixed(2)} />
+        </p>
+        <p class="caption">
+          Read-only from the web — TouchDesigner drives this one. The flag lives in TD’s registry
+          and never crosses the wire; the disabled state comes from this app’s own read-only set.
+        </p>
+      </section>
+
+      <section>
+        <label>
+          Playing
+          <Example2.Toggle name="playing" />
+        </label>
+      </section>
+
+      <section>
+        <Example2.Button name="restart" mode="pulse">
+          Restart (pulse)
+        </Example2.Button>
+      </section>
+
+      <section>
+        <label>
+          Tint
+          <Example2.Color name="tint" alpha />
+        </label>
+      </section>
+
+      <section>
+        <h3>Readouts</h3>
+        <p>
+          Frame rate: <Example2.Value name="fps" format={(v) => `${Number(v).toFixed(1)} fps`} />
+        </p>
+        <Example2.Vector name="levels" labels={['low', 'mid', 'high']} step={0.001} />
+        <p class="caption">
+          Two CHOP readouts and no table — this instance registers no DAT readout at all.
+        </p>
+      </section>
+
+      <VideoWall />
+    </Example2.Provider>
+  );
+}
+
 export function App() {
   return (
     <main>
       <h1>td-web-gui · example</h1>
-      <p>
-        Bound to instance <code>{example.id}</code> at <code>{example.url}</code>
+      <p class="caption">
+        Two TouchDesigner instances, one page. Each column owns its connection, its WebRTC peer, and
+        its own parameter schema; nothing is shared between them.
       </p>
 
-      {/* `video` is opt-in per provider — without it no RTCPeerConnection is
-          created at all, which matters once several instances are live.
-          `receivers` is how many recvonly video m-lines our offer carries, and
-          so the ceiling on how many tracks TD can attach when it answers: an
-          answerer cannot add m-lines, so a wall of 8 needs all 8 offered up
-          front or the surplus streams have nowhere to land. */}
-      {/* `readonly` is web-side only, never sent over the wire — it just
-          disables readout controls from the first paint. */}
-      <Example.Provider
-        url={example.url}
-        instance={example.id}
-        readonly={[...readonlyParams]}
-        video={{ receivers: VIDEO_TILES }}
-      >
-        <StatusBar />
-
-        <section>
-          <label>
-            Message
-            <Example.TextInput name="message" placeholder="Type a message…" />
-          </label>
-        </section>
-
-        <section>
-          <label>
-            Intensity
-            <Example.NumberInput name="intensity" min={0} max={1} step={0.01} />
-          </label>
-          {/* Slider sends are rAF-throttled by default; the readout
-              still tracks every optimistic move. */}
-          <Example.RangeInput name="intensity" min={0} max={1} step={0.01} />
-          <p>
-            Current: <Example.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
-          </p>
-        </section>
-
-        <section>
-          <label>
-            Enabled
-            <Example.Toggle name="enabled" />
-          </label>
-        </section>
-
-        <section>
-          <p>Button modes</p>
-          {/* Fire-and-forget: sends a `pulse` message, holds no state. */}
-          <Example.Button name="reset" mode="pulse">
-            Reset (pulse)
-          </Example.Button>
-          {/* Momentary bool: true while held, false on release. */}
-          <Example.Button name="gate" mode="hold">
-            Gate (hold)
-          </Example.Button>
-          {/* Same wire path as <Toggle>, rendered as a button. */}
-          <Example.Button name="mute" mode="toggle">
-            Mute (toggle)
-          </Example.Button>
-        </section>
-
-        <section>
-          <label>
-            Blend mode
-            {/* Web-authored options: the keys are stable, documented TD menu
-                strings, so hardcoding them is fine and stays the default. */}
-            <Example.Select name="blendmode" options={blendModes} />
-          </label>
-        </section>
-
-        <AudioDevicePicker />
-
-        <section>
-          <p>Position</p>
-          <Example.Vector name="position" labels={['x', 'y', 'z']} step={0.01} />
-        </section>
-
-        <section>
-          <label>
-            Color
-            <Example.Color name="color" alpha />
-          </label>
-        </section>
-
-        <Readouts />
-
-        <VideoWall />
-      </Example.Provider>
+      <div class="columns">
+        <div class="column">
+          <Example1Panel />
+        </div>
+        <div class="column">
+          <Example2Panel />
+        </div>
+      </div>
     </main>
   );
 }

@@ -9,9 +9,36 @@ body {
 }
 
 main {
-  /* Wide enough for the 8-tile wall to land on four columns; the controls above
-     it keep their own natural widths. */
-  max-width: 60rem;
+  /* Two instance columns side by side, each wide enough for its 4-tile wall to
+     land on two rows of two. The controls keep their own natural widths. */
+  max-width: 80rem;
+}
+
+/* One column per TD instance. `auto-fit` rather than a fixed `1fr 1fr` so the
+   two stack on a narrow window instead of squeezing the video walls to nothing
+   — no media query, and it keeps working if a third instance is ever added. */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
+  gap: 2rem;
+}
+
+/* The rule that makes the columns readable as separate machines rather than as
+   one long form split in half. */
+.column {
+  min-width: 0;
+  padding-left: 1.5rem;
+  border-left: 3px solid #eee;
+}
+
+.column h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.column h3 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 section {
@@ -58,11 +85,12 @@ button {
   color: #c0392b;
 }
 
-/* The wall: as many columns as fit at >=13rem, so 8 tiles reflow from 4x2 down
-   to a single column without a media query. */
+/* One wall per instance: as many columns as fit at >=10rem, so 4 tiles sit 2x2
+   inside an instance column and reflow to a single column on a narrow window,
+   without a media query. */
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: 0.75rem;
 }
 
