@@ -14,7 +14,7 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       dispatch and error replies, and `_snapshot`/`_read`/`_write` round-tripping each wire type. Also
       sweep the rest of `td/` for other Python that's currently untested and add coverage there too.
 - [x] Add a TouchDesigner tag and/or comment to each op that's connected and what param is connected. Automatically keep them up to date.
-- [ ] If an input doesn't have a value yet in web show something, maybe skeleton state?
-- [ ] Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes
 - [x] Automatically create videostreamoutTOP inside the WebGuiServer based on config. Then handle the flip x in there.
-- [ ] On TD close, delete all the watcher DATs
+- [ ] If an input doesn't have a value yet in web show something, maybe skeleton state?
+- [ ] 1. Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes so watchers get created/deleted based on the latest config.
+- [ ] 2. On TD close, delete all the watcher DATs. On open there shouldn't be any watchers, they should get fully built.
