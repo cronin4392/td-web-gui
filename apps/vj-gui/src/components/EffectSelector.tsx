@@ -26,7 +26,7 @@ export function EffectSelector(props: {
         onRefresh={() => void picker.refresh()}
       />
 
-      <div class="flex flex-wrap content-start gap-1">
+      <div class="flex flex-col content-start gap-1">
         <For
           each={picker.catalog()}
           fallback={<p class="text-sm text-neutral-500">No effects yet.</p>}
@@ -34,7 +34,7 @@ export function EffectSelector(props: {
           {(effect) => (
             <button
               type="button"
-              class="rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 hover:border-neutral-500 disabled:opacity-40 disabled:hover:border-neutral-700"
+              class="rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-left text-neutral-100 hover:border-neutral-500 disabled:opacity-40 disabled:hover:border-neutral-700"
               title={effect.name}
               disabled={!effect.path}
               onClick={() => void picker.loadTox(effect.path)}
