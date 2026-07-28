@@ -17,7 +17,7 @@ STREAM CHAINS, which carry TD -> web video:
         STREAMS   -> one select_ / flip_ / videostreamout_ chain per stream,
                      built inside this component            (webrtc-callbacks.py)
 
-Plus two operators that are not derived from the config but are what keep the
+Plus three operators that are not derived from the config but are what keep the
 rest of them derived from it:
 
         config_watch  a DAT Execute DAT watching the `config` DAT, which re-runs
@@ -42,6 +42,16 @@ rest of them derived from it:
                       the Exit half — TouchDesigner has no callback proven to
                       run BEFORE a save, which bounds what it can promise
                       against a Save & Quit.
+        pre_release   an Embody export hook (pre-release.py) that drops the same
+                      build product from the STAGED COPY of this component during
+                      a portable .tox export, leaving the live session's watchers
+                      and streams running. The same argument as exit_watch's Exit
+                      half, at the other artifact boundary: a .tox is meant to be
+                      dropped into a project whose config is nothing like this
+                      one, so shipping this project's watchers would land that
+                      project with DATs pointed at operators it doesn't have.
+                      Embody deletes the hook DAT from the staged copy before
+                      saving, so it never ships either.
 
 Nothing here is project specific — drop this into any project unchanged, like
 the other scripts. It reads the same config the callbacks read, through the same
@@ -123,6 +133,19 @@ _WATCH = {
 _CONFIG_WATCH_NAME = "config_watch"
 _CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
 
+# What the `config` DAT's File parameter is set to: the component's own Config
+# File par, so the two never drift and repointing the component at a different
+# config is one edit rather than two.
+#
+# A PARENT shortcut, where the generated DATs above use the global `op.` one. The
+# difference is deliberate and it is the right way round: `parent.WebGuiServer`
+# resolves upward from the DAT to its OWN component, so two WebGuiServer
+# components in one project each read their own Config File, while `op.` resolves
+# to whichever single component holds the global shortcut. The generated DATs are
+# stuck with `op.` because their expression has to survive being read out of
+# Tdcoredir by name; this one has no such constraint.
+_CONFIG_FILE_EXPR = "parent.WebGuiServer.par.Configfile"
+
 # The Execute DAT that deletes the generated watchers when TouchDesigner closes,
 # so they are never saved into the project — they are a build product of the
 # config, and Rebuild reproduces them on the next open. Named for its role, like
@@ -133,6 +156,18 @@ _CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
 # also documents what that does and does not guarantee against a Save & Quit.
 _EXIT_WATCH_NAME = "exit_watch"
 _EXIT_WATCH_FILE = _TDCOREDIR % "exit-execute.py"
+
+# The Embody pre_release hook that drops the generated operators from the staged
+# copy during a portable .tox export; see pre-release.py.
+#
+# The name is not ours to choose: Embody looks for a Text DAT named exactly
+# `pre_release` among the exported COMP's direct children, and ignores (with a
+# warning) anything else wearing that name. Generated rather than hand-placed for
+# the same reason the exit watcher is — a project gets the behaviour by dropping
+# the component in, and a hand-placed one would read as an untagged orphan to the
+# first Rebuild.
+_RELEASE_HOOK_NAME = "pre_release"
+_RELEASE_HOOK_FILE = _TDCOREDIR % "pre-release.py"
 
 # The per-stream video chain, in flow order. STREAMS names a SOURCE TOP — the
 # picture you want on the web — and these three ops are what turn it into a
@@ -188,6 +223,14 @@ CONFIG_TAG = "webgui-config-watch"
 # _generatedWatchers so that DestroyGenerated does not delete the DAT that is
 # calling it, mid-callback, on the way out.
 EXIT_TAG = "webgui-exit-watch"
+
+# Marks the pre_release hook, for the same reason EXIT_TAG exists: it is a plain
+# Text DAT naming no operator, so _watchedBy reads it as an orphan and the next
+# Rebuild would delete the hook that keeps the .tox clean. Excluded from
+# _generatedWatchers on the same grounds too — DestroyGenerated runs FROM this
+# DAT during an export, so deleting it there would be the hook removing itself
+# mid-callback.
+RELEASE_TAG = "webgui-pre-release"
 
 # Shown on each generated operator, since the thing a reader most needs to know
 # about an operator they didn't create is that editing it is pointless.
@@ -275,19 +318,38 @@ class WebGuiServerExt:
         Safe to call at any time, from any trigger, as often as you like. When
         nothing has changed it writes nothing.
         """
-        print("REBUILD")
-        # First, and outside the early-out below: a config that can't be read
-        # right now is usually one being edited, and the watcher is what turns
-        # fixing the file into a working component again instead of requiring a
-        # manual Rebuild that nobody knows to run.
+        # An extension can outlive the component it belongs to, and onInitTD's
+        # Rebuild is deferred five frames, so there is a window in which this runs
+        # against a destroyed COMP and every op() below raises. The window is
+        # ordinarily academic; the pre_release hook opens it every export.
+        # Calling DestroyGenerated on the staged copy instantiates ITS extension,
+        # which schedules a Rebuild that comes due long after Embody has deleted
+        # the copy. Nothing to rebuild, so return rather than raise — the export
+        # that caused it succeeded.
+        if not self.ownerComp.valid:
+            return
+
+        # Before anything reads the config: restore the config DAT's own link to
+        # config.py, which a portable .tox export strips out (see the method).
+        # First because everything below is downstream of the config, and a DAT
+        # left unlinked would go on serving whatever text it was exported with.
+        self._ensureConfigSource()
+
+        # Outside the early-out below: a config that can't be read right now is
+        # usually one being edited, and the watcher is what turns fixing the file
+        # into a working component again instead of requiring a manual Rebuild
+        # that nobody knows to run.
         config_watch = self._ensureConfigWatcher()
         # Likewise outside the early-out: the exit watcher is what keeps the
         # watchers out of the saved project, and an unreadable config is no reason
         # to save a stale set of them.
         exit_watch = self._ensureExitWatcher()
+        # And likewise: the export hook is what keeps a .tox free of this
+        # project's build product, which has nothing to do with whether the
+        # config parses right now.
+        release_hook = self._ensureReleaseHook()
 
         desired = self._desiredWatches()
-        print(desired)
         if desired is None:
             chains = []  # config unreadable; _config() already explained why
         else:
@@ -298,7 +360,7 @@ class WebGuiServerExt:
         # Reached on the unreadable-config path too. Layout only moves operators,
         # never deletes them, so it costs nothing there — and a config watcher
         # created moments ago would otherwise be left sitting at (0, 0).
-        self._layout(chains, config_watch, exit_watch)
+        self._layout(chains, [exit_watch, config_watch, release_hook])
 
     def StreamTop(self, stream_id):
         """The generated Video Stream Out TOP carrying `stream_id`, or None.
@@ -310,7 +372,7 @@ class WebGuiServerExt:
         """
         return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
 
-    def DestroyGenerated(self):
+    def DestroyGenerated(self, comp=None):
         """Delete every generated watcher DAT and stream chain, notes included.
 
         Public because the thing that calls it is a callback in another file —
@@ -321,22 +383,38 @@ class WebGuiServerExt:
         Both families are build products of REGISTRY, READOUTS, and STREAMS, so
         dropping them costs nothing that Rebuild cannot reproduce — which is the
         whole argument for not saving them into the project in the first place.
-        What is NOT dropped: the config and exit watchers themselves, excluded by
-        tag from _generatedWatchers — the exit watcher most pointedly, since this
-        runs from inside its own callback.
+        What is NOT dropped: the config and exit watchers and the pre_release
+        hook, all three excluded by tag from _generatedWatchers. The exit watcher
+        and the hook most pointedly, since this runs from inside one or the other
+        — an onExit callback on the way out, or the export hook against a staged
+        copy.
+
+        `comp` targets a component OTHER than our own, which is what the
+        pre_release hook passes: Embody stages the .tox copy under /sys/quiet,
+        a branch with cooking DISABLED, so that copy's own extension can never
+        compile ("Module compilation error ... Parent component is cooking
+        disabled") and calling this on it raises AttributeError. The live
+        component's extension — this one — is compiled and working, so the hook
+        borrows it and points it at the copy. Embody clears `opshortcut` on the
+        staged copy, so `op.WebGuiServer` still resolves here during a release
+        rather than to the thing being released; that is what makes the borrow
+        reliable rather than a coin toss.
+
+        Reading and destroying operators needs no cooking, which is why this
+        works on a staged copy at all — and it is the reason this takes a target
+        instead of the hook restating "what's generated" for itself.
 
         Safe to call at any time. It leaves the component in a state Rebuild()
         restores exactly, which is also how it is tested without closing TD.
         """
-        for dat in self._generatedWatchers():
+        for dat in self._generatedWatchers(comp):
             self._destroyWithNote(dat)
-        for chain_op in self._generatedStreamOps():
+        for chain_op in self._generatedStreamOps(comp):
             self._destroyWithNote(chain_op)
 
     # ── watchers ──────────────────────────────────────────────────────────────
 
     def _rebuildWatchers(self, desired):
-        print("rebuild watchers")
         keep, orphans = self._matchExisting(desired)
 
         for dat in orphans:
@@ -350,6 +428,41 @@ class WebGuiServerExt:
             if dat is None:
                 dat = self._createWatcher(key)
             self._applyWatch(dat, key, desired[key])
+
+    # ── config source ─────────────────────────────────────────────────────────
+
+    def _ensureConfigSource(self):
+        """Point the `config` DAT's File par at the component's Config File par.
+
+        Asserted on every Rebuild rather than set once by hand, because a
+        portable .tox export DELETES it. Embody's export strips relative
+        `file`/`syncfile` references from every DAT so the artifact carries no
+        external dependencies it cannot resolve — and `config.py`, being
+        relative, is squarely in scope. It restores the live component
+        afterwards, so the loss is only ever in the exported .tox; but a .tox
+        whose config DAT has no link to config.py is one where editing the file
+        does nothing, in a component whose entire premise is that editing the
+        config is the whole of the work.
+
+        Re-asserting here is what makes the strip a non-event instead of
+        something to fight: exit_watch's onCreate runs Rebuild the moment the
+        component lands in a project, so the link is back before anything reads
+        the config. That is the same bargain the generated watchers already
+        make — ship the machinery, rebuild the wiring on arrival — rather than
+        an exception carved out for one DAT.
+
+        Safe when the path does not resolve. A Text DAT with `syncfile` pointed
+        at a missing or empty path keeps the text it already has (verified, not
+        assumed), so a .tox dropped into a project whose Config File par has yet
+        to be set still serves the config it shipped with, and picks up the real
+        file as soon as the par is filled in.
+        """
+        dat = self.ownerComp.op("config")
+        if dat is None:
+            return  # _config() reports the missing DAT when it's read
+
+        self._setExpr(dat.par.file, _CONFIG_FILE_EXPR)
+        self._setPar(dat.par.syncfile, 1)
 
     # ── config watcher ────────────────────────────────────────────────────────
 
@@ -471,6 +584,57 @@ class WebGuiServerExt:
             "on Create: re-runs Rebuild (covers a live External .tox reinit)\n"
             "on Exit: deletes the generated watchers and streams, so the\n"
             "next open rebuilds them fresh from the live config",
+        )
+        return dat
+
+    # ── release hook ──────────────────────────────────────────────────────────
+
+    def _ensureReleaseHook(self):
+        """The Embody pre_release hook that keeps the build product out of the .tox.
+
+        Created if missing, adopted by name if a previous one survived — the same
+        lookup-or-create as the config and exit watchers, and for the same reason:
+        a TDN reimport recreates this component's children, so anything that must
+        outlive one has to be recoverable from the network rather than remembered.
+
+        It carries no callbacks and watches nothing. It exists to BE FOUND: Embody
+        looks for a direct child Text DAT named `pre_release` when exporting a
+        portable .tox, runs it against a staged copy of this component, and deletes
+        it from that copy before saving. Everything it does is in pre-release.py;
+        all this method owes it is the right name, the right type, and the file.
+
+        Returns the DAT, or None if the name is taken by something else. A refusal
+        rather than an error, like the other two — and here the cost of the refusal
+        is only a dirtier .tox, where raising would take the whole Rebuild,
+        watchers and streams included, down with it. Embody warns about the
+        wrong-typed `pre_release` on its own account when the export runs.
+        """
+        dat = self.ownerComp.op(_RELEASE_HOOK_NAME)
+        if dat is not None and not isinstance(dat, textDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, not a Text DAT, so Embody will "
+                "ignore it and exported .tox files will carry the generated "
+                "watchers and streams - rename it and Rebuild" % (_RELEASE_HOOK_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(textDAT, _RELEASE_HOOK_NAME)
+            dat.comment = (
+                "Generated by WebGuiServerExt. Embody's pre_release export hook: "
+                "drops the generated watchers and stream chains from the staged "
+                "copy so they never ship in a .tox. Edits are overwritten on the "
+                "next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(RELEASE_TAG)
+
+        self._setExpr(dat.par.file, _RELEASE_HOOK_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "Embody pre_release hook\ndrops the generated watchers and streams from the\n"
+            "staged copy, so a .tox ships the machinery, not its output",
         )
         return dat
 
@@ -601,8 +765,12 @@ class WebGuiServerExt:
 
     # ── reconciliation ────────────────────────────────────────────────────────
 
-    def _generatedWatchers(self):
+    def _generatedWatchers(self, comp=None):
         """Every watcher DAT we own — ours, and carrying no other role tag.
+
+        `comp` defaults to our own component and is otherwise a staged copy of
+        it; see DestroyGenerated. Everything below reads tags and types, which a
+        cooking-disabled copy answers exactly as the live original does.
 
         By exclusion rather than by a role tag of its own, so that anything of
         ours which is neither a watcher, a chain op, nor one of the two role-tagged
@@ -613,25 +781,40 @@ class WebGuiServerExt:
         (the other half is _generatedStreamOps), which is why the config and exit
         watchers must be excluded by tag: they are what makes the next open able
         to rebuild everything this returns.
+
+        Annotations are excluded by TYPE rather than by tag, because the notes
+        wear GENERATED_TAG and nothing else — a note has no role tag to exclude it
+        by, and adding one would only restate what its type already says. The
+        exclusion looks redundant while a note is `utility`, since utility ops
+        stay out of `.children` entirely; it is not. COPYING the component drops
+        that flag, so on a copy every note reads as a watcher: it gets destroyed
+        once as itself and again as its host's note, and the second destroy raises
+        on an operator already deleted. That is not a hypothetical — a copy is
+        exactly what Embody's pre_release hook runs against, and a hook that
+        raises aborts the export.
         """
         return [
             c
-            for c in self.ownerComp.children
+            for c in (comp or self.ownerComp).children
             if GENERATED_TAG in c.tags
+            and c.type != "annotate"
             and STREAM_TAG not in c.tags
             and CONFIG_TAG not in c.tags
             and EXIT_TAG not in c.tags
+            and RELEASE_TAG not in c.tags
         ]
 
-    def _generatedStreamOps(self):
+    def _generatedStreamOps(self, comp=None):
         """Every stream-chain op we own — the other half of DestroyGenerated's set.
 
         A role tag of its own here, rather than exclusion: STREAM_TAG is what
         _generatedWatchers already relies on to tell a chain op apart from a
         watcher, so reusing it is the one query that recognises exactly the same
         ops Rebuild's own reconciliation does.
+
+        `comp` targets a staged copy instead of our own component, as above.
         """
-        return [c for c in self.ownerComp.children if STREAM_TAG in c.tags]
+        return [c for c in (comp or self.ownerComp).children if STREAM_TAG in c.tags]
 
     def _watchedBy(self, dat):
         """The (kind, watched op path) an existing generated DAT stands for.
@@ -719,17 +902,26 @@ class WebGuiServerExt:
         """Name of the comment annotation documenting one generated operator."""
         return tdu.validName(host.name + "_note")
 
-    def _findUtilityChild(self, name):
+    def _findUtilityChild(self, name, comp=None):
         """Look up a direct utility child (e.g. a note annotation) by name.
+
+        `comp` defaults to our own component; DestroyGenerated's staged-copy path
+        reaches this with the copy, by way of the host whose note is wanted.
 
         Utility ops — annotations among them — are invisible to op() and
         .children, so a plain attribute or dict lookup can't find them.
         findChildren(includeUtility=True) is the call that does see them, but it
         also recurses into an annotate's own internal widget network; maxDepth=1
         keeps this to direct children of the component only.
+
+        The `valid` check guards a stale entry: findChildren can hand back an
+        operator destroyed earlier in the same script, and touching one raises
+        "Operator ... has been deleted". DestroyGenerated deletes in a loop, so
+        that is the ordinary case here, not an exotic one — and a raise inside
+        the pre_release hook aborts an export.
         """
-        for child in self.ownerComp.findChildren(includeUtility=True, maxDepth=1):
-            if child.name == name:
+        for child in (comp or self.ownerComp).findChildren(includeUtility=True, maxDepth=1):
+            if child.valid and child.name == name:
                 return child
         return None
 
@@ -759,8 +951,13 @@ class WebGuiServerExt:
         Together, because a note outliving its host is a caption pointing at
         nothing — and one that Rebuild would never look at again, so it would sit
         there describing a watcher or a stream the config dropped.
+
+        The note is looked for beside the HOST rather than beside us, which is
+        what lets one call clear a staged copy (DestroyGenerated's `comp`) without
+        threading that target through every caller. A note always lives in its
+        host's network, so host.parent() is the more accurate question anyway.
         """
-        note = self._findUtilityChild(self._noteName(host))
+        note = self._findUtilityChild(self._noteName(host), host.parent())
         if note is not None:
             note.destroy()
         host.destroy()
@@ -972,12 +1169,12 @@ class WebGuiServerExt:
 
     # ── layout ────────────────────────────────────────────────────────────────
 
-    def _layout(self, chains, config_watch, exit_watch):
+    def _layout(self, chains, lifecycle):
         """Place the generated operators right of the hand-built ones.
 
-        Three columns, left to right: the config/exit watchers that drive
-        Rebuild's lifecycle, the per-config watcher DATs they drive, then the
-        stream chains, one row per stream.
+        Three columns, left to right: the lifecycle operators that drive when
+        Rebuild runs and when its output is thrown away, the per-config watcher
+        DATs they drive, then the stream chains, one row per stream.
 
         Operators created from Python land at (0, 0) on top of each other unless
         positioned, and these are created from Python. The anchor is computed from
@@ -1007,7 +1204,7 @@ class WebGuiServerExt:
         watchers_x = anchor_x + _NOTE_WIDTH + _GRID
         chains_x = watchers_x + _NOTE_WIDTH + _GRID
 
-        self._layoutLifecycleWatchers(anchor_x, anchor_y, config_watch, exit_watch)
+        self._layoutLifecycleOps(anchor_x, anchor_y, lifecycle)
         self._layoutWatchers(watchers_x, anchor_y)
         self._layoutChains(chains_x, anchor_y, chains)
 
@@ -1035,15 +1232,17 @@ class WebGuiServerExt:
         note.nodeWidth = _NOTE_WIDTH
         note.nodeHeight = _NOTE_HEIGHT
 
-    def _layoutLifecycleWatchers(self, x, top_y, config_watch, exit_watch):
-        """The config/exit watcher column, left of the per-config watchers.
+    def _layoutLifecycleOps(self, x, top_y, lifecycle):
+        """The exit / config / pre_release column, left of the per-config watchers.
 
         A column of its own rather than rows pinned atop the watcher column:
-        these two aren't watchers over anything in the config, they're what
+        these three aren't watchers over anything in the config, they're what
         builds and tears down the ones that are, so they read as upstream of
-        that column rather than sorted in among its contents.
+        that column rather than sorted in among its contents. Ordered by the
+        caller — the lifecycle order, not alphabetical — and filtered here,
+        since any of them can come back None on a name clash.
         """
-        pinned = [w for w in (exit_watch, config_watch) if w is not None]
+        pinned = [o for o in lifecycle if o is not None]
         if not pinned:
             return
 
