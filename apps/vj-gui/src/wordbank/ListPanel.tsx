@@ -5,17 +5,17 @@
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import type { PhraseTab, VjGuiStore } from './store';
+import type { PhraseList, WordbankStore } from './store';
 import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from './dnd';
 import { PhraseChip } from './PhraseChip';
 
-export interface PhraseListProps {
-  store: VjGuiStore;
-  tab: PhraseTab;
+export interface ListPanelProps {
+  store: WordbankStore;
+  list: PhraseList;
   onApply: (phrase: string) => void;
 }
 
-export function PhraseList(props: PhraseListProps): JSX.Element {
+export function ListPanel(props: ListPanelProps): JSX.Element {
   const [filter, setFilter] = createSignal('');
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
@@ -26,7 +26,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
   // Split so a filter keystroke only re-filters — it doesn't reallocate the
   // per-phrase objects, letting <For>'s identity-based diffing leave
   // unaffected rows (and their DOM) untouched.
-  const indexed = createMemo(() => props.tab.phrases.map((phrase, index) => ({ phrase, index })));
+  const indexed = createMemo(() => props.list.phrases.map((phrase, index) => ({ phrase, index })));
   const rows = createMemo(() => {
     const q = filter().trim().toLowerCase();
     return q ? indexed().filter((row) => row.phrase.toLowerCase().includes(q)) : indexed();
@@ -44,8 +44,8 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
   return (
     <div
       role="tabpanel"
-      id={`tabpanel-${props.tab.id}`}
-      aria-labelledby={`tab-${props.tab.id}`}
+      id={`tabpanel-${props.list.id}`}
+      aria-labelledby={`tab-${props.list.id}`}
       class="flex h-full flex-col"
     >
       <div class="flex shrink-0 items-center gap-2">
@@ -59,7 +59,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
         />
         <button
           type="button"
-          onClick={() => props.store.sortPhrases(props.tab.id)}
+          onClick={() => props.store.sortPhrases(props.list.id)}
           class="rounded border border-neutral-600 px-2 py-1 text-sm"
           title="Sort A→Z (one-time, persists as the new order)"
         >
@@ -82,7 +82,7 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
           onSubmit={(event) => {
             event.preventDefault();
             const value = addInputRef?.value ?? '';
-            props.store.addPhrase(props.tab.id, value);
+            props.store.addPhrase(props.list.id, value);
             if (addInputRef) addInputRef.value = '';
             addInputRef?.focus();
           }}
@@ -130,13 +130,13 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
                 // No cross-tab moves in v1: reject a drop whose tabId isn't the active tab.
                 if (
                   payload.source !== 'list' ||
-                  payload.tabId !== props.tab.id ||
+                  payload.tabId !== props.list.id ||
                   payload.index === null
                 )
                   return;
                 const to = dropIndexForRow(event, event.currentTarget, row.index);
                 props.store.reorderPhrase(
-                  props.tab.id,
+                  props.list.id,
                   payload.index,
                   adjustReorderTarget(payload.index, to),
                 );
@@ -148,10 +148,10 @@ export function PhraseList(props: PhraseListProps): JSX.Element {
               <PhraseChip
                 phrase={row.phrase}
                 source="list"
-                tabId={props.tab.id}
+                tabId={props.list.id}
                 index={row.index}
                 onApply={props.onApply}
-                onDelete={() => props.store.deletePhrase(props.tab.id, row.index)}
+                onDelete={() => props.store.deletePhrase(props.list.id, row.index)}
               />
             </li>
           )}

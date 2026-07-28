@@ -1,13 +1,13 @@
 /**
  * Store tests (TEXT_SELECTOR.md § "Testing"). Runs against the store module
- * only — no DOM, no components. Recent/tabs/phrases assertions are
+ * only — no DOM, no components. Recent/lists/phrases assertions are
  * persistence-agnostic; the persistence block below exercises the
- * library-write / `activeTabId`-to-`localStorage` split directly.
+ * wordbank-write / `selectedListId`-to-`localStorage` split directly.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Library } from '@domain/wordbank/wordbank';
-import { createVjGuiStore, type CreateStoreOptions } from './store';
+import type { Wordbank } from '@domain/wordbank/wordbank';
+import { createWordbankStore, type CreateStoreOptions } from './store';
 
 class FakeStorage implements Storage {
   private map = new Map<string, string>();
@@ -34,7 +34,7 @@ class FakeStorage implements Storage {
 let stores: { dispose: () => void }[] = [];
 
 function makeStore(options: CreateStoreOptions = {}) {
-  const store = createVjGuiStore({ debounceMs: 20, ...options });
+  const store = createWordbankStore({ debounceMs: 20, ...options });
   stores.push(store);
   return store;
 }
@@ -114,96 +114,96 @@ describe('recent list', () => {
   });
 });
 
-// ---- tabs --------------------------------------------------------------
+// ---- lists --------------------------------------------------------------
 
-describe('tabs', () => {
-  it('starts with a single default tab named "List 1"', () => {
+describe('lists', () => {
+  it('starts with a single default list named "List 1"', () => {
     const store = makeStore();
-    expect(store.state.tabs).toHaveLength(1);
-    expect(store.state.tabs[0]?.name).toBe('List 1');
-    expect(store.state.activeTabId).toBe(store.state.tabs[0]?.id);
+    expect(store.state.lists).toHaveLength(1);
+    expect(store.state.lists[0]?.name).toBe('List 1');
+    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
   });
 
-  it('add appends a new "List N" tab (lowest unused N) and activates it', () => {
+  it('add appends a new "List N" list (lowest unused N) and selects it', () => {
     const store = makeStore();
-    const id2 = store.addTab();
-    expect(store.state.tabs.map((t) => t.name)).toEqual(['List 1', 'List 2']);
-    expect(store.state.activeTabId).toBe(id2);
+    const id2 = store.addList();
+    expect(store.state.lists.map((l) => l.name)).toEqual(['List 1', 'List 2']);
+    expect(store.state.selectedListId).toBe(id2);
 
-    store.deleteTab(id2);
-    const id2Again = store.addTab();
-    expect(store.state.tabs.map((t) => t.name)).toEqual(['List 1', 'List 2']);
+    store.deleteList(id2);
+    const id2Again = store.addList();
+    expect(store.state.lists.map((l) => l.name)).toEqual(['List 1', 'List 2']);
     expect(id2Again).not.toBe(id2);
   });
 
-  it('renames a tab', () => {
+  it('renames a list', () => {
     const store = makeStore();
-    const id = store.state.tabs[0]!.id;
-    store.renameTab(id, 'Cues');
-    expect(store.state.tabs[0]?.name).toBe('Cues');
+    const id = store.state.lists[0]!.id;
+    store.renameList(id, 'Cues');
+    expect(store.state.lists[0]?.name).toBe('Cues');
   });
 
   it('an empty (post-trim) rename reverts to the previous name', () => {
     const store = makeStore();
-    const id = store.state.tabs[0]!.id;
-    store.renameTab(id, '   ');
-    expect(store.state.tabs[0]?.name).toBe('List 1');
+    const id = store.state.lists[0]!.id;
+    store.renameList(id, '   ');
+    expect(store.state.lists[0]?.name).toBe('List 1');
   });
 
-  it('deletes a tab', () => {
+  it('deletes a list', () => {
     const store = makeStore();
-    const id2 = store.addTab();
-    const id1 = store.state.tabs[0]!.id;
-    store.setActiveTab(id1);
-    store.deleteTab(id2);
-    expect(store.state.tabs.map((t) => t.id)).toEqual([id1]);
+    const id2 = store.addList();
+    const id1 = store.state.lists[0]!.id;
+    store.selectList(id1);
+    store.deleteList(id2);
+    expect(store.state.lists.map((l) => l.id)).toEqual([id1]);
   });
 
-  it('the last tab cannot be deleted', () => {
+  it('the last list cannot be deleted', () => {
     const store = makeStore();
-    const id = store.state.tabs[0]!.id;
-    store.deleteTab(id);
-    expect(store.state.tabs).toHaveLength(1);
-    expect(store.state.tabs[0]?.id).toBe(id);
+    const id = store.state.lists[0]!.id;
+    store.deleteList(id);
+    expect(store.state.lists).toHaveLength(1);
+    expect(store.state.lists[0]?.id).toBe(id);
   });
 
-  it('deleting the active tab activates its left neighbour', () => {
+  it('deleting the selected list activates its left neighbour', () => {
     const store = makeStore();
-    const idA = store.state.tabs[0]!.id;
-    const idB = store.addTab();
-    const idC = store.addTab();
-    store.setActiveTab(idB);
-    store.deleteTab(idB);
-    expect(store.state.tabs.map((t) => t.id)).toEqual([idA, idC]);
-    expect(store.state.activeTabId).toBe(idA);
+    const idA = store.state.lists[0]!.id;
+    const idB = store.addList();
+    const idC = store.addList();
+    store.selectList(idB);
+    store.deleteList(idB);
+    expect(store.state.lists.map((l) => l.id)).toEqual([idA, idC]);
+    expect(store.state.selectedListId).toBe(idA);
   });
 
-  it('deleting the first (active) tab activates the new first tab', () => {
+  it('deleting the first (selected) list activates the new first list', () => {
     const store = makeStore();
-    const idA = store.state.tabs[0]!.id;
-    const idB = store.addTab();
-    store.setActiveTab(idA);
-    store.deleteTab(idA);
-    expect(store.state.tabs.map((t) => t.id)).toEqual([idB]);
-    expect(store.state.activeTabId).toBe(idB);
+    const idA = store.state.lists[0]!.id;
+    const idB = store.addList();
+    store.selectList(idA);
+    store.deleteList(idA);
+    expect(store.state.lists.map((l) => l.id)).toEqual([idB]);
+    expect(store.state.selectedListId).toBe(idB);
   });
 
-  it('deleting an inactive tab leaves the active tab untouched', () => {
+  it('deleting an unselected list leaves the selected list untouched', () => {
     const store = makeStore();
-    const idA = store.state.tabs[0]!.id;
-    const idB = store.addTab();
-    store.setActiveTab(idA);
-    store.deleteTab(idB);
-    expect(store.state.activeTabId).toBe(idA);
+    const idA = store.state.lists[0]!.id;
+    const idB = store.addList();
+    store.selectList(idA);
+    store.deleteList(idB);
+    expect(store.state.selectedListId).toBe(idA);
   });
 
-  it('reorders tabs', () => {
+  it('reorders lists', () => {
     const store = makeStore();
-    const idA = store.state.tabs[0]!.id;
-    const idB = store.addTab();
-    const idC = store.addTab();
-    store.reorderTabs(0, 2);
-    expect(store.state.tabs.map((t) => t.id)).toEqual([idB, idC, idA]);
+    const idA = store.state.lists[0]!.id;
+    const idB = store.addList();
+    const idC = store.addList();
+    store.reorderLists(0, 2);
+    expect(store.state.lists.map((l) => l.id)).toEqual([idB, idC, idA]);
   });
 });
 
@@ -212,71 +212,71 @@ describe('tabs', () => {
 describe('phrases', () => {
   it('adds a phrase to the bottom of the list', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'hello world');
-    store.addPhrase(tabId, 'cue two');
-    expect(store.state.tabs[0]?.phrases).toEqual(['hello world', 'cue two']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'hello world');
+    store.addPhrase(listId, 'cue two');
+    expect(store.state.lists[0]?.phrases).toEqual(['hello world', 'cue two']);
   });
 
   it('trims added phrases and ignores empty input', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, '  padded  ');
-    store.addPhrase(tabId, '   ');
-    expect(store.state.tabs[0]?.phrases).toEqual(['padded']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, '  padded  ');
+    store.addPhrase(listId, '   ');
+    expect(store.state.lists[0]?.phrases).toEqual(['padded']);
   });
 
   it('adding an existing phrase moves it to the bottom instead of duplicating', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'a');
-    store.addPhrase(tabId, 'b');
-    store.addPhrase(tabId, 'a');
-    expect(store.state.tabs[0]?.phrases).toEqual(['b', 'a']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'a');
+    store.addPhrase(listId, 'b');
+    store.addPhrase(listId, 'a');
+    expect(store.state.lists[0]?.phrases).toEqual(['b', 'a']);
   });
 
-  it('the same phrase may appear in different tabs', () => {
+  it('the same phrase may appear in different lists', () => {
     const store = makeStore();
-    const tabA = store.state.tabs[0]!.id;
-    const tabB = store.addTab();
-    store.addPhrase(tabA, 'shared');
-    store.addPhrase(tabB, 'shared');
-    expect(store.state.tabs.find((t) => t.id === tabA)?.phrases).toEqual(['shared']);
-    expect(store.state.tabs.find((t) => t.id === tabB)?.phrases).toEqual(['shared']);
+    const listA = store.state.lists[0]!.id;
+    const listB = store.addList();
+    store.addPhrase(listA, 'shared');
+    store.addPhrase(listB, 'shared');
+    expect(store.state.lists.find((l) => l.id === listA)?.phrases).toEqual(['shared']);
+    expect(store.state.lists.find((l) => l.id === listB)?.phrases).toEqual(['shared']);
   });
 
   it('deletes a phrase by index', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'a');
-    store.addPhrase(tabId, 'b');
-    store.addPhrase(tabId, 'c'); // -> [a, b, c]
-    store.deletePhrase(tabId, 1); // remove 'b'
-    expect(store.state.tabs[0]?.phrases).toEqual(['a', 'c']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'a');
+    store.addPhrase(listId, 'b');
+    store.addPhrase(listId, 'c'); // -> [a, b, c]
+    store.deletePhrase(listId, 1); // remove 'b'
+    expect(store.state.lists[0]?.phrases).toEqual(['a', 'c']);
   });
 
-  it('reorders phrases within a tab', () => {
+  it('reorders phrases within a list', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'a');
-    store.addPhrase(tabId, 'b');
-    store.addPhrase(tabId, 'c'); // -> [a, b, c]
-    store.reorderPhrase(tabId, 0, 2); // move 'a' to the end
-    expect(store.state.tabs[0]?.phrases).toEqual(['b', 'c', 'a']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'a');
+    store.addPhrase(listId, 'b');
+    store.addPhrase(listId, 'c'); // -> [a, b, c]
+    store.reorderPhrase(listId, 0, 2); // move 'a' to the end
+    expect(store.state.lists[0]?.phrases).toEqual(['b', 'c', 'a']);
   });
 
   it('sorts alphabetically (case-insensitive) once, and it persists as manual order', () => {
     const store = makeStore();
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'banana');
-    store.addPhrase(tabId, 'Apple');
-    store.addPhrase(tabId, 'cherry');
-    store.sortPhrases(tabId);
-    expect(store.state.tabs[0]?.phrases).toEqual(['Apple', 'banana', 'cherry']);
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'banana');
+    store.addPhrase(listId, 'Apple');
+    store.addPhrase(listId, 'cherry');
+    store.sortPhrases(listId);
+    expect(store.state.lists[0]?.phrases).toEqual(['Apple', 'banana', 'cherry']);
 
     // Not a sticky mode: a subsequent add still lands at the bottom, not re-sorted.
-    store.addPhrase(tabId, 'zeta');
-    expect(store.state.tabs[0]?.phrases).toEqual(['Apple', 'banana', 'cherry', 'zeta']);
+    store.addPhrase(listId, 'zeta');
+    expect(store.state.lists[0]?.phrases).toEqual(['Apple', 'banana', 'cherry', 'zeta']);
   });
 });
 
@@ -284,27 +284,27 @@ describe('phrases', () => {
 
 describe('persistence', () => {
   function fakePersistence() {
-    const calls: Library[] = [];
+    const calls: Wordbank[] = [];
     return {
       calls,
-      save: (library: Library) => {
-        calls.push(library);
+      save: (wordbank: Wordbank) => {
+        calls.push(wordbank);
       },
     };
   }
 
-  it('round-trips library content through persistence.save', async () => {
+  it('round-trips wordbank content through persistence.save', async () => {
     vi.useFakeTimers();
     const persistence = fakePersistence();
     const store = makeStore({ persistence });
-    const tabId = store.state.tabs[0]!.id;
-    store.addPhrase(tabId, 'hello world');
+    const listId = store.state.lists[0]!.id;
+    store.addPhrase(listId, 'hello world');
     store.commitRecent('hello world');
 
     await vi.advanceTimersByTimeAsync(50);
 
     expect(persistence.calls).toHaveLength(1);
-    expect(persistence.calls[0]?.tabs[0]?.phrases).toEqual(['hello world']);
+    expect(persistence.calls[0]?.lists[0]?.phrases).toEqual(['hello world']);
     expect(persistence.calls[0]?.recent).toEqual(['hello world']);
   });
 
@@ -339,36 +339,36 @@ describe('persistence', () => {
     expect(store.state.recent).toEqual(['two', 'one']);
   });
 
-  it('an active-tab change alone does not trigger a library write', async () => {
+  it('a selected-list change alone does not trigger a wordbank write', async () => {
     vi.useFakeTimers();
     const persistence = fakePersistence();
     const store = makeStore({ persistence, uiStorage: new FakeStorage() });
-    const idB = store.addTab();
+    const idB = store.addList();
     await vi.advanceTimersByTimeAsync(30);
-    persistence.calls.length = 0; // addTab legitimately writes the library; clear before the assertion below
+    persistence.calls.length = 0; // addList legitimately writes the wordbank; clear before the assertion below
 
-    store.setActiveTab(idB);
+    store.selectList(idB);
     await vi.advanceTimersByTimeAsync(30);
 
     expect(persistence.calls).toHaveLength(0);
   });
 
-  it('activeTabId round-trips through uiStorage, independent of the library', async () => {
+  it('selectedListId round-trips through uiStorage, independent of the wordbank', async () => {
     vi.useFakeTimers();
     const uiStorage = new FakeStorage();
     const first = makeStore({ uiStorage });
-    const idB = first.addTab();
+    const idB = first.addList();
     await vi.advanceTimersByTimeAsync(30);
 
-    const library = { tabs: first.state.tabs, recent: first.state.recent };
-    const second = makeStore({ uiStorage, initial: library });
-    expect(second.state.activeTabId).toBe(idB);
+    const wordbank = { lists: first.state.lists, recent: first.state.recent };
+    const second = makeStore({ uiStorage, initial: wordbank });
+    expect(second.state.selectedListId).toBe(idB);
   });
 
-  it('an activeTabId with no matching tab falls back to the first tab', () => {
+  it('a selectedListId with no matching list falls back to the first list', () => {
     const uiStorage = new FakeStorage();
-    uiStorage.setItem('td-web-gui:vj-gui:ui', 'nonexistent-id');
+    uiStorage.setItem('td-web-gui:vj-gui:wordbank', 'nonexistent-id');
     const store = makeStore({ uiStorage });
-    expect(store.state.activeTabId).toBe(store.state.tabs[0]?.id);
+    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
   });
 });

@@ -2,21 +2,24 @@ import { createSignal, onCleanup, type JSX } from 'solid-js';
 import { defaultLayer, guiInstance, type LayerId } from './playback/layers';
 import { loaderInstances } from './playback/wire';
 import { GuiProvider, type LayerConnections } from './playback/clients';
-import { createVjGuiStore } from './wordbank/store';
-import { saveLibrary } from './wordbank/library-api';
-import type { Library } from '@domain/wordbank/wordbank';
+import { createWordbankStore } from './wordbank/store';
+import { saveWordbank } from './wordbank/wordbank-api';
+import type { Wordbank } from '@domain/wordbank/wordbank';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
 import { TextSelector } from './wordbank/TextSelector';
 
 export interface AppProps {
-  /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
-  library: Library;
+  /** Hydrated by `index.tsx` before mount (via `fetchWordbank()`). */
+  wordbank: Wordbank;
 }
 
 export function App(props: AppProps): JSX.Element {
-  const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } });
+  const store = createWordbankStore({
+    initial: props.wordbank,
+    persistence: { save: saveWordbank },
+  });
   onCleanup(() => store.dispose());
 
   const [selectedLayer, setSelectedLayer] = createSignal<LayerId>(defaultLayer);

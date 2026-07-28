@@ -3,14 +3,14 @@ import { escapeNewlines } from 'td-core';
 import { layerTextParam } from '@/playback/wire';
 import type { LayerId } from '@/playback/layers';
 import { GuiClient, type LayerTextParamName } from '@/playback/clients';
-import { RECENT_TAB_ID, type createVjGuiStore } from './store';
+import { RECENT_LIST_ID, type createWordbankStore } from './store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { TabStrip } from './TabStrip';
-import { PhraseList } from './PhraseList';
+import { ListPanel } from './ListPanel';
 
 export function TextSelector(props: {
-  store: ReturnType<typeof createVjGuiStore>;
+  store: ReturnType<typeof createWordbankStore>;
   selectedLayer: LayerId;
 }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
@@ -18,7 +18,7 @@ export function TextSelector(props: {
   const connection = GuiClient.useConnection();
 
   // The one place that owns "commit a phrase to a TD text field" — shared by
-  // TextField's own drop target and RecentPanel/PhraseList (always Text 1).
+  // TextField's own drop target and RecentPanel/ListPanel (always Text 1).
   // This writes the signal directly, so it owes the same newline escaping the
   // multiline <TextInput> does on its own commits; stored phrases keep real
   // newlines.
@@ -33,10 +33,10 @@ export function TextSelector(props: {
     applyPhrase(name, '');
   }
 
-  const activeTab = createMemo(
+  const selectedList = createMemo(
     () =>
-      props.store.state.tabs.find((t) => t.id === props.store.state.activeTabId) ??
-      props.store.state.tabs[0],
+      props.store.state.lists.find((l) => l.id === props.store.state.selectedListId) ??
+      props.store.state.lists[0],
   );
 
   return (
@@ -68,11 +68,11 @@ export function TextSelector(props: {
         <TabStrip store={props.store} />
         <div class="min-h-0 flex-1 pt-2">
           <Show
-            when={props.store.state.activeTabId !== RECENT_TAB_ID}
+            when={props.store.state.selectedListId !== RECENT_LIST_ID}
             fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
           >
-            <Show when={activeTab()}>
-              {(tab) => <PhraseList store={props.store} tab={tab()} onApply={applyToText1} />}
+            <Show when={selectedList()}>
+              {(list) => <ListPanel store={props.store} list={list()} onApply={applyToText1} />}
             </Show>
           </Show>
         </div>

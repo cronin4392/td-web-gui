@@ -1,26 +1,25 @@
 /**
- * SQLite persistence for the phrase library (TEXT_SELECTOR.md §5).
+ * SQLite persistence for the phrase wordbank (TEXT_SELECTOR.md §5).
  *
  * Owns the schema, the `PRAGMA user_version` migration + seed, and the two
- * operations `/api/library` needs. No HTTP awareness — `plugin.ts` is the
+ * operations `/api/wordbank` needs. No HTTP awareness — `plugin.ts` is the
  * only caller. Uses `node:sqlite` (built into Node ≥22.5, stable in 24) —
  * zero new runtime dependencies.
  */
 
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { defaultLibrary, type Library, type PhraseTab } from '../../domain/wordbank/wordbank';
+import { dirname } from 'node:path';
+import { defaultWordbank, type PhraseList, type Wordbank } from '../../domain/wordbank/wordbank';
+import { catalogDbPath } from '../platform/catalog-db';
 
 const SCHEMA_VERSION = 1;
 
-/** `data/text-selector.db` under `root`, or `TEXT_SELECTOR_DB` when set. */
-export function resolveDbPath(root: string): string {
-  const override = process.env.TEXT_SELECTOR_DB;
-  return override ? resolve(override) : resolve(root, 'data', 'text-selector.db');
+export function wordbankDbPath(): string {
+  return catalogDbPath('VJ_WORDBANK_DB', 'wordbank.db');
 }
 
-export function openLibraryDb(path: string): DatabaseSync {
+export function openWordbankDb(path: string): DatabaseSync {
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL');
@@ -53,21 +52,21 @@ function migrate(db: DatabaseSync): void {
     );
   `);
 
-  // Always-at-least-one-tab (§3's last-tab guard) as a DB invariant: seed once, on first migration.
+  // Always-at-least-one-list (§3's last-list guard) as a DB invariant: seed once, on first migration.
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM tabs').get() as { count: number };
-  if (count === 0) writeLibrary(db, defaultLibrary());
+  if (count === 0) writeWordbank(db, defaultWordbank());
 
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
-export function readLibrary(db: DatabaseSync): Library {
-  const tabRows = db.prepare('SELECT id, name FROM tabs ORDER BY position').all() as {
+export function readWordbank(db: DatabaseSync): Wordbank {
+  const listRows = db.prepare('SELECT id, name FROM tabs ORDER BY position').all() as {
     id: string;
     name: string;
   }[];
 
   const phraseStmt = db.prepare('SELECT phrase FROM phrases WHERE tab_id = ? ORDER BY position');
-  const tabs: PhraseTab[] = tabRows.map((row) => ({
+  const lists: PhraseList[] = listRows.map((row) => ({
     id: row.id,
     name: row.name,
     phrases: (phraseStmt.all(row.id) as { phrase: string }[]).map((p) => p.phrase),
@@ -77,12 +76,12 @@ export function readLibrary(db: DatabaseSync): Library {
     db.prepare('SELECT phrase FROM recent ORDER BY position').all() as { phrase: string }[]
   ).map((r) => r.phrase);
 
-  // Defensive only — the seed guarantees ≥1 tab; an empty result would mean the file was edited by hand.
-  return tabs.length > 0 ? { tabs, recent } : defaultLibrary();
+  // Defensive only — the seed guarantees ≥1 list; an empty result would mean the file was edited by hand.
+  return lists.length > 0 ? { lists, recent } : defaultWordbank();
 }
 
-/** Replace the whole library in one transaction — mirrors the client's whole-document rewrite (§5). */
-export function writeLibrary(db: DatabaseSync, library: Library): void {
+/** Replace the whole wordbank in one transaction — mirrors the client's whole-document rewrite (§5). */
+export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
   db.exec('BEGIN');
   try {
     db.exec('DELETE FROM phrases');
@@ -93,15 +92,15 @@ export function writeLibrary(db: DatabaseSync, library: Library): void {
     const insertPhrase = db.prepare(
       'INSERT INTO phrases (tab_id, phrase, position) VALUES (?, ?, ?)',
     );
-    for (const [tabIndex, tab] of library.tabs.entries()) {
-      insertTab.run(tab.id, tab.name, tabIndex);
-      for (const [phraseIndex, phrase] of tab.phrases.entries()) {
-        insertPhrase.run(tab.id, phrase, phraseIndex);
+    for (const [listIndex, list] of wordbank.lists.entries()) {
+      insertTab.run(list.id, list.name, listIndex);
+      for (const [phraseIndex, phrase] of list.phrases.entries()) {
+        insertPhrase.run(list.id, phrase, phraseIndex);
       }
     }
 
     const insertRecent = db.prepare('INSERT INTO recent (phrase, position) VALUES (?, ?)');
-    for (const [index, phrase] of library.recent.entries()) insertRecent.run(phrase, index);
+    for (const [index, phrase] of wordbank.recent.entries()) insertRecent.run(phrase, index);
 
     db.exec('COMMIT');
   } catch (err) {

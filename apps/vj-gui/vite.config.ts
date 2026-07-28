@@ -4,7 +4,7 @@ import solid from 'vite-plugin-solid';
 import tailwindcss from '@tailwindcss/vite';
 import { loadDotEnv } from './server/platform/env';
 import { vjGuiEffectsApiPlugin } from './server/catalog/effects-api-plugin';
-import { vjGuiLibraryApiPlugin } from './server/wordbank/library-api-plugin';
+import { vjGuiWordbankApiPlugin } from './server/wordbank/wordbank-api-plugin';
 import { vjGuiScenesApiPlugin } from './server/catalog/scenes-api-plugin';
 import { vjGuiThumbnailsPlugin } from './server/catalog/thumbnails-plugin';
 
@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [
     solid(),
     tailwindcss(),
-    vjGuiLibraryApiPlugin(),
+    vjGuiWordbankApiPlugin(),
     vjGuiScenesApiPlugin(),
     vjGuiEffectsApiPlugin(),
     vjGuiThumbnailsPlugin(),

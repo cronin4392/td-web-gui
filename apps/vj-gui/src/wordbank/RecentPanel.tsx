@@ -6,11 +6,11 @@
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import { RECENT_TAB_ID, type VjGuiStore } from './store';
+import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { PhraseChip } from './PhraseChip';
 
 export interface RecentPanelProps {
-  store: VjGuiStore;
+  store: WordbankStore;
   onApply: (phrase: string) => void;
 }
 
@@ -26,8 +26,8 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
   return (
     <div
       role="tabpanel"
-      id={`tabpanel-${RECENT_TAB_ID}`}
-      aria-labelledby={`tab-${RECENT_TAB_ID}`}
+      id={`tabpanel-${RECENT_LIST_ID}`}
+      aria-labelledby={`tab-${RECENT_LIST_ID}`}
       class="flex h-full flex-col"
     >
       <input
