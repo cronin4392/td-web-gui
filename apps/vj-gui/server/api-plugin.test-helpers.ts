@@ -59,12 +59,12 @@ export async function callHandlerWithBody(
   Object.assign(req, { method, url });
 
   await new Promise<void>((resolveDone) => {
-    const maybePromise = handler(req, res, () => {
+    const maybePromise: unknown = handler(req, res, () => {
       result.nexted = true;
       resolveDone();
     });
-    if (maybePromise && typeof (maybePromise as unknown as Promise<void>).then === 'function') {
-      (maybePromise as unknown as Promise<void>).then(() => resolveDone());
+    if (maybePromise && typeof (maybePromise as { then?: unknown }).then === 'function') {
+      (maybePromise as Promise<void>).then(() => resolveDone());
     }
     process.nextTick(() => {
       req.emit('data', Buffer.from(body));
