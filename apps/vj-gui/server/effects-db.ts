@@ -1,11 +1,29 @@
-import { readdirSync, statSync, mkdirSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname, resolve, join } from 'node:path';
+import { resolve, join } from 'node:path';
 import { effectFrom, type Effect, type EffectCatalog, type EffectFields } from '../src/effects';
+import {
+  byName,
+  catalogDbPath,
+  directoryNames,
+  isFile,
+  openCatalogDb,
+  transaction,
+} from './catalog-db';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
   effects: ['name', 'folder', 'position'],
 };
+
+const DDL = `
+  DROP TABLE IF EXISTS effects;
+  CREATE TABLE effects (
+    -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
+    -- KEY column hold NULL, and any number of them.
+    name     TEXT PRIMARY KEY NOT NULL,
+    folder   TEXT NOT NULL,
+    position INTEGER NOT NULL
+  );
+`;
 
 /** Read by the dev/preview server only — effects have no browser-facing assets,
  * so unlike the scene library this root never reaches the client. */
@@ -15,82 +33,12 @@ export function effectsRoot(env: Record<string, string | undefined>): string {
   );
 }
 
-/** `data/effects.db` under the package root, or `VJ_EFFECTS_DB` when set. */
 export function effectsDbPath(): string {
-  const override = process.env.VJ_EFFECTS_DB;
-  return override ? resolve(override) : resolve(process.cwd(), 'data', 'effects.db');
-}
-
-function transaction<T>(db: DatabaseSync, work: () => T): T {
-  db.exec('BEGIN');
-  try {
-    const result = work();
-    db.exec('COMMIT');
-    return result;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  return catalogDbPath('VJ_EFFECTS_DB', 'effects.db');
 }
 
 export function openEffectsDb(path: string): DatabaseSync {
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
-  return db;
-}
-
-function columnsOf(db: DatabaseSync, table: string): string[] {
-  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  return rows.map((row) => row.name);
-}
-
-function schemaIsCurrent(db: DatabaseSync): boolean {
-  return Object.entries(TABLE_COLUMNS).every(([table, expected]) => {
-    const actual = columnsOf(db, table);
-    return actual.length === expected.length && expected.every((name) => actual.includes(name));
-  });
-}
-
-/**
- * Every row is rederivable from the effect folders, so a stale schema is dropped
- * and rebuilt rather than migrated in place — the next sync refills it. The
- * check reads the live columns instead of a `user_version` counter, so a file
- * whose version says one thing and whose tables say another still self-heals.
- */
-function migrate(db: DatabaseSync): void {
-  if (schemaIsCurrent(db)) return;
-
-  transaction(db, () => {
-    db.exec(`
-      DROP TABLE IF EXISTS effects;
-      CREATE TABLE effects (
-        -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
-        -- KEY column hold NULL, and any number of them.
-        name     TEXT PRIMARY KEY NOT NULL,
-        folder   TEXT NOT NULL,
-        -- The scan owns catalog order; this replays it. Sorting again in SQL
-        -- would reorder under a collation the scan's comparator doesn't share.
-        position INTEGER NOT NULL
-      );
-    `);
-  });
-}
-
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
-}
-
-function directoryNames(path: string): string[] {
-  return readdirSync(path, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
+  return openCatalogDb(path, TABLE_COLUMNS, DDL);
 }
 
 /** Flattening two levels into one name-keyed catalog makes a collision possible,
@@ -122,7 +70,7 @@ function scanEffectFields(root: string): EffectFields[] {
     }
   }
 
-  fields.sort((a, b) => a.name.localeCompare(b.name));
+  fields.sort(byName);
   assertNamesAreUnique(fields);
   return fields;
 }

@@ -18,6 +18,42 @@ export function routePath(req: IncomingMessage): string {
   return (req.url ?? '').split('?')[0]!.replace(/\/+$/, '');
 }
 
+const SYNC_PATH = '/sync';
+
+/** `GET ''` reads the catalog, `POST /sync` rebuilds it from disk and returns
+ * the rebuilt one; anything else falls through to the next middleware. */
+export function catalogApiHandler(config: {
+  read: (db: DatabaseSync) => unknown;
+  sync: (db: DatabaseSync) => void;
+}): (getDb: () => DatabaseSync) => Connect.NextHandleFunction {
+  return (getDb) => (req, res, next) => {
+    function respond(work: (db: DatabaseSync) => unknown): void {
+      try {
+        sendJson(res, work(getDb()));
+      } catch (err) {
+        sendError(res, 500, err);
+      }
+    }
+
+    const path = routePath(req);
+
+    if (req.method === 'POST' && path === SYNC_PATH) {
+      respond((db) => {
+        config.sync(db);
+        return config.read(db);
+      });
+      return;
+    }
+
+    if (req.method === 'GET' && path === '') {
+      respond(config.read);
+      return;
+    }
+
+    next();
+  };
+}
+
 export function sqliteApiPlugin(config: {
   name: string;
   route: string;

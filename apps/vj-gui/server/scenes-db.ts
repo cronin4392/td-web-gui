@@ -1,7 +1,8 @@
-import { readFileSync, readdirSync, statSync, mkdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname, resolve, join } from 'node:path';
+import { resolve, join } from 'node:path';
 import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../src/scenes';
+import { catalogDbPath, directoryNames, isFile, openCatalogDb, transaction } from './catalog-db';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
   scenes: ['name', 'folder', 'rank', 'dark', 'position'],
@@ -24,91 +25,36 @@ const SEEDED_TAG_RANKS: Record<string, number> = {
 
 const META_FILE = 'meta.json';
 
-/** `data/scenes.db` under the package root, or `VJ_SCENES_DB` when set. Both
- * `pnpm dev` and `pnpm db:scenes` are run from `apps/vj-gui`, so cwd is the one
- * derivation — a second one could point the CLI at a different file. */
-export function scenesDbPath(): string {
-  const override = process.env.VJ_SCENES_DB;
-  return override ? resolve(override) : resolve(process.cwd(), 'data', 'scenes.db');
-}
+const DDL = `
+  DROP TABLE IF EXISTS scene_tags;
+  DROP TABLE IF EXISTS tags;
+  DROP TABLE IF EXISTS scenes;
+  CREATE TABLE scenes (
+    -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
+    -- KEY column hold NULL, and any number of them.
+    name     TEXT PRIMARY KEY NOT NULL,
+    folder   TEXT NOT NULL,
+    rank     REAL,
+    dark     INTEGER NOT NULL,
+    position INTEGER NOT NULL
+  );
+  CREATE TABLE tags (
+    name TEXT PRIMARY KEY,
+    rank REAL
+  );
+  CREATE TABLE scene_tags (
+    scene_name TEXT NOT NULL REFERENCES scenes(name) ON DELETE CASCADE,
+    tag        TEXT NOT NULL REFERENCES tags(name) ON DELETE CASCADE,
+    PRIMARY KEY (scene_name, tag)
+  );
+`;
 
-function transaction<T>(db: DatabaseSync, work: () => T): T {
-  db.exec('BEGIN');
-  try {
-    const result = work();
-    db.exec('COMMIT');
-    return result;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+export function scenesDbPath(): string {
+  return catalogDbPath('VJ_SCENES_DB', 'scenes.db');
 }
 
 export function openScenesDb(path: string): DatabaseSync {
-  mkdirSync(dirname(path), { recursive: true });
-  const db = new DatabaseSync(path);
-  db.exec('PRAGMA journal_mode = WAL');
-  db.exec('PRAGMA foreign_keys = ON');
-  migrate(db);
-  return db;
-}
-
-function columnsOf(db: DatabaseSync, table: string): string[] {
-  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  return rows.map((row) => row.name);
-}
-
-function schemaIsCurrent(db: DatabaseSync): boolean {
-  return Object.entries(TABLE_COLUMNS).every(([table, expected]) => {
-    const actual = columnsOf(db, table);
-    return actual.length === expected.length && expected.every((name) => actual.includes(name));
-  });
-}
-
-/**
- * Every row is rederivable from the scene folders, so a stale schema is dropped
- * and rebuilt rather than migrated in place — the next sync refills it. The
- * check reads the live columns instead of a `user_version` counter, so a file
- * whose version says one thing and whose tables say another still self-heals.
- */
-function migrate(db: DatabaseSync): void {
-  if (schemaIsCurrent(db)) return;
-
-  transaction(db, () => {
-    db.exec(`
-      DROP TABLE IF EXISTS scene_tags;
-      DROP TABLE IF EXISTS tags;
-      DROP TABLE IF EXISTS scenes;
-      CREATE TABLE scenes (
-        -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
-        -- KEY column hold NULL, and any number of them.
-        name     TEXT PRIMARY KEY NOT NULL,
-        folder   TEXT NOT NULL,
-        rank     REAL,
-        dark     INTEGER NOT NULL,
-        -- The scan owns catalog order; this replays it. Sorting again in SQL
-        -- would reorder under a collation the scan's comparator doesn't share.
-        position INTEGER NOT NULL
-      );
-      CREATE TABLE tags (
-        name TEXT PRIMARY KEY,
-        rank REAL
-      );
-      CREATE TABLE scene_tags (
-        scene_name TEXT NOT NULL REFERENCES scenes(name) ON DELETE CASCADE,
-        tag        TEXT NOT NULL REFERENCES tags(name) ON DELETE CASCADE,
-        PRIMARY KEY (scene_name, tag)
-      );
-    `);
-  });
-}
-
-function isFile(path: string): boolean {
-  try {
-    return statSync(path).isFile();
-  } catch {
-    return false;
-  }
+  return openCatalogDb(path, TABLE_COLUMNS, DDL);
 }
 
 /** Sorted, so a scan and a read agree without the rows carrying an order. */
@@ -161,12 +107,9 @@ function byRank(a: { rank: number | null; name: string }, b: typeof a): number {
  */
 function scanSceneFields(root: string): SceneFields[] {
   const base = resolve(root).replace(/\\/g, '/');
-  const names = readdirSync(base, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
 
   const fields: SceneFields[] = [];
-  for (const name of names) {
+  for (const name of directoryNames(base)) {
     const folder = `${base}/${name}`;
     const metaPath = join(folder, META_FILE);
     if (!isFile(metaPath) || !isFile(join(folder, `${name}.tox`))) continue;
