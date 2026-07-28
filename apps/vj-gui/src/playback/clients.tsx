@@ -16,6 +16,7 @@ import {
   guiReadonly,
   loaderInstances,
   loaderReadonly,
+  loadToxOn,
   type GuiParams,
   type LoaderCalls,
   type LoaderId,
@@ -36,6 +37,21 @@ export type LayerConnections = Partial<Record<LayerId, TDConnection>>;
 export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
 export type { LayerTextParamName } from './wire';
+
+/**
+ * Resolves `layer` to its live connection and loads `path` on it — the one
+ * place a catalog picker's `load` callback turns a layer id into an actual
+ * TD connection. Rejects if that layer's loader process isn't connected.
+ */
+export async function loadOnLayer(
+  layer: LayerId,
+  connections: LayerConnections,
+  path: string,
+): Promise<void> {
+  const connection = connections[layer];
+  if (!connection) throw new Error(`Layer ${layer} has no connected scene process`);
+  await loadToxOn(connection, path);
+}
 
 /** `GuiClient.Provider` bound to the app's one GUI instance. */
 export function GuiProvider(props: { children: JSX.Element }): JSX.Element {

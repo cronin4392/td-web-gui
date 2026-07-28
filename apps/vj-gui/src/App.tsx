@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, type JSX } from 'solid-js';
 import { defaultLayer, guiInstance, type LayerId } from './playback/layers';
 import { loaderInstances } from './playback/wire';
-import { GuiProvider, type LayerConnections } from './playback/clients';
+import { GuiProvider, loadOnLayer, type LayerConnections } from './playback/clients';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
@@ -25,6 +25,8 @@ export function App(props: AppProps): JSX.Element {
   const [selectedLayer, setSelectedLayer] = createSignal<LayerId>(defaultLayer);
   const [layerConnections, setLayerConnections] = createSignal<LayerConnections>({});
 
+  const load = (path: string) => loadOnLayer(selectedLayer(), layerConnections(), path);
+
   return (
     <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
       {/* Eight columns for the eight loaders this grows into; two are live. */}
@@ -40,8 +42,8 @@ export function App(props: AppProps): JSX.Element {
           bound to it. */}
       <GuiProvider>
         <div class="grid grid-cols-3 gap-4">
-          <SceneSelector selectedLayer={selectedLayer()} connections={layerConnections()} />
-          <EffectSelector selectedLayer={selectedLayer()} connections={layerConnections()} />
+          <SceneSelector load={load} />
+          <EffectSelector load={load} />
           <TextSelector store={store} selectedLayer={selectedLayer()} />
         </div>
       </GuiProvider>

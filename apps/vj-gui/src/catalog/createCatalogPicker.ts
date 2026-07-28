@@ -1,8 +1,5 @@
 import { createResource, createSignal, type Accessor, type InitializedResource } from 'solid-js';
 import { TDCallError } from 'td-core';
-import type { LayerConnections } from '../playback/clients';
-import { loadToxOn } from '../playback/wire';
-import type { LayerId } from '../playback/layers';
 
 export interface CatalogPicker<T> {
   catalog: InitializedResource<T>;
@@ -19,16 +16,15 @@ function reason(error: unknown): string {
 
 /**
  * The picker state every catalog shares: the fetched catalog, a sync that
- * replaces it in place, and a load aimed at the selected layer. The catalog is
- * served by the dev/preview server, but the load goes straight to that layer's
- * own SceneLoader process — the GUI is not in that path.
+ * replaces it in place, and a load the caller has already aimed at the
+ * right destination. The catalog is served by the dev/preview server, but
+ * `config.load` goes straight to TD — the GUI is not in that path.
  */
 export function createCatalogPicker<T>(config: {
   fetch: () => Promise<T>;
   sync: () => Promise<T>;
   initialValue: T;
-  selectedLayer: Accessor<LayerId>;
-  connections: Accessor<LayerConnections>;
+  load: (path: string) => Promise<void>;
 }): CatalogPicker<T> {
   const [catalog, { mutate }] = createResource(config.fetch, { initialValue: config.initialValue });
   const [error, setError] = createSignal<string | undefined>(undefined);
@@ -49,14 +45,8 @@ export function createCatalogPicker<T>(config: {
 
   async function loadTox(path: string): Promise<void> {
     setError(undefined);
-    const layer = config.selectedLayer();
-    const connection = config.connections()[layer];
-    if (!connection) {
-      setError(`Layer ${layer} has no connected scene process`);
-      return;
-    }
     try {
-      await loadToxOn(connection, path);
+      await config.load(path);
     } catch (err) {
       setError(`Load failed: ${reason(err)}`);
     }

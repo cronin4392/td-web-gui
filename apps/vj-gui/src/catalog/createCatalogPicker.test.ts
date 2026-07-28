@@ -2,39 +2,24 @@ import { createRoot } from 'solid-js';
 import { TDCallError } from 'td-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCatalogPicker } from './createCatalogPicker';
-import type { LayerConnections } from '../playback/clients';
-import type { LayerId } from '../playback/layers';
-
-const loadToxOn = vi.hoisted(() => vi.fn());
-vi.mock('../playback/wire', () => ({ loadToxOn }));
 
 type Catalog = string[];
-
-const LAYER = 'scene1' as LayerId;
-const CONNECTION = { call: vi.fn() } as unknown as NonNullable<LayerConnections[LayerId]>;
 
 function picker(
   overrides: {
     fetch?: () => Promise<Catalog>;
     sync?: () => Promise<Catalog>;
-    connections?: LayerConnections;
+    load?: (path: string) => Promise<void>;
   } = {},
 ) {
-  const state = { connections: overrides.connections ?? { [LAYER]: CONNECTION } };
-  const api = createRoot(() =>
+  return createRoot(() =>
     createCatalogPicker<Catalog>({
       fetch: overrides.fetch ?? (() => Promise.resolve(['fetched'])),
       sync: overrides.sync ?? (() => Promise.resolve(['synced'])),
       initialValue: [],
-      selectedLayer: () => LAYER,
-      connections: () => state.connections,
+      load: overrides.load ?? (() => Promise.resolve()),
     }),
   );
-  return Object.assign(api, {
-    connect: (connections: LayerConnections) => {
-      state.connections = connections;
-    },
-  });
 }
 
 afterEach(() => {
@@ -74,42 +59,42 @@ describe('refresh', () => {
 });
 
 describe('loadTox', () => {
-  it('sends the path to the selected layer connection', async () => {
-    const p = picker();
+  it('delegates to the load callback with the given path', async () => {
+    const load = vi.fn().mockResolvedValue(undefined);
+    const p = picker({ load });
 
     await p.loadTox('C:/Effects/Blur/Blur.tox');
 
-    expect(loadToxOn).toHaveBeenCalledWith(CONNECTION, 'C:/Effects/Blur/Blur.tox');
+    expect(load).toHaveBeenCalledWith('C:/Effects/Blur/Blur.tox');
     expect(p.error()).toBeUndefined();
   });
 
-  it('names the layer and skips the call when it has no connection', async () => {
-    const p = picker({ connections: {} });
-
-    await p.loadTox('C:/Effects/Blur/Blur.tox');
-
-    expect(loadToxOn).not.toHaveBeenCalled();
-    expect(p.error()).toBe(`Layer ${LAYER} has no connected scene process`);
-  });
-
   it('surfaces a TDCallError by its code rather than its message', async () => {
-    loadToxOn.mockRejectedValueOnce(new TDCallError('no_such_tox', 'loadScene', 'boom'));
-    const p = picker();
+    const load = vi.fn().mockRejectedValue(new TDCallError('no_such_tox', 'loadScene', 'boom'));
+    const p = picker({ load });
 
     await p.loadTox('C:/gone.tox');
 
     expect(p.error()).toBe('Load failed: no_such_tox');
   });
 
-  it('clears the stale error once the layer reconnects', async () => {
-    const p = picker({ connections: {} });
+  it('surfaces a plain load failure by its message', async () => {
+    const load = vi.fn().mockRejectedValue(new Error('Layer A has no connected scene process'));
+    const p = picker({ load });
+
+    await p.loadTox('C:/a.tox');
+
+    expect(p.error()).toBe('Load failed: Layer A has no connected scene process');
+  });
+
+  it('clears a stale error on the next successful load', async () => {
+    const load = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(undefined);
+    const p = picker({ load });
+
     await p.loadTox('C:/a.tox');
     expect(p.error()).toBeDefined();
 
-    p.connect({ [LAYER]: CONNECTION });
     await p.loadTox('C:/b.tox');
-
-    expect(loadToxOn).toHaveBeenCalledWith(CONNECTION, 'C:/b.tox');
     expect(p.error()).toBeUndefined();
   });
 });

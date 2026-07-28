@@ -1,21 +1,15 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import type { LayerConnections } from '@/playback/clients';
-import type { LayerId } from '@/playback/layers';
 import { fetchCatalog, syncCatalog } from './scenes-api';
 import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { PickerToolbar } from './PickerToolbar';
 
-export function SceneSelector(props: {
-  selectedLayer: LayerId;
-  connections: LayerConnections;
-}): JSX.Element {
+export function SceneSelector(props: { load: (path: string) => Promise<void> }): JSX.Element {
   const picker = createCatalogPicker<Catalog>({
     fetch: fetchCatalog,
     sync: syncCatalog,
     initialValue: emptyCatalog(),
-    selectedLayer: () => props.selectedLayer,
-    connections: () => props.connections,
+    load: props.load,
   });
 
   const scenes = () => picker.catalog().scenes;

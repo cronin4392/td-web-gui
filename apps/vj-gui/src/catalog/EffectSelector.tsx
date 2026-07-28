@@ -1,21 +1,15 @@
 import { For, type JSX } from 'solid-js';
-import type { LayerConnections } from '@/playback/clients';
-import type { LayerId } from '@/playback/layers';
 import { fetchEffectCatalog, syncEffectCatalog } from './effects-api';
 import type { EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { PickerToolbar } from './PickerToolbar';
 
-export function EffectSelector(props: {
-  selectedLayer: LayerId;
-  connections: LayerConnections;
-}): JSX.Element {
+export function EffectSelector(props: { load: (path: string) => Promise<void> }): JSX.Element {
   const picker = createCatalogPicker<EffectCatalog>({
     fetch: fetchEffectCatalog,
     sync: syncEffectCatalog,
     initialValue: [],
-    selectedLayer: () => props.selectedLayer,
-    connections: () => props.connections,
+    load: props.load,
   });
 
   return (
