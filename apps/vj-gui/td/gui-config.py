@@ -29,7 +29,7 @@ REGISTRY = {
         "op": "/GUI/GUI",
         "par": "Selectedloader",
         "type": "string",
-    }
+    },
 }
 
 
@@ -49,4 +49,13 @@ WEBRTC = None
 
 STREAMS = {}
 
-READOUTS = {}
+READOUTS = {
+    # "sceneLibraryTags": {
+    #     "op": "/GUI/GUI/Main/ScenePickerNew/null_tags",
+    #     "type": "string[][]",
+    # },
+    "sceneLibrary": {
+        "op": "/GUI/GUI/Main/ScenePickerNew/null_all_scenes",
+        "type": "string[][]",
+    }
+}

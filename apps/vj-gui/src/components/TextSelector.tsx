@@ -41,7 +41,7 @@ export function TextSelector(props: { store: ReturnType<typeof createVjGuiStore>
   );
 
   return (
-    <>
+    <div>
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
       <Show
@@ -87,6 +87,6 @@ export function TextSelector(props: { store: ReturnType<typeof createVjGuiStore>
           </Show>
         </div>
       </section>
-    </>
+    </div>
   );
 }

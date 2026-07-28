@@ -13,6 +13,7 @@ import type { JSX } from 'solid-js';
 import { createTDClient } from 'td-core';
 import {
   guiInstance,
+  guiReadonly,
   sceneInstances,
   sceneReadonly,
   type SceneInstanceId,
@@ -32,7 +33,7 @@ export type { SceneId, SceneTextParamName } from './td.config';
 /** `GuiClient.Provider` bound to the app's one GUI instance. */
 export function GuiProvider(props: { children: JSX.Element }): JSX.Element {
   return (
-    <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id}>
+    <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id} readonly={[...guiReadonly]}>
       {props.children}
     </GuiClient.Provider>
   );

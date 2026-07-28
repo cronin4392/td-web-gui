@@ -74,7 +74,13 @@ export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
 export interface VjGuiParams extends Record<SceneTextParamName, string> {
   /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
   selectedLoader: string;
+  /** The scene library DAT — header row `name folder tag rank`, then one row
+   * per scene. A readout, never written from here. */
+  sceneLibrary: string[][];
 }
+
+/** GUI readout names, declared read-only so bound controls render disabled. */
+export const guiReadonly = ['sceneLibrary'] as const satisfies readonly (keyof VjGuiParams)[];
 
 /**
  * Param schema shared by **both** scene instances — the TS half of the contract

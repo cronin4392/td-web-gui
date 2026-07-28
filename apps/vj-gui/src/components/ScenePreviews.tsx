@@ -4,7 +4,7 @@ import { SceneClient, SceneProvider } from '../td';
 
 export function ScenePreviews(): JSX.Element {
   return (
-    <div class="grid shrink-0 grid-cols-8 gap-2">
+    <div class="grid grid-cols-8 gap-2">
       <For each={sceneInstances}>{(scene) => <ScenePanel scene={scene.id} />}</For>
     </div>
   );

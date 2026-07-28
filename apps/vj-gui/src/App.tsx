@@ -5,6 +5,7 @@ import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
 import { ScenePreviews } from './components/ScenePreviews';
+import { SceneSelector } from './components/SceneSelector';
 import { TextSelector } from './components/TextSelector';
 
 export interface AppProps {
@@ -17,14 +18,17 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => store.dispose());
 
   return (
-    <main class="flex h-screen flex-col px-2 pt-2">
+    <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
       {/* Eight columns for the eight loaders this grows into; two are live. */}
       <ScenePreviews />
       {/* The GUI project is a separate process from the scenes, so its params
           live behind their own provider — the text selector is the only thing
           bound to it. */}
       <GuiProvider>
-        <TextSelector store={store} />
+        <div class="grid grid-cols-3 gap-4">
+          <SceneSelector />
+          <TextSelector store={store} />
+        </div>
       </GuiProvider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
