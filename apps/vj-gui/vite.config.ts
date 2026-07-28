@@ -2,11 +2,11 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import tailwindcss from '@tailwindcss/vite';
-import { loadDotEnv } from './server/env';
-import { vjGuiEffectsApiPlugin } from './server/effects-api-plugin';
-import { vjGuiLibraryApiPlugin } from './server/library-api-plugin';
-import { vjGuiScenesApiPlugin } from './server/scenes-api-plugin';
-import { vjGuiThumbnailsPlugin } from './server/thumbnails-plugin';
+import { loadDotEnv } from './server/platform/env';
+import { vjGuiEffectsApiPlugin } from './server/catalog/effects-api-plugin';
+import { vjGuiLibraryApiPlugin } from './server/wordbank/library-api-plugin';
+import { vjGuiScenesApiPlugin } from './server/catalog/scenes-api-plugin';
+import { vjGuiThumbnailsPlugin } from './server/catalog/thumbnails-plugin';
 
 loadDotEnv();
 

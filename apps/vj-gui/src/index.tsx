@@ -1,6 +1,6 @@
 import { render } from 'solid-js/web';
 import { App } from './App';
-import { fetchLibrary } from './library-api';
+import { fetchLibrary } from './wordbank/library-api';
 import './index.css';
 
 const root = document.getElementById('root');

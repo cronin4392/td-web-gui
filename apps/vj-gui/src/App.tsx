@@ -1,13 +1,13 @@
 import { createSignal, onCleanup, type JSX } from 'solid-js';
-import { defaultLayer, guiInstance, sceneInstances, type SceneId } from './td.config';
-import { GuiProvider, type SceneConnections } from './td';
-import { createVjGuiStore } from './store';
-import { saveLibrary } from './library-api';
+import { defaultLayer, guiInstance, sceneInstances, type SceneId } from './playback/layers';
+import { GuiProvider, type SceneConnections } from './playback/clients';
+import { createVjGuiStore } from './wordbank/store';
+import { saveLibrary } from './wordbank/library-api';
 import type { Library } from '@domain/wordbank/wordbank';
-import { EffectSelector } from './components/SceneEffectSelectors/EffectSelector';
-import { LayerPreviews } from './components/LayerPreviews';
-import { SceneSelector } from './components/SceneEffectSelectors/SceneSelector';
-import { TextSelector } from './components/TextSelector/TextSelector';
+import { EffectSelector } from './catalog/EffectSelector';
+import { LayerPreviews } from './playback/LayerPreviews';
+import { SceneSelector } from './catalog/SceneSelector';
+import { TextSelector } from './wordbank/TextSelector';
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */
