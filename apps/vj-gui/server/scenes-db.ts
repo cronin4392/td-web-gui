@@ -2,11 +2,18 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { resolve, join } from 'node:path';
 import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../src/scenes';
-import { catalogDbPath, directoryNames, isFile, openCatalogDb, transaction } from './catalog-db';
+import {
+  byName,
+  catalogDbPath,
+  directoryNames,
+  isFile,
+  openCatalogDb,
+  transaction,
+} from './catalog-db';
 import { requiredEnv } from './env';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
-  scenes: ['name', 'folder', 'rank', 'dark', 'position'],
+  scenes: ['name', 'folder', 'rank', 'dark'],
   scene_tags: ['scene_name', 'tag'],
   tags: ['name', 'rank'],
 };
@@ -33,11 +40,10 @@ const DDL = `
   CREATE TABLE scenes (
     -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
     -- KEY column hold NULL, and any number of them.
-    name     TEXT PRIMARY KEY NOT NULL,
-    folder   TEXT NOT NULL,
-    rank     REAL,
-    dark     INTEGER NOT NULL,
-    position INTEGER NOT NULL
+    name   TEXT PRIMARY KEY NOT NULL,
+    folder TEXT NOT NULL,
+    rank   REAL,
+    dark   INTEGER NOT NULL
   );
   CREATE TABLE tags (
     name TEXT PRIMARY KEY,
@@ -96,13 +102,14 @@ function parseMeta(raw: string, folderName: string): Omit<SceneFields, 'name' | 
   };
 }
 
-/** Highest rank first; an absent rank sorts below every ranked scene. */
+/** Highest rank first; an absent rank sorts below every ranked scene. Ties break
+ * on name, so a scan and a read agree without the rows carrying an order. */
 function byRank(a: { rank: number | null; name: string }, b: typeof a): number {
   if (a.rank === null || b.rank === null) {
-    if (a.rank === b.rank) return a.name.localeCompare(b.name);
+    if (a.rank === b.rank) return byName(a, b);
     return a.rank === null ? 1 : -1;
   }
-  return b.rank - a.rank || a.name.localeCompare(b.name);
+  return b.rank - a.rank || byName(a, b);
 }
 
 /**
@@ -147,13 +154,13 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
     for (const name of [...tagNames].sort()) insertTag.run(name, SEEDED_TAG_RANKS[name] ?? null);
 
     const insertScene = db.prepare(
-      'INSERT INTO scenes (name, folder, rank, dark, position) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO scenes (name, folder, rank, dark) VALUES (?, ?, ?, ?)',
     );
     const insertSceneTag = db.prepare('INSERT INTO scene_tags (scene_name, tag) VALUES (?, ?)');
 
     let tags = 0;
-    for (const [position, scene] of scenes.entries()) {
-      insertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0, position);
+    for (const scene of scenes) {
+      insertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0);
       for (const tag of scene.tags) {
         insertSceneTag.run(scene.name, tag);
         tags += 1;
@@ -164,9 +171,14 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
 }
 
 export function readScenes(db: DatabaseSync): Scene[] {
-  const rows = db
-    .prepare('SELECT name, folder, rank, dark FROM scenes ORDER BY position')
-    .all() as { name: string; folder: string; rank: number | null; dark: number }[];
+  const rows = (
+    db.prepare('SELECT name, folder, rank, dark FROM scenes').all() as {
+      name: string;
+      folder: string;
+      rank: number | null;
+      dark: number;
+    }[]
+  ).sort(byRank);
 
   const tags = new Map<string, string[]>();
   const tagRows = db

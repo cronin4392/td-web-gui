@@ -119,7 +119,7 @@ describe('syncScenes', () => {
     expect(readScenes(db)).toEqual(scanSceneFolders(root));
   });
 
-  it('breaks a rank tie by the scan order, not SQLite collation order', () => {
+  it('breaks a rank tie through the scan comparator, not SQLite collation', () => {
     scene('apple', { tags: [], rank: 5 });
     scene('Banana', { tags: [], rank: 5 });
     scene('Ähnlich', { tags: [], rank: 5 });

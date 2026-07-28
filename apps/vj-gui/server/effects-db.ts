@@ -12,7 +12,7 @@ import {
 import { requiredEnv } from './env';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
-  effects: ['name', 'folder', 'position'],
+  effects: ['name', 'folder'],
 };
 
 const DDL = `
@@ -20,9 +20,8 @@ const DDL = `
   CREATE TABLE effects (
     -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
     -- KEY column hold NULL, and any number of them.
-    name     TEXT PRIMARY KEY NOT NULL,
-    folder   TEXT NOT NULL,
-    position INTEGER NOT NULL
+    name   TEXT PRIMARY KEY NOT NULL,
+    folder TEXT NOT NULL
   );
 `;
 
@@ -86,18 +85,16 @@ export function syncEffects(db: DatabaseSync, root: string): { effects: number }
 
   return transaction(db, () => {
     db.exec('DELETE FROM effects');
-    const insert = db.prepare('INSERT INTO effects (name, folder, position) VALUES (?, ?, ?)');
-    for (const [position, effect] of effects.entries()) {
-      insert.run(effect.name, effect.folder, position);
-    }
+    const insert = db.prepare('INSERT INTO effects (name, folder) VALUES (?, ?)');
+    for (const effect of effects) insert.run(effect.name, effect.folder);
     return { effects: effects.length };
   });
 }
 
 export function readEffects(db: DatabaseSync): EffectCatalog {
-  const rows = db.prepare('SELECT name, folder FROM effects ORDER BY position').all() as {
+  const rows = db.prepare('SELECT name, folder FROM effects').all() as {
     name: string;
     folder: string;
   }[];
-  return rows.map((row): Effect => effectFrom(row));
+  return rows.map((row): Effect => effectFrom(row)).sort(byName);
 }

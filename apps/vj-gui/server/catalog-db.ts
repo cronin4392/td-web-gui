@@ -69,9 +69,10 @@ export function directoryNames(path: string): string[] {
     .map((entry) => entry.name);
 }
 
-/** The scan owns catalog order and the `position` column replays it; sorting
- * again in SQL would reorder under a collation the scan's comparator does not
- * share. */
+/** The one catalog comparator: a scan and a read must sort through the same
+ * function, never once here and once in an `ORDER BY`. No SQLite collation
+ * matches `localeCompare` — BINARY sorts every capital ahead of every
+ * lowercase, and NOCASE still strands non-ascii names at the end. */
 export function byName(a: { name: string }, b: { name: string }): number {
   return a.name.localeCompare(b.name);
 }

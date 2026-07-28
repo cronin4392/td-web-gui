@@ -108,7 +108,7 @@ describe('syncEffects', () => {
     expect(readEffects(db)).toEqual(scanEffectFolders(root));
   });
 
-  it('serves mixed-case and non-ascii names in the scan order, not SQLite collation order', () => {
+  it('sorts mixed-case and non-ascii names through the scan comparator, not SQLite collation', () => {
     effect('3 Effect', 'apple');
     effect('3 Effect', 'Banana');
     effect('3 Effect', 'Ähnlich');
@@ -186,11 +186,11 @@ describe('schema', () => {
 
   it('rejects a duplicate or null name, backstopping the scan', () => {
     const db = open();
-    const insert = db.prepare('INSERT INTO effects (name, folder, position) VALUES (?, ?, ?)');
-    insert.run('Blur', '/a', 0);
+    const insert = db.prepare('INSERT INTO effects (name, folder) VALUES (?, ?)');
+    insert.run('Blur', '/a');
 
-    expect(() => insert.run('Blur', '/b', 1)).toThrow(/UNIQUE/);
-    expect(() => insert.run(null, '/c', 2)).toThrow(/NOT NULL/);
+    expect(() => insert.run('Blur', '/b')).toThrow(/UNIQUE/);
+    expect(() => insert.run(null, '/c')).toThrow(/NOT NULL/);
   });
 
   it('reopens without losing rows', () => {
