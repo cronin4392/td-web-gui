@@ -3,34 +3,24 @@ Parameter Execute DAT — TD -> web bridge.
 
 Watches the backing operators and pushes each changed, registered parameter to
 all connected browsers via the Web Server DAT's callbacks module. Edits that
-arrive from the web flow through here too, because onWebSocketReceiveText sets
+arrive from the web flow through here too, since onWebSocketReceiveText sets
 par.val — so this is the single broadcast path for both web- and TD-originated
 changes.
 
-Nothing here is project specific — drop this into any project unchanged. The
-name of the callbacks DAT comes from CALLBACKS in the config DAT, which the
-WebGuiServer component loads from its Config File par; see config-template.py.
+Nothing here is project specific — drop this into any project unchanged. You
+do not load this file into a DAT by hand: WebGuiServerExt generates one
+Parameter Execute DAT per operator the REGISTRY references, resolved inside
+the component's Td Core Dir par so editing this file hot-reloads all of them.
 
-You do not load this file into a DAT by hand, and you do not configure one.
-WebGuiServerExt generates one Parameter Execute DAT per operator the REGISTRY
-references and sets each one's OPs, Parameters, Custom, Built-In, and Value
-Change from the registry. It is resolved inside the component's Td Core Dir par,
-and the generated DATs sync their text from it — so editing this file hot-reloads
-all of them at once.
-
-Deliberately implemented here: only onValueChange. Pulses raise On Pulse rather
-than Value Change and carry no state to broadcast, so pulse entries get no watcher
-at all — see webgui-server-ext.py.
+Only onValueChange is implemented. Pulses raise On Pulse rather than Value
+Change and carry no state to broadcast, so pulse entries get no watcher at all.
 """
 
 from typing import Any, List
 
 
 def _webgui():
-    """The WebGuiServer component, via its global OP shortcut.
-
-    A shortcut rather than a path, so this file resolves it wherever it's dropped.
-    """
+    """The WebGuiServer component, via its global OP shortcut."""
     comp = getattr(op, "WebGuiServer", None)
     if comp is None:
         raise RuntimeError(
@@ -50,16 +40,9 @@ def _config():
 
 
 def _callbacks():
-    # Resolved from inside WebGuiServer, not from beside this DAT: the callbacks
-    # DAT lives in the component, while this DAT lives wherever the operators it
-    # watches are. webserver-callbacks.py resolves CALLBACKS the same way, so a
-    # bare name means the same thing in both scripts.
     name = _config().CALLBACKS
     dat = _webgui().op(name)
     if dat is None:
-        # Raise rather than return None. A missing callbacks DAT means every
-        # TD-side edit is dropped on the floor, and the old silent return made
-        # that indistinguishable from a working bridge with nothing to say.
         raise RuntimeError(
             "parameter-execute: WebGuiServer has no DAT '%s' - "
             "check CALLBACKS in the config DAT" % name
