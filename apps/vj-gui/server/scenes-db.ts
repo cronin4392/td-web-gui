@@ -4,7 +4,7 @@ import { dirname, resolve, join } from 'node:path';
 import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../src/scenes';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
-  scenes: ['name', 'folder', 'rank', 'dark'],
+  scenes: ['name', 'folder', 'rank', 'dark', 'position'],
   scene_tags: ['scene_name', 'tag'],
   tags: ['name', 'rank'],
 };
@@ -80,10 +80,15 @@ function migrate(db: DatabaseSync): void {
       DROP TABLE IF EXISTS tags;
       DROP TABLE IF EXISTS scenes;
       CREATE TABLE scenes (
-        name   TEXT PRIMARY KEY,
-        folder TEXT NOT NULL,
-        rank   REAL,
-        dark   INTEGER NOT NULL
+        -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
+        -- KEY column hold NULL, and any number of them.
+        name     TEXT PRIMARY KEY NOT NULL,
+        folder   TEXT NOT NULL,
+        rank     REAL,
+        dark     INTEGER NOT NULL,
+        -- The scan owns catalog order; this replays it. Sorting again in SQL
+        -- would reorder under a collation the scan's comparator doesn't share.
+        position INTEGER NOT NULL
       );
       CREATE TABLE tags (
         name TEXT PRIMARY KEY,
@@ -193,13 +198,13 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
     for (const name of [...tagNames].sort()) insertTag.run(name, SEEDED_TAG_RANKS[name] ?? null);
 
     const insertScene = db.prepare(
-      'INSERT INTO scenes (name, folder, rank, dark) VALUES (?, ?, ?, ?)',
+      'INSERT INTO scenes (name, folder, rank, dark, position) VALUES (?, ?, ?, ?, ?)',
     );
     const insertSceneTag = db.prepare('INSERT INTO scene_tags (scene_name, tag) VALUES (?, ?)');
 
     let tags = 0;
-    for (const scene of scenes) {
-      insertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0);
+    for (const [position, scene] of scenes.entries()) {
+      insertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0, position);
       for (const tag of scene.tags) {
         insertSceneTag.run(scene.name, tag);
         tags += 1;
@@ -211,7 +216,7 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
 
 export function readScenes(db: DatabaseSync): Scene[] {
   const rows = db
-    .prepare('SELECT name, folder, rank, dark FROM scenes ORDER BY rank IS NULL, rank DESC, name')
+    .prepare('SELECT name, folder, rank, dark FROM scenes ORDER BY position')
     .all() as { name: string; folder: string; rank: number | null; dark: number }[];
 
   const tags = new Map<string, string[]>();

@@ -119,6 +119,18 @@ describe('syncScenes', () => {
     expect(readScenes(db)).toEqual(scanSceneFolders(root));
   });
 
+  it('breaks a rank tie by the scan order, not SQLite collation order', () => {
+    scene('apple', { tags: [], rank: 5 });
+    scene('Banana', { tags: [], rank: 5 });
+    scene('Ähnlich', { tags: [], rank: 5 });
+
+    const db = open();
+    syncScenes(db, root);
+
+    expect(readScenes(db)).toEqual(scanSceneFolders(root));
+    expect(readScenes(db).map((s) => s.name)).toEqual(['Ähnlich', 'apple', 'Banana']);
+  });
+
   it('is deterministic — a second run leaves the same rows', () => {
     scene('One', { tags: ['a', 'b'], rank: 5 });
     scene('Two', { tags: ['a'], rank: 4 });
