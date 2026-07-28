@@ -9,6 +9,9 @@ Speaks the WebSocket wire contract the web app expects:
         update            -> apply param writes
         pulse             -> fire a momentary param (par.pulse()), no reply
         ping              -> pong
+        call              -> result   (invoke a named HANDLERS entry; symmetric --
+                                        TD also sends `call` to invoke a web-registered
+                                        handler, via notify()/call() below)
         rtc-offer         -> drive the WebRTC DAT to answer (video)
         rtc-answer        -> apply the browser's answer to a TD-initiated offer
         rtc-ice           -> add a remote ICE candidate
@@ -25,6 +28,18 @@ Param-scoped failures reply with an `error` carrying the offending name as
                               READOUTS entry, which is TD -> web only
         param_type_mismatch   the value doesn't fit the entry's declared wire type:
                               wrong JSON type, wrong array length, unknown menu key
+
+Call failures reply with a `result` carrying `error: {code, message}` instead
+of `value` -- deliberately not the `error` message above, since these are
+scoped to one call rather than the connection:
+
+        unknown_handler        no such name in HANDLERS
+        handler_error           the handler raised (see the Textport for the traceback)
+        result_not_serializable the handler's return value isn't JSON-serializable
+
+`call_timeout` / `call_disconnected` / `call_congested` never appear on this
+wire -- each is raised locally by whichever side is waiting, for a reply that
+never came or a send that never went out.
 
 Two maps feed the wire, sharing one namespace: REGISTRY (parameters, read AND
 written, snapshot + broadcast) and READOUTS (values read straight out of a
@@ -121,6 +136,12 @@ def _readouts():
     # getattr rather than attribute access: READOUTS arrived after REGISTRY,
     # and a config written before it is still a valid params-only project.
     return getattr(_config(), "READOUTS", None) or {}
+
+
+def _handlers():
+    # getattr rather than attribute access, matching _webrtc()/_streams(): HANDLERS
+    # arrived after REGISTRY/READOUTS, and a config predating it is still valid.
+    return getattr(_config(), "HANDLERS", None) or {}
 
 
 def _remember(dat):
@@ -640,6 +661,162 @@ def _report(client, name, problem):
     _send(client, {"type": "error", "code": code, "message": detail, "ref": name})
 
 
+# ── calls (named-handler invocation, both directions) ─────────────────────────
+
+# Pending TD -> web calls this module is awaiting a `result` for:
+# {id: {'on_result': fn, 'on_error': fn, 'timeout': seconds, 'client': id}}.
+# Web -> TD calls need no such table -- that direction replies inline, in the
+# same callback that received the `call`.
+_pending_calls = {}
+_call_counter = 0
+
+
+def _next_call_id():
+    global _call_counter
+    _call_counter += 1
+    return "td-%d" % _call_counter
+
+
+def _handle_call(client, message):
+    """Web -> TD: run the HANDLERS entry named in the inbound `call`, replying
+    `result` when it carried an `id` (omitted entirely for fire-and-forget).
+    A handler's exception never escapes to the caller -- printed here (so it
+    lands in the Textport) and turned into a `handler_error` reply instead."""
+    name = message.get("name")
+    call_id = message.get("id")
+    fn = _handlers().get(name)
+    if fn is None:
+        if call_id:
+            _send(client, {"type": "result", "id": call_id, "error": {"code": "unknown_handler"}})
+        return
+    try:
+        value = fn(message.get("args"))
+    except Exception as exc:
+        import traceback
+
+        # Full traceback to the Textport; only the exception text to the wire.
+        traceback.print_exc()
+        if call_id:
+            _send(
+                client,
+                {
+                    "type": "result",
+                    "id": call_id,
+                    "error": {"code": "handler_error", "message": str(exc) or type(exc).__name__},
+                },
+            )
+        return
+    if not call_id:
+        return
+    try:
+        json.dumps(value)
+    except Exception:
+        _send(
+            client, {"type": "result", "id": call_id, "error": {"code": "result_not_serializable"}}
+        )
+        return
+    reply = {"type": "result", "id": call_id}
+    if value is not None:
+        reply["value"] = value
+    _send(client, reply)
+
+
+def _handle_result(message):
+    """TD -> web: settle a pending call() this module sent earlier. A miss
+    (unknown id) means it already expired via expire_call, was abandoned when
+    its client disconnected, or belongs to a reconnect this module never
+    tracked -- either way, nothing to do."""
+    pending = _pending_calls.pop(message.get("id"), None)
+    if pending is None:
+        return
+    error = message.get("error")
+    if error:
+        on_error = pending.get("on_error")
+        if on_error:
+            on_error(error.get("code"), error.get("message"))
+    else:
+        on_result = pending.get("on_result")
+        if on_result:
+            on_result(message.get("value"))
+
+
+def expire_call(call_id):
+    """Deferred timeout for a call() with no reply within its window. Named by
+    the run() string in call() below, so it can't take the module-private
+    underscore."""
+    pending = _pending_calls.pop(call_id, None)
+    if pending is None:
+        return  # already answered
+    on_error = pending.get("on_error")
+    if on_error:
+        on_error("call_timeout", "no reply within %.1fs" % pending.get("timeout", 10.0))
+
+
+def _abandon_calls(client):
+    """Reject every pending call awaiting a reply from `client`, mirroring the
+    web side's `calls.reset()` on socket close -- otherwise a call to a browser
+    that has gone away sits silent until its timeout."""
+    for call_id in [cid for cid, p in _pending_calls.items() if p.get("client") == client]:
+        pending = _pending_calls.pop(call_id)
+        on_error = pending.get("on_error")
+        if on_error:
+            on_error("call_disconnected", "client disconnected before replying")
+
+
+def notify(name, args=None, client=None):
+    """Invoke a named handler the web page registered, with no reply expected.
+    Broadcasts to every connected client, or sends to one `client` socket id."""
+    message = {"type": "call", "name": name}
+    if args is not None:
+        message["args"] = args
+    if client is not None:
+        _send(client, message)
+    else:
+        _broadcast(message)
+
+
+def call(name, args=None, on_result=None, on_error=None, client=None, timeout=10.0):
+    """Invoke a named handler the web page registered, replying via callback --
+    never blocking, since TD's main thread runs the frame and waiting
+    synchronously for a browser reply would freeze it (see
+    .claude/rules/td-python.md § Threading).
+
+    Targets one client: `client` if given, else the sole connected client. 0
+    or more than 1 connected clients calls `on_error('call_disconnected', ...)`
+    immediately, consistent with the single-viewer stance the WebRTC signaling
+    above already takes (see docs/design-notes.md).
+    """
+    target = client
+    if target is None:
+        if len(clients) != 1:
+            if on_error:
+                on_error(
+                    "call_disconnected",
+                    "%d client(s) connected; call() needs exactly one" % len(clients),
+                )
+            return
+        target = next(iter(clients))
+    call_id = _next_call_id()
+    message = {"type": "call", "id": call_id, "name": name}
+    if args is not None:
+        message["args"] = args
+    _pending_calls[call_id] = {
+        "on_result": on_result,
+        "on_error": on_error,
+        "timeout": timeout,
+        "client": target,
+    }
+    _send(target, message)
+    dat = _webgui().op(_config().CALLBACKS)
+    if dat is None:
+        return  # nothing to address the deferred expiry to; a lost reply then waits forever
+    run(
+        "op(%r).module.expire_call(%r)" % (dat.path, call_id),
+        delayMilliSeconds=timeout * 1000,
+        wallTime=True,
+    )
+
+
 # ── WebRTC signaling ──────────────────────────────────────────────────────────
 
 
@@ -1004,6 +1181,7 @@ def onWebSocketOpen(dat: webserverDAT, client: str, uri: str):
 
 def onWebSocketClose(dat: webserverDAT, client: str):
     clients.discard(client)
+    _abandon_calls(client)
     _close_peer(client)
     return
 
@@ -1065,6 +1243,12 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 
     elif mtype == "rtc-ice":
         _handle_rtc_ice(client, message)
+
+    elif mtype == "call":
+        _handle_call(client, message)
+
+    elif mtype == "result":
+        _handle_result(message)
 
     # Unknown types ignored, so a newer web client can add messages without
     # breaking an older project.

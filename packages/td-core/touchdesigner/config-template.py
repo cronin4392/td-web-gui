@@ -161,3 +161,26 @@ WEBRTC = None
 STREAMS = {
     # 'main': {'source': '/project1/render_out', 'label': 'Main'},
 }
+
+
+# ── Handlers (optional) ──────────────────────────────────────────────────────
+
+# friendly call name -> `fn(args) -> JSON-serializable`, invoked by the web via
+# `await TD.call('name', args)`. Called inside a try/except: a raised
+# exception prints to the Textport and replies `handler_error` rather than
+# ever escaping the socket. `args` is whatever JSON the web sent (or None); the
+# return value must be JSON-serializable or the reply is `result_not_serializable`.
+#
+#   def _print(args):
+#       print("web says:", (args or {}).get("text", ""))
+#       return {"ok": True}
+#
+#   HANDLERS = {"print": _print}
+#
+# This is one-way (web -> TD) invocation. The other direction — TD invoking a
+# handler the web page registered via `createTDHandler`/`connection.handle()`
+# — needs no registry here: call `parent.WebGuiServer.Notify('name', args)`
+# for fire-and-forget, or `parent.WebGuiServer.Call('name', args, on_result=fn)`
+# for a reply, from anywhere in project code. See docs/touchdesigner-setup.md
+# § Handlers.
+HANDLERS = {}

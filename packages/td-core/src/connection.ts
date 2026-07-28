@@ -54,15 +54,30 @@
  *    socket, so `createTDVideoStream` observes inbound messages through this hook
  *    and sends via `send()`. The connection itself stays ignorant of peers: it
  *    forwards the signaling `type`s untouched.
+ *
+ * ## Calls
+ *  - **`call(name, args?, opts?)`** — invoke a named TD handler, awaiting its
+ *    `result`. Same disconnected/backpressure guards as `pulse`, plus a
+ *    `callTimeout` watchdog; every pending call rejects with `call_disconnected`
+ *    on socket close (see ./calls). **`notify(name, args?)`** is the
+ *    fire-and-forget form — same guards, no pending entry. **`handle(name, fn)`**
+ *    registers a handler for a `call` TD sends this way.
  */
 
 import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
+import {
+  createCallRegistry,
+  type CallHandler,
+  type CallOptions,
+  type CallSendResult,
+} from './calls';
 import { defaultScheduler, type TDScheduler } from './scheduler';
 import {
   parse,
   PROTOCOL_VERSION,
   type ClientMessage,
   type ErrorMessage,
+  type JsonValue,
   type MenuOption,
   type ParamMap,
   type ParamValue,
@@ -197,6 +212,8 @@ export interface TDConnectionOptions {
   heartbeat?: HeartbeatOptions | false;
   /** Backpressure thresholds. */
   backpressure?: BackpressureOptions;
+  /** Timeout for an outbound `call()` awaiting its `result` (ms). Default 10000. */
+  callTimeout?: number;
   /** Jitter source for backoff. Defaults to `Math.random`; injected in tests. */
   random?: () => number;
   /**
@@ -250,6 +267,26 @@ export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string
    * while disconnected, like any other send.
    */
   requestMenus: () => void;
+  /**
+   * Invoke a named handler on TD, awaiting its `result`. Rejects with a
+   * {@link TDCallError} on `unknown_handler`/`handler_error`/
+   * `result_not_serializable` (from TD), `call_timeout` (no reply within
+   * `callTimeout`), `call_disconnected` (dropped while not open, or the socket
+   * closed while awaiting), or `call_congested` (backpressure).
+   */
+  call: (name: string, args?: JsonValue, opts?: CallOptions) => Promise<JsonValue | undefined>;
+  /**
+   * Same as `call`, but fire-and-forget: sends a `call` with no `id` and
+   * creates no pending entry. Follows `pulse`'s drop-and-debug-log behaviour
+   * while disconnected or backpressured, since there is no Promise to settle.
+   */
+  notify: (name: string, args?: JsonValue) => void;
+  /**
+   * Register a handler for a named `call` TD sends this way. Returns an
+   * unregister fn (mirrors `subscribe`); registering under a name already
+   * bound replaces the previous handler.
+   */
+  handle: (name: string, fn: CallHandler) => () => void;
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void;
   /**
@@ -275,6 +312,7 @@ const DEFAULT_PING_INTERVAL = 5_000;
 const DEFAULT_PONG_TIMEOUT = 10_000;
 const DEFAULT_HIGH_WATER_MARK = 1 << 20; // 1 MiB
 const DEFAULT_CONGESTION_TIMEOUT = 5_000;
+const DEFAULT_CALL_TIMEOUT = 10_000;
 
 export function createTDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>>(
   url: string,
@@ -296,6 +334,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
 
   const highWaterMark = options.backpressure?.highWaterMark ?? DEFAULT_HIGH_WATER_MARK;
   const congestionTimeout = options.backpressure?.timeout ?? DEFAULT_CONGESTION_TIMEOUT;
+  const callTimeout = options.callTimeout ?? DEFAULT_CALL_TIMEOUT;
 
   const [status, setStatus] = createSignal<TDStatus>('connecting');
   const [congested, setCongested] = createSignal(false);
@@ -385,23 +424,30 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   }
 
   /**
-   * Send an `update`, honoring the disconnected-drop rule (3.6) and backpressure
-   * (3.5). Dropping is correct for both: the next frame's coalesced value
-   * supersedes a dropped update, and a stale value replayed after reconnect
-   * would only fight the snapshot resync.
+   * The one guarded send path: disconnected-drop (3.6) and backpressure (3.5)
+   * for every message that isn't raw control traffic. Reports the outcome so
+   * `calls.ts` can reject a pending `call()` with the matching code, where
+   * `update`/`pulse` just drop — the next frame's coalesced value supersedes a
+   * dropped update, and a stale value replayed after reconnect would only fight
+   * the snapshot resync.
    */
-  function sendUpdate(params: ParamMap) {
+  function guardedSend(message: ClientMessage, label: string): CallSendResult {
     if (!socket || socket.readyState !== socket.OPEN) {
-      console.debug('[td-core] dropping update while disconnected', params);
-      return;
+      console.debug(`[td-core] dropping ${label} while disconnected`, message);
+      return 'disconnected';
     }
     if ((socket.bufferedAmount ?? 0) > highWaterMark) {
       markCongested();
-      console.debug('[td-core] backpressure: dropping update', params);
-      return;
+      console.debug(`[td-core] backpressure: dropping ${label}`, message);
+      return 'congested';
     }
-    socket.send(JSON.stringify({ type: 'update', params }));
+    socket.send(JSON.stringify(message));
     clearCongested();
+    return 'sent';
+  }
+
+  function sendUpdate(params: ParamMap) {
+    guardedSend({ type: 'update', params }, 'update');
   }
 
   function markCongested() {
@@ -462,24 +508,21 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   }
 
   /**
-   * Fire a momentary parameter. Same disconnected-drop / backpressure rules as
-   * `sendUpdate`, but never throttled — a pulse is a discrete event, not a
+   * Never throttled, unlike `sendUpdate` — a pulse is a discrete event, not a
    * sampled value, so buffering it a frame would add latency and risk
    * coalescing or dropping distinct presses.
    */
   function sendPulse(name: string) {
-    if (!socket || socket.readyState !== socket.OPEN) {
-      console.debug('[td-core] dropping pulse while disconnected', name);
-      return;
-    }
-    if ((socket.bufferedAmount ?? 0) > highWaterMark) {
-      markCongested();
-      console.debug('[td-core] backpressure: dropping pulse', name);
-      return;
-    }
-    socket.send(JSON.stringify({ type: 'pulse', name }));
-    clearCongested();
+    guardedSend({ type: 'pulse', name }, 'pulse');
   }
+
+  // ── calls (both directions) ────────────────────────────────────────────────
+
+  const calls = createCallRegistry({
+    send: (message) => guardedSend(message, 'call'),
+    scheduler,
+    timeout: callTimeout,
+  });
 
   // ── inbound ──────────────────────────────────────────────────────────────
 
@@ -534,6 +577,18 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
         // that has been unplugged has to *disappear* from the dropdown, and a
         // merge would leave it selectable forever.
         setMenus(message.menus);
+        break;
+      case 'call':
+        // TD invoking a web-registered handler. Async handlers are awaited
+        // internally; a throw or an unregistered name replies `result` with an
+        // error rather than propagating here.
+        calls.onMessage(message);
+        break;
+      case 'result':
+        // Reply to a `call` this connection sent; settles the matching pending
+        // entry (resolve/reject), a no-op if the id is unknown (already timed
+        // out, or from a stale connection attempt).
+        calls.onMessage(message);
         break;
       // WebRTC signaling (`rtc-offer`/`rtc-answer`/`rtc-ice`/`streams`) is not
       // handled here — it's dispatched to subscribers below, so the connection
@@ -675,6 +730,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     if (disposed) return;
     attemptId++;
     clearSessionTimers();
+    calls.reset(reason);
     try {
       socket?.close();
     } catch {
@@ -742,6 +798,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     disposed = true;
     clearReconnect();
     clearSessionTimers();
+    calls.reset('closed');
     attemptId++; // invalidate any in-flight socket listeners
     try {
       socket?.close();
@@ -775,6 +832,9 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     isReadonly,
     menuOptions,
     requestMenus,
+    call: calls.call,
+    notify: calls.notify,
+    handle: calls.handle,
     send: rawSend,
     subscribe,
     close,

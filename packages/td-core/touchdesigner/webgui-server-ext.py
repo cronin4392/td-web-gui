@@ -183,6 +183,27 @@ class WebGuiServerExt:
         """The generated Video Stream Out TOP carrying `stream_id`, or None."""
         return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
 
+    def Call(self, name, args=None, on_result=None, on_error=None, client=None, timeout=10.0):
+        """Invoke a named handler the web page registered (via `createTDHandler`
+        or `connection.handle()`), replying through `on_result`/`on_error` —
+        never blocking. Delegates to the callbacks module's `call()` so project
+        code writes `parent.WebGuiServer.Call(...)` rather than reaching through
+        `op.WebGuiServer.op('webserver1_callbacks').module`."""
+        callbacks = self._callbacks()
+        if callbacks is None:
+            return
+        callbacks.call(
+            name, args=args, on_result=on_result, on_error=on_error, client=client, timeout=timeout
+        )
+
+    def Notify(self, name, args=None, client=None):
+        """Invoke a named handler the web page registered, with no reply
+        expected. Broadcasts to every connected client by default."""
+        callbacks = self._callbacks()
+        if callbacks is None:
+            return
+        callbacks.notify(name, args=args, client=client)
+
     def DestroyGenerated(self, comp=None):
         """Delete every generated watcher DAT and stream chain, notes included.
         Called from exit-execute.py's onExit, and from pre-release.py against a

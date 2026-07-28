@@ -7,6 +7,7 @@ else: the factory, the provider, the connection, video, and the primitives.
 - [`<Provider>`](#provider)
 - [Connection](#connection)
 - [Bindings](#bindings)
+- [Calls](#calls)
 - [Video](#video)
 - [Multiple instances](#multiple-instances)
 - [Standalone use](#standalone-use)
@@ -16,11 +17,21 @@ else: the factory, the provider, the connection, video, and the primitives.
 ## `createTDClient`
 
 ```ts
-function createTDClient<Schema extends Record<string, ParamValue>>(): TDClient<Schema>;
+function createTDClient<
+  Schema extends Record<string, ParamValue>,
+  Calls extends CallSchema<Calls> = Record<string, CallSignature>,
+  Handlers extends CallSchema<Handlers> = Record<string, CallSignature>,
+>(): TDClient<Schema, Calls, Handlers>;
 ```
 
 Returns a **schema-bound bundle** for one TD instance. Call it once, at module
 scope.
+
+`Calls`/`Handlers` are optional and independent of `Schema` and of each other:
+`Calls` types what this instance exposes for the web to `call`/`notify`;
+`Handlers` types what the web exposes for TD to `handle`. Both default to a
+permissive schema, so every existing single-generic `createTDClient<Params>()`
+call site keeps compiling unchanged. See [Calls](#calls).
 
 ```ts
 import { createTDClient } from 'td-core';
@@ -37,15 +48,18 @@ const Mixer = createTDClient<MixerParams>();
 
 The bundle:
 
-| Member                                                                                             | Type                                                         |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `Provider`                                                                                         | Context provider owning one connection (see below)           |
-| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter        |
-| `pulse(name)`                                                                                      | `void` — fire a momentary parameter                          |
-| `useConnection()`                                                                                  | `TDConnection` — the nearest provider's connection           |
-| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                |
-| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys      |
-| `Video`                                                                                            | Bound video; not schema-typed (stream ids aren't parameters) |
+| Member                                                                                             | Type                                                            |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Provider`                                                                                         | Context provider owning one connection (see below)              |
+| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter           |
+| `pulse(name)`                                                                                      | `void` — fire a momentary parameter                             |
+| `call(name, args?)`                                                                                | `Promise<Calls[K]['result']>` — invoke a named TD handler       |
+| `notify(name, args?)`                                                                              | `void` — fire-and-forget form of `call`                         |
+| `handle(name, fn)`                                                                                 | `() => void` — register a handler for a named TD-initiated call |
+| `useConnection()`                                                                                  | `TDConnection` — the nearest provider's connection              |
+| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                   |
+| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys         |
+| `Video`                                                                                            | Bound video; not schema-typed (stream ids aren't parameters)    |
 
 ### Why a factory rather than plain components
 
@@ -148,6 +162,7 @@ them without a protocol change.
 | `heartbeat.interval` / `.timeout` | `5000` / `10000` ms | `ping` cadence, and grace for a `pong` before forcing a reconnect. Pass `heartbeat: false` to disable. |
 | `backpressure.highWaterMark`      | `1048576` bytes     | `bufferedAmount` above which `update`s are skipped.                                                    |
 | `backpressure.timeout`            | `5000` ms           | Sustained congestion before forcing a reconnect.                                                       |
+| `callTimeout`                     | `10000` ms          | How long `call()` awaits a `result` before rejecting `call_timeout`.                                   |
 | `protocol`                        | `PROTOCOL_VERSION`  | Version advertised in `hello`.                                                                         |
 | `onError`                         | `console.error`     | Handler for inbound `error` messages. Never fatal.                                                     |
 | `readonly`                        | `[]`                | Same as the `readonly` prop, which takes precedence.                                                   |
@@ -166,19 +181,22 @@ function StatusBar() {
 }
 ```
 
-| Member                | Type                                             | Description                                                   |
-| --------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
-| `status()`            | `'connecting' \| 'open' \| 'synced' \| 'closed'` | Reactive lifecycle.                                           |
-| `congested()`         | `boolean`                                        | Reactive: `update` sends are being skipped for backpressure.  |
-| `lastError()`         | `ErrorMessage \| undefined`                      | Most recent inbound `error`.                                  |
-| `signal(name)`        | `TDBinding`                                      | Create-or-return the shared binding for a name.               |
-| `pulse(name)`         | `void`                                           | Fire a momentary parameter.                                   |
-| `isReadonly(name)`    | `boolean`                                        | Reactive read-only state.                                     |
-| `menuOptions(name)`   | `MenuOption[] \| undefined`                      | Menu options TD announced for a name.                         |
-| `requestMenus()`      | `void`                                           | Ask TD to re-read and re-announce its menus.                  |
-| `send(message)`       | `void`                                           | Low-level client-message send. No-op unless open.             |
-| `subscribe(listener)` | `() => void`                                     | Observe every parsed inbound message. Returns an unsubscribe. |
-| `close()`             | `void`                                           | Close the socket, cancel timers, drop the routing table.      |
+| Member                     | Type                                             | Description                                                             |
+| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------- |
+| `status()`                 | `'connecting' \| 'open' \| 'synced' \| 'closed'` | Reactive lifecycle.                                                     |
+| `congested()`              | `boolean`                                        | Reactive: `update` sends are being skipped for backpressure.            |
+| `lastError()`              | `ErrorMessage \| undefined`                      | Most recent inbound `error`.                                            |
+| `signal(name)`             | `TDBinding`                                      | Create-or-return the shared binding for a name.                         |
+| `pulse(name)`              | `void`                                           | Fire a momentary parameter.                                             |
+| `call(name, args?, opts?)` | `Promise<JsonValue \| undefined>`                | Invoke a named TD handler, awaiting its `result`.                       |
+| `notify(name, args?)`      | `void`                                           | Fire-and-forget form of `call` — no reply expected.                     |
+| `handle(name, fn)`         | `() => void`                                     | Register a handler for a named call TD sends. Returns an unregister fn. |
+| `isReadonly(name)`         | `boolean`                                        | Reactive read-only state.                                               |
+| `menuOptions(name)`        | `MenuOption[] \| undefined`                      | Menu options TD announced for a name.                                   |
+| `requestMenus()`           | `void`                                           | Ask TD to re-read and re-announce its menus.                            |
+| `send(message)`            | `void`                                           | Low-level client-message send. No-op unless open.                       |
+| `subscribe(listener)`      | `() => void`                                     | Observe every parsed inbound message. Returns an unsubscribe.           |
+| `close()`                  | `void`                                           | Close the socket, cancel timers, drop the routing table.                |
 
 ### `status`
 
@@ -242,6 +260,89 @@ function Knob(props: { name: string }) {
 `createTDSignal(name)` is the free-standing form of the same thing — it binds to
 the nearest provider's connection, so a custom component works inside any
 provider without threading an instance through.
+
+## Calls
+
+Named-handler invocation, in both directions, riding the `call`/`result`
+messages (see [protocol.md § Calls](protocol.md#calls)).
+
+**Web → TD**, through the bundle or the raw connection:
+
+```ts
+const result = await Mixer.call('print', { text: 'hi' });
+// or, on the raw connection:
+await conn.call('print', { text: 'hi' });
+```
+
+The bundle forms (`Mixer.call`/`.notify`/`.handle`/`.pulse`) resolve the
+connection outside Solid's owner, since they're meant for event handlers — so
+they need exactly one of that factory's `<Provider>`s mounted, and throw
+otherwise. Rendering two providers from one factory is a mistake the bundle
+can't disambiguate; use a second factory, or `useConnection()` during setup.
+
+`call` rejects with a `TDCallError` (`.code`, `.callName`) on `unknown_handler`,
+`handler_error`, `result_not_serializable` (from TD), `call_timeout` (no reply
+within `callTimeout`), `call_disconnected`, or `call_congested`.
+`notify(name, args?)` is the fire-and-forget form — same guards, no pending
+entry, no reply to await.
+
+```tsx
+try {
+  const result = await Mixer.call('print', { text });
+} catch (error) {
+  if (error instanceof TDCallError) console.error(error.code);
+}
+```
+
+**TD → web**, via `createTDHandler` inside a component (self-unregisters on
+unmount — the safe default) or `connection.handle()` for code that manages its
+own lifecycle:
+
+```tsx
+import { createTDHandler } from 'td-core';
+
+function AlertHandler() {
+  createTDHandler<{ text: string }>('alert', (args) => {
+    alert(args.text);
+  });
+  return null;
+}
+```
+
+TD fires it with `parent.WebGuiServer.Notify('alert', { text: 'hi' })` (no
+reply) or `parent.WebGuiServer.Call('alert', { text: 'hi' }, on_result=fn)`
+(reply via callback) — see
+[touchdesigner-setup.md § Handlers](touchdesigner-setup.md#handlers).
+
+### The `Calls`/`Handlers` generics
+
+```ts
+export interface CallSignature {
+  args?: JsonValue;
+  result?: JsonValue;
+}
+export type CallSchema<Schema> = { [K in keyof Schema]: CallSignature };
+```
+
+Two independent, optional generics on `createTDClient`:
+
+```ts
+interface MixerCalls {
+  print: { args: { text: string }; result: { ok: boolean } };
+}
+interface MixerHandlers {
+  alert: { args: { text: string } };
+}
+
+const Mixer = createTDClient<MixerParams, MixerCalls, MixerHandlers>();
+```
+
+`Calls` types `Mixer.call`/`Mixer.notify` (what TD exposes); `Handlers` types
+`Mixer.handle` (what the web exposes). Both default to a permissive schema, so
+`createTDClient<MixerParams>()` — no `Calls`/`Handlers` — keeps compiling
+exactly as before. `CallSchema<Schema>` is written the same way as
+`ParamSchema<Schema>` (a self-referential mapped type), so a plain
+`interface { print: {...} }` satisfies it without needing an index signature.
 
 ## Video
 
@@ -350,12 +451,14 @@ connection to ride and observes signaling through `subscribe()`.
 
 ## Wire helpers
 
-| Export                   | Description                                                              |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `PROTOCOL_VERSION`       | Wire protocol integer. See [protocol.md](protocol.md).                   |
-| `parse(raw)`             | Parse an inbound payload to a `Message`, or `null` if malformed/unknown. |
-| `escapeNewlines(text)`   | Real newlines → TD's two-character `\n` escape.                          |
-| `unescapeNewlines(wire)` | The inverse, for showing a TD string in a `<textarea>`.                  |
+| Export                      | Description                                                              |
+| --------------------------- | ------------------------------------------------------------------------ |
+| `PROTOCOL_VERSION`          | Wire protocol integer. See [protocol.md](protocol.md).                   |
+| `parse(raw)`                | Parse an inbound payload to a `Message`, or `null` if malformed/unknown. |
+| `escapeNewlines(text)`      | Real newlines → TD's two-character `\n` escape.                          |
+| `unescapeNewlines(wire)`    | The inverse, for showing a TD string in a `<textarea>`.                  |
+| `createTDHandler(name, fn)` | Register a call handler, unregistering on cleanup. See [Calls](#calls).  |
+| `TDCallError`               | Thrown by a rejected `call()`; carries `.code` and `.callName`.          |
 
 `unescapeNewlines` is deliberately naive — it doesn't honour a backslash-escaped
 backslash, so text whose literal content is `C:\name` comes back with a line

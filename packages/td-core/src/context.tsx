@@ -14,9 +14,15 @@
  * per-factory generic typing is a purely compile-time wrapper over this one
  * shared runtime context (see § "Type safety" in the proposal for why the
  * factory is needed to flow the generic into JSX).
+ *
+ * `Calls`/`Handlers` are two more optional generics on `createTDClient`, typing
+ * `call`/`notify` (what TD exposes) and `handle` (what the web exposes)
+ * independently of the param `Schema`. `createTDHandler(name, fn)` is the
+ * component-safe way to register a handler outside the bundle, unregistering on
+ * cleanup.
  */
 
-import { createContext, useContext, type JSX } from 'solid-js';
+import { createContext, onCleanup, useContext, type JSX } from 'solid-js';
 import {
   createTDConnection,
   type ParamSchema,
@@ -25,7 +31,7 @@ import {
   type TDConnectionOptions,
 } from './connection';
 import { createTDVideoStream, type TDVideoStream, type TDVideoStreamOptions } from './video';
-import type { ParamValue } from './wire';
+import type { JsonValue, ParamValue } from './wire';
 import { Button, type ButtonProps } from './components/Button';
 import { Color, type ColorProps } from './components/Color';
 import { NumberInput, type NumberInputProps } from './components/NumberInput';
@@ -76,6 +82,39 @@ export function createTDSignal<T extends ParamValue = ParamValue>(name: string):
   return useTDConnection().signal(name) as unknown as TDBinding<T>;
 }
 
+/** One entry of a {@link CallSchema}: the argument and result shape of a named call. */
+export interface CallSignature {
+  args?: JsonValue;
+  result?: JsonValue;
+}
+
+/**
+ * A schema of named calls — what one side exposes for the other to invoke.
+ * Written as a self-referential mapped type (see {@link ParamSchema}) rather
+ * than `Record<string, CallSignature>`, so a plain `interface { print: {...} }`
+ * declaration (which lacks an index signature) satisfies it.
+ */
+export type CallSchema<Schema> = { [K in keyof Schema]: CallSignature };
+
+/**
+ * Register a handler for a named `call`, unregistering on cleanup. A raw
+ * `connection.handle()` inside a component leaks a handler on every remount.
+ */
+export function createTDHandler<
+  Args extends JsonValue = JsonValue,
+  Result extends JsonValue | undefined = JsonValue | undefined,
+>(name: string, fn: (args: Args) => Result | Promise<Result> | void): void {
+  // `Args` narrows a parameter, so the handler is contravariant in it and no
+  // assignment from the wider `JsonValue | undefined` signature type-checks.
+  const unregister = useTDConnection().handle(
+    name,
+    fn as unknown as (
+      args: JsonValue | undefined,
+    ) => JsonValue | undefined | Promise<JsonValue | undefined>,
+  );
+  onCleanup(unregister);
+}
+
 /** Props for the bundle's `<Provider>` member. */
 export interface TDProviderProps {
   /** WebSocket URL of this TD instance's Web Server DAT. */
@@ -111,8 +150,39 @@ type AnyKey<Schema> = keyof Schema & string;
 /**
  * Create a schema-bound bundle for one TD instance. One factory per instance;
  * schemas are heterogeneous.
+ *
+ * `Calls`/`Handlers` are optional and independent: `Calls` types what this
+ * instance exposes for the web to invoke (`call`/`notify`); `Handlers` types
+ * what the web exposes for TD to invoke (`handle`). Both default to a
+ * permissive {@link CallSchema}, so every existing `createTDClient<Params>()`
+ * call site keeps compiling unchanged.
  */
-export function createTDClient<Schema extends ParamSchema<Schema>>() {
+export function createTDClient<
+  Schema extends ParamSchema<Schema>,
+  Calls extends CallSchema<Calls> = Record<string, CallSignature>,
+  Handlers extends CallSchema<Handlers> = Record<string, CallSignature>,
+>() {
+  // Solid context only resolves while an owner is set — true during render,
+  // false inside a DOM event handler after paint. `pulse`/`call`/`notify`/
+  // `handle` are meant to be called from event handlers, so they resolve
+  // through the mounted providers rather than `useTDConnection()`.
+  const mounted = new Set<TDConnection<Schema>>();
+
+  function requireConnection(): TDConnection<Schema> {
+    if (mounted.size === 1) return mounted.values().next().value!;
+    if (mounted.size === 0) {
+      throw new Error('[td-core] no TD connection — render this factory’s <Provider> first');
+    }
+    // "One factory per instance" (docs/api.md § createTDClient) is a real
+    // invariant, not a convention: with two providers mounted there is no
+    // owner to disambiguate from, so guessing would silently bind the wrong
+    // socket. Use a second factory, or `useConnection()` during setup.
+    throw new Error(
+      `[td-core] ${mounted.size} <Provider>s mounted from one createTDClient — ` +
+        'call `useConnection()` during setup instead, or use one factory per instance',
+    );
+  }
+
   function Provider(props: TDProviderProps): JSX.Element {
     // One connection per provider; auto-torn-down via the connection's own
     // onCleanup when this provider unmounts.
@@ -120,6 +190,8 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
       ...props.options,
       readonly: props.readonly ?? props.options?.readonly,
     });
+    mounted.add(connection);
+    onCleanup(() => mounted.delete(connection));
     // Read once at setup, like `url`: swapping video on/off mid-life would mean
     // tearing a peer down, which is what unmounting the provider already does.
     const video = props.video
@@ -139,9 +211,39 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     return createTDSignal<Schema[K]>(name);
   }
 
-  /** Fire a momentary parameter on the nearest provider's connection. */
+  /** Fire a momentary parameter on the mounted provider's connection. */
   function pulse(name: AnyKey<Schema>): void {
-    useTDConnection().pulse(name);
+    requireConnection().pulse(name);
+  }
+
+  /** Invoke a named TD handler, awaiting its `result`. */
+  function call<K extends keyof Calls & string>(
+    name: K,
+    args?: Calls[K]['args'],
+  ): Promise<Calls[K]['result']> {
+    return requireConnection().call(name, args as JsonValue | undefined) as Promise<
+      Calls[K]['result']
+    >;
+  }
+
+  /** Fire-and-forget form of `call` — no reply expected. */
+  function notify<K extends keyof Calls & string>(name: K, args?: Calls[K]['args']): void {
+    requireConnection().notify(name, args as JsonValue | undefined);
+  }
+
+  /**
+   * Register a handler for a named `call` TD sends this way. Prefer
+   * `createTDHandler` inside components — it self-unregisters on unmount; this
+   * raw form is for code that manages its own lifecycle.
+   */
+  function handle<K extends keyof Handlers & string>(
+    name: K,
+    fn: (args: Handlers[K]['args']) => Handlers[K]['result'] | Promise<Handlers[K]['result']>,
+  ): () => void {
+    return requireConnection().handle(
+      name,
+      fn as (args: JsonValue | undefined) => JsonValue | undefined | Promise<JsonValue | undefined>,
+    );
   }
 
   // Typed wrappers: restrict `name` to the keys whose wire-type matches each
@@ -188,6 +290,9 @@ export function createTDClient<Schema extends ParamSchema<Schema>>() {
     Provider,
     signal,
     pulse,
+    call,
+    notify,
+    handle,
     useConnection: useTDConnection,
     useVideo: useTDVideoStream,
     TextInput: TypedTextInput,

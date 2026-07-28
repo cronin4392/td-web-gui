@@ -12,6 +12,8 @@ describe('td-core public surface', () => {
     expect(typeof td.createTDConnection).toBe('function');
     expect(typeof td.createTDClient).toBe('function');
     expect(typeof td.createTDSignal).toBe('function');
+    expect(typeof td.createTDHandler).toBe('function');
+    expect(typeof td.TDCallError).toBe('function');
     expect(typeof td.TextInput).toBe('function');
     expect(typeof td.NumberInput).toBe('function');
     expect(typeof td.RangeInput).toBe('function');

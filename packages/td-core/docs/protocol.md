@@ -13,6 +13,7 @@ protocol.
 - [Message catalog](#message-catalog)
 - [Value types](#value-types)
 - [Readouts](#readouts)
+- [Calls](#calls)
 - [Errors](#errors)
 - [Forward compatibility](#forward-compatibility)
 - [Keeping the two sides in sync](#keeping-the-two-sides-in-sync)
@@ -75,30 +76,34 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 
 ### web → TD
 
-| Message            | Payload                                                  |
-| ------------------ | -------------------------------------------------------- |
-| `hello`            | `{ protocol: number }`                                   |
-| `snapshot-request` | —                                                        |
-| `menus-request`    | —                                                        |
-| `update`           | `{ params: { [name]: value } }`                          |
-| `pulse`            | `{ name: string }`                                       |
-| `ping`             | —                                                        |
-| `rtc-offer`        | `{ sdp: string }`                                        |
-| `rtc-answer`       | `{ sdp: string }`                                        |
-| `rtc-ice`          | `{ candidate: string \| null, sdpMid?, sdpMLineIndex? }` |
+| Message            | Payload                                                       |
+| ------------------ | ------------------------------------------------------------- |
+| `hello`            | `{ protocol: number }`                                        |
+| `snapshot-request` | —                                                             |
+| `menus-request`    | —                                                             |
+| `update`           | `{ params: { [name]: value } }`                               |
+| `pulse`            | `{ name: string }`                                            |
+| `ping`             | —                                                             |
+| `call`             | `{ id?: string, name: string, args?: JsonValue }`             |
+| `result`           | `{ id: string, value?: JsonValue, error?: {code, message?} }` |
+| `rtc-offer`        | `{ sdp: string }`                                             |
+| `rtc-answer`       | `{ sdp: string }`                                             |
+| `rtc-ice`          | `{ candidate: string \| null, sdpMid?, sdpMLineIndex? }`      |
 
 ### TD → web
 
-| Message                                | Payload                                            |
-| -------------------------------------- | -------------------------------------------------- |
-| `welcome`                              | `{ protocol: number, instance?: string }`          |
-| `snapshot`                             | `{ params: { [name]: value } }`                    |
-| `update`                               | `{ params: { [name]: value } }`                    |
-| `menus`                                | `{ menus: { [name]: { value, label }[] } }`        |
-| `pong`                                 | —                                                  |
-| `error`                                | `{ code: string, message?: string, ref?: string }` |
-| `streams`                              | `{ streams: { id, mid, label? }[] }`               |
-| `rtc-offer` / `rtc-answer` / `rtc-ice` | as above                                           |
+| Message                                | Payload                                                       |
+| -------------------------------------- | ------------------------------------------------------------- |
+| `welcome`                              | `{ protocol: number, instance?: string }`                     |
+| `snapshot`                             | `{ params: { [name]: value } }`                               |
+| `update`                               | `{ params: { [name]: value } }`                               |
+| `menus`                                | `{ menus: { [name]: { value, label }[] } }`                   |
+| `pong`                                 | —                                                             |
+| `error`                                | `{ code: string, message?: string, ref?: string }`            |
+| `call`                                 | `{ id?: string, name: string, args?: JsonValue }`             |
+| `result`                               | `{ id: string, value?: JsonValue, error?: {code, message?} }` |
+| `streams`                              | `{ streams: { id, mid, label? }[] }`                          |
+| `rtc-offer` / `rtc-answer` / `rtc-ice` | as above                                                      |
 
 ```jsonc
 { "type": "update",   "params": { "intensity": 0.5, "color": [1, 0, 0, 1], "enabled": true } }
@@ -107,6 +112,9 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 { "type": "streams",  "streams": [{ "id": "main", "mid": "0", "label": "Render A" }] }
 { "type": "error",    "code": "param_not_writable", "message": "…", "ref": "fps" }
 { "type": "rtc-ice",  "candidate": "candidate:…", "sdpMid": "0", "sdpMLineIndex": 0 }
+{ "type": "call",     "id": "c1", "name": "print", "args": { "text": "hi" } }
+{ "type": "result",   "id": "c1", "value": { "ok": true } }
+{ "type": "result",   "id": "c1", "error": { "code": "unknown_handler" } }
 ```
 
 ### Notes on individual messages
@@ -145,6 +153,12 @@ assuming a fixed track order.
 **Signaling messages appear in both directions.** The browser offers on connect
 and on rebuild; TD offers for its own renegotiations, because only an offerer can
 add m-lines. Both sides must be able to send and receive an offer.
+
+**`call`/`result` are symmetric**, like signaling — either side can invoke a
+named handler the other registered. `id` is present for a call awaiting a
+reply and absent for fire-and-forget (`notify`/`connection.notify`); `result`
+always carries the `id` it answers, and exactly one of `value`/`error`. See
+[Calls](#calls).
 
 ## Value types
 
@@ -248,6 +262,55 @@ that's more resolution than the UI needs, resample or filter the CHOP in
 TouchDesigner — that's a TD-side question, and the protocol deliberately has no
 knob for it.
 
+## Calls
+
+A `call` invokes a **named handler** on the far side, an `id` optionally
+tagging it for a reply. Symmetric: the web calls a Python function TD
+registered in `HANDLERS`; TD calls a JS handler the page registered with
+`createTDHandler`/`connection.handle()`.
+
+```
+web                                              TD
+ │  { "type": "call", "id": "c1", "name": "print", "args": { "text": "hi" } }
+ │ ───────────────────────────────────────────────────────────────────────►
+ │                            { "type": "result", "id": "c1", "value": { "ok": true } }
+ │ ◄───────────────────────────────────────────────────────────────────────
+```
+
+**`id` decides whether a reply is expected.** Present → the sender awaits a
+matching `result` (`connection.call()` / TD's `call()`, both with a timeout).
+Absent → fire-and-forget (`connection.notify()` / TD's `notify()`); the
+receiver still runs the handler, but sends nothing back.
+
+**`args`/`value` are untyped JSON**, unlike `ParamValue` — a call payload isn't
+coerced against a registry entry the way a parameter is, so it passes through
+as whatever `JSON.parse`/`json.loads` produced. `td-core`'s `Calls`/`Handlers`
+generics (see docs/api.md § Calls) type this at the TypeScript boundary only;
+nothing on the wire enforces it.
+
+**`result` is deliberately not `error`.** `error` (above) has connection-level
+semantics — it routes to `lastError`, and `param_not_writable` triggers a
+snapshot re-request — none of which apply to one failed call among several
+in flight. A failed call's `result` carries `error: { code, message? }`
+instead, scoped to that one `id`. See
+[design-notes.md § Calls](design-notes.md#calls).
+
+**A handler's exception never reaches the wire as a crash.** Both sides catch
+around the invocation: TD prints the traceback to the Textport and replies
+`handler_error`; the web logs to the console and does the same. An
+unregistered name replies `unknown_handler` rather than hanging the caller.
+
+**The reply must still be valid JSON.** If a handler's return value isn't
+serializable, the reply is `result_not_serializable` instead of a `result`
+that would fail to encode.
+
+**TD's outbound `call` targets exactly one client.** `notify()` broadcasts,
+but `call()` needs somewhere to send the reply — with zero or more than one
+browser connected, it invokes `on_error('call_disconnected', …)` immediately
+rather than guessing which one. See
+[design-notes.md § Calls](design-notes.md#calls) for why this matches the
+existing single-viewer stance on video.
+
 ## Errors
 
 An `error` is **surfaced, never fatal**. It routes to the connection's
@@ -261,6 +324,25 @@ An `error` is **surfaced, never fatal**. It routes to the connection's
 | `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.     |
 | `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.            |
 | `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                 |
+
+A failed `call` replies with a `result` carrying one of these `error.code`
+values instead — never the `error` message above, since these are scoped to
+one call rather than the connection:
+
+| Code                      | Meaning                                                                    |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `unknown_handler`         | No such name in `HANDLERS` (TD) or registered via `handle()` (web).        |
+| `handler_error`           | The handler raised — see the Textport (TD) or console (web) for the trace. |
+| `result_not_serializable` | The handler's return value isn't JSON-serializable.                        |
+
+Three more codes are **raised locally and never appear on the wire** — they
+describe a call that never got a chance to reach a handler:
+
+| Code                | Meaning                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `call_timeout`      | No `result` arrived within the caller's timeout (`callTimeout`, TD's `timeout`).     |
+| `call_disconnected` | The socket wasn't open when the call was sent, or closed while it was pending.       |
+| `call_congested`    | Backpressure — `bufferedAmount` was over the high-water mark when the call was sent. |
 
 **`ref` is what makes recovery possible.** A param-scoped error carries the
 offending name, so handlers can act on that one parameter — `td-core` keys its

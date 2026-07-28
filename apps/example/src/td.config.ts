@@ -19,6 +19,8 @@
  * compile error rather than a silently dropped `update`.
  */
 
+import type { JsonValue } from 'td-core';
+
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
 export interface TDInstanceConfig {
   id: string;
@@ -104,6 +106,24 @@ export const example1Readonly = [
   'track',
   'cues',
 ] as const satisfies readonly (keyof Example1Params)[];
+
+/**
+ * Calls instance 1 exposes for the web to invoke (`td/Example1/config.py`'s
+ * `HANDLERS`) — what `Example1.call`/`Example1.notify` may name.
+ */
+export interface Example1Calls {
+  print: { args: { text: string }; result: { ok: boolean } };
+  echo: { args: JsonValue; result: { echo: JsonValue; frame: number } };
+}
+
+/**
+ * Calls the web exposes for instance 1 to invoke (`Example1.handle`/
+ * `createTDHandler`) — what `parent.WebGuiServer.Notify`/`.Call` may name from
+ * TD's side.
+ */
+export interface Example1Handlers {
+  alert: { args: { text: string } };
+}
 
 /**
  * Param schema for instance 2 (`td/Example2/config.py`) — a second machine doing

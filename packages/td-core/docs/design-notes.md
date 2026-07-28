@@ -18,6 +18,7 @@ worth reading first.
 - [One signal per name](#one-signal-per-name)
 - [Outbound rate limiting](#outbound-rate-limiting)
 - [Connection resilience](#connection-resilience)
+- [Calls](#calls)
 - [Video](#video)
 - [Headless styling](#headless-styling)
 - [Non-obvious TouchDesigner behavior](#non-obvious-touchdesigner-behavior)
@@ -444,6 +445,53 @@ socket, cancels every timer (reconnect, watchdog, ping/pong, congestion, rAF
 frame), closes the peer, calls `stop()` on every received track so the browser
 frees the hardware decoder — a detached `<video>` alone does not — and drops the
 routing table.
+
+## Calls
+
+**TD's outbound `call` is callback-based, never blocking.** TD's main thread
+runs the frame; the render loop, parameter cooks, and every callback all share
+it (see `.claude/rules/td-python.md` § Threading). Blocking that thread to
+await a browser's reply — even for a few hundred milliseconds — would freeze
+the whole application, not just the call. So `call()` returns immediately,
+records the pending id, and fires `on_result`/`on_error` later from whichever
+frame the `result` (or the timeout) arrives on. The web side's `await
+conn.call(...)` can hide this from its own callers because JavaScript's event
+loop isn't the thing rendering frames — but the exact same constraint holds
+there too: `handleMessage` never blocks waiting for a handler, it dispatches
+and moves on, which is why an inbound TD → web `call`'s async handler is
+_awaited_, not _blocked for_.
+
+**The pending-call table clears on every disconnect, the same reasoning as the
+routing table.** A `call()` awaiting a `result` that will never arrive — because
+the socket that would have carried it is gone — is exactly the "leaked
+resource" problem teardown already solves for timers and the peer connection.
+Rejecting every pending call with `call_disconnected` on close/reconnect is
+what lets `await conn.call(...)` be relied on to always settle, the same
+guarantee `Promise`s are supposed to carry. The alternative — leaving them
+pending across a reconnect in case the _new_ connection's TD replies to an id
+from the old one — doesn't even make sense: ids aren't global, and a fresh
+connection means a fresh handshake, a fresh snapshot, and no memory of what
+was in flight before.
+
+**`result` is a separate message from `error`, not `error` with an extra
+field.** `error` already has connection-level side effects wired to it —
+routing to `lastError`, and `param_not_writable` triggering a snapshot
+re-request to revert an optimistic edit. None of that is meaningful for one
+failed call among several in flight; a failed `print` shouldn't flip
+`lastError` for the whole connection, and there is no optimistic parameter
+edit to revert. Reusing `error` would mean auditing every `error` handler to
+make sure a call failure doesn't accidentally trip connection-scoped logic it
+was never meant to trip. A distinct `result` message, scoped to one `id`, keeps
+the two failure domains from ever needing to know about each other.
+
+**TD's `call()` targets exactly one client, matching the existing v1
+single-viewer stance on video** (see [§ Video](#video) below). `notify()` can
+broadcast because nothing is waiting on a specific reply, but `call()` needs
+somewhere to _send_ that reply — with zero connected clients there's nothing
+to call, and with more than one, guessing which browser should receive it
+would silently misdirect video's WebRTC problem right back at itself.
+Rejecting immediately with `call_disconnected` is the same choice
+`_handle_rtc_offer` already makes rather than picking a client arbitrarily.
 
 ## Video
 
