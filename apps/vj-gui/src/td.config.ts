@@ -8,8 +8,9 @@
  *
  * The page drives **three** TouchDesigner processes, of **two** kinds:
  *
- *   - the GUI project (`td/gui-config.py`), which owns the scene-loader
- *     selection and the eight loaders' text params — one of a kind, one schema;
+ *   - the GUI project (`td/gui-config.py`), which owns the eight loaders'
+ *     text params — one of a kind, one schema; which loader is active is
+ *     local UI state (`selectedLayer` in `App.tsx`), not a TD-driven value;
  *   - the scene projects (`td/scene-config.py`), one process per live scene.
  *
  * The two scene processes run the same project, so they publish the same wire
@@ -64,16 +65,20 @@ export type SceneInstanceId = (typeof sceneInstances)[number]['id'];
 export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export type SceneId = (typeof sceneIds)[number];
 
+/** The loader id a scene instance's video tile stands for when selected as the
+ * active layer — `'sceneA'` -> `'A'`, `'sceneB'` -> `'B'`. */
+export function sceneIdForInstance(instance: SceneInstanceId): SceneId {
+  return instance.slice('scene'.length) as SceneId;
+}
+
 /** Wire names of the per-loader text params, e.g. `sceneAText1`. */
 export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
 
 /**
  * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
- * scene loader, plus the loader selection that decides which pair the UI shows.
+ * scene loader.
  */
 export interface VjGuiParams extends Record<SceneTextParamName, string> {
-  /** Path of the selected loader COMP, e.g. `/GUI/ExternalScenes/SceneA`. */
-  selectedLoader: string;
   /** The scene library DAT — header row `name folder tag rank`, then one row
    * per scene. A readout, never written from here. */
   sceneLibrary: string[][];
@@ -109,16 +114,4 @@ export function sceneTextParam<N extends 1 | 2>(
   slot: N,
 ): `scene${SceneId}Text${N}` {
   return `scene${scene}Text${slot}`;
-}
-
-const LOADER_PATH_PREFIX = '/GUI/ExternalScenes/Scene';
-
-/**
- * Scene id behind a `selectedLoader` path, or `undefined` while the value is
- * still unsynced or points at something that isn't one of the eight loaders.
- */
-export function sceneIdFromLoaderPath(path: string | undefined): SceneId | undefined {
-  if (path === undefined || !path.startsWith(LOADER_PATH_PREFIX)) return undefined;
-  const id = path.slice(LOADER_PATH_PREFIX.length);
-  return sceneIds.find((scene) => scene === id);
 }

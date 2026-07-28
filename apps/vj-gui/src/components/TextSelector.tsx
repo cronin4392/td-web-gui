@@ -1,6 +1,6 @@
 import { createMemo, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
-import { sceneIdFromLoaderPath, sceneTextParam } from '../td.config';
+import { sceneTextParam, type SceneId } from '../td.config';
 import { GuiClient, type SceneTextParamName } from '../td';
 import { RECENT_TAB_ID, type createVjGuiStore } from '../store';
 import { TextField } from './TextField';
@@ -8,14 +8,13 @@ import { RecentPanel } from './RecentPanel';
 import { TabStrip } from './TabStrip';
 import { PhraseList } from './PhraseList';
 
-export function TextSelector(props: { store: ReturnType<typeof createVjGuiStore> }): JSX.Element {
+export function TextSelector(props: {
+  store: ReturnType<typeof createVjGuiStore>;
+  selectedLayer: SceneId | undefined;
+}): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
   const connection = GuiClient.useConnection();
-  const selectedLoader = GuiClient.signal('selectedLoader');
-
-  /** Which loader's text params the fields are bound to, per TD's `selectedLoader`. */
-  const activeScene = createMemo(() => sceneIdFromLoaderPath(selectedLoader.value()));
 
   // The one place that owns "commit a phrase to a TD text field" — shared by
   // TextField's own drop target and RecentPanel/PhraseList (always Text 1).
@@ -27,7 +26,7 @@ export function TextSelector(props: { store: ReturnType<typeof createVjGuiStore>
     props.store.commitRecent(phrase);
   }
   function applyToText1(phrase: string) {
-    const scene = activeScene();
+    const scene = props.selectedLayer;
     if (scene) applyPhrase(sceneTextParam(scene, 1), phrase);
   }
   function clearText(name: SceneTextParamName) {
@@ -45,12 +44,11 @@ export function TextSelector(props: { store: ReturnType<typeof createVjGuiStore>
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
       <Show
-        when={activeScene()}
+        when={props.selectedLayer}
         keyed
         fallback={
           <p class="mt-4 shrink-0 text-sm text-neutral-500">
-            Waiting for a scene loader — <code>selectedLoader</code> is{' '}
-            <GuiClient.Value name="selectedLoader" />
+            Click a video preview above to select a layer.
           </p>
         }
       >

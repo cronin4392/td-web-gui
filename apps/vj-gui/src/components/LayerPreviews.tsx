@@ -1,11 +1,23 @@
 import { For, Show, type JSX } from 'solid-js';
-import { sceneInstances, type SceneInstanceId } from '../td.config';
+import {
+  sceneIdForInstance,
+  sceneInstances,
+  type SceneId,
+  type SceneInstanceId,
+} from '../td.config';
 import { SceneClient, SceneProvider } from '../td';
 
-export function ScenePreviews(): JSX.Element {
+export function LayerPreviews(props: {
+  selected: SceneId | undefined;
+  onSelect: (layer: SceneId) => void;
+}): JSX.Element {
   return (
     <div class="grid grid-cols-8 gap-2">
-      <For each={sceneInstances}>{(scene) => <ScenePanel scene={scene.id} />}</For>
+      <For each={sceneInstances}>
+        {(scene) => (
+          <LayerPanel scene={scene.id} selected={props.selected} onSelect={props.onSelect} />
+        )}
+      </For>
     </div>
   );
 }
@@ -19,10 +31,19 @@ export function ScenePreviews(): JSX.Element {
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function ScenePanel(props: { scene: SceneInstanceId }): JSX.Element {
+function LayerPanel(props: {
+  scene: SceneInstanceId;
+  selected: SceneId | undefined;
+  onSelect: (layer: SceneId) => void;
+}): JSX.Element {
+  const layer = sceneIdForInstance(props.scene);
   return (
     <SceneProvider scene={props.scene} video>
-      <SceneBody label={props.scene} />
+      <LayerBody
+        label={props.scene}
+        active={layer === props.selected}
+        onSelect={() => props.onSelect(layer)}
+      />
     </SceneProvider>
   );
 }
@@ -31,18 +52,23 @@ function ScenePanel(props: { scene: SceneInstanceId }): JSX.Element {
  * The same markup for every scene — its names come from the one `SceneParams`
  * schema, and the provider above decides which process answers them.
  */
-function SceneBody(props: { label: string }): JSX.Element {
+function LayerBody(props: { label: string; active: boolean; onSelect: () => void }): JSX.Element {
   const video = SceneClient.useVideo();
   return (
     <figure class="m-0">
       <Show when={video.stream('scene')} keyed>
         {(_stream) => (
-          <div class="video-tile">
+          <button
+            type="button"
+            class="video-tile block w-full cursor-pointer border-2 p-0"
+            classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
+            onClick={props.onSelect}
+          >
             <SceneClient.Video stream="scene" />
             <Show when={video.streamStatus('scene') !== 'connected'}>
               <div class="video-overlay">{video.streamStatus('scene')}…</div>
             </Show>
-          </div>
+          </button>
         )}
       </Show>
       <figcaption class="text-xs text-neutral-500">{props.label}</figcaption>
