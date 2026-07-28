@@ -159,3 +159,20 @@ button {
   color: #555;
   background: #f5f5f5;
 }
+
+.td-call-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.td-call-result {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.td-call-error {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #c0392b;
+}
