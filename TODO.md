@@ -16,8 +16,8 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [x] Add a TouchDesigner tag and/or comment to each op that's connected and what param is connected. Automatically keep them up to date.
 - [x] Automatically create videostreamoutTOP inside the WebGuiServer based on config. Then handle the flip x in there.
 - [ ] If an input doesn't have a value yet in web show something, maybe skeleton state?
-- [ ] 1. Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes so watchers get created/deleted based on the latest config.
-- [ ] 2. On TD close, delete all the watcher DATs. On open there shouldn't be any watchers, they should get fully built.
+- [x] 1. Reinit packages\td-core\touchdesigner\webgui-server-ext.py when config.py changes so watchers get created/deleted based on the latest config.
+- [x] 2. On TD close, delete all the watcher DATs. On open there shouldn't be any watchers, they should get fully built.
 - [ ] 3. Invert ownership of a scene's `layout` and `color`, the same way loading a tox now works.
       Today the GUI project owns them (`/GUI/ExternalScenes/Scene<X>` custom pars `Layout`/`Color`,
       set by `GUI/ExternalScene.py`'s `LoadComp`) and pushes them to the scene over Touch In/Out,
@@ -31,6 +31,7 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       `setMix`-style handler beside it, or extra optional args on `loadScene` so a scene and its
       layout land in one call. Follow-up once that exists: add them to `SceneCalls` in
       `apps/vj-gui/src/td.config.ts` and surface them in the UI.
-- [ ] Investigate why some tags are not showing up in the scene loader tags. black, dancer, flashing, flowers, future
-- [ ] Convert SceneLoader using a TD derived dat (parsed from scene json files) into my sqlite database.
+- [x] Investigate why some tags are not showing up in the scene loader tags. black, dancer, flashing, flowers, future
+- [x] Convert SceneLoader using a TD derived dat (parsed from scene json files) into my sqlite database.
 - [ ] Add sqlite database to version tracking
+- [ ] Wire midi controls (from Input.toe) to trigger callbacks in web (like selectedScene)
