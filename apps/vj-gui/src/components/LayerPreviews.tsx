@@ -1,4 +1,5 @@
-import { For, Show, type JSX } from 'solid-js';
+import { For, Show, onCleanup, type JSX } from 'solid-js';
+import type { TDConnection } from 'td-core';
 import {
   sceneIdForInstance,
   sceneInstances,
@@ -7,15 +8,23 @@ import {
 } from '../td.config';
 import { SceneClient, SceneProvider } from '../td';
 
+type ConnectionSink = (layer: SceneId, connection: TDConnection | undefined) => void;
+
 export function LayerPreviews(props: {
-  selected: SceneId | undefined;
+  selected: SceneId;
   onSelect: (layer: SceneId) => void;
+  onConnection: ConnectionSink;
 }): JSX.Element {
   return (
     <div class="grid grid-cols-8 gap-2">
       <For each={sceneInstances}>
         {(scene) => (
-          <LayerPanel scene={scene.id} selected={props.selected} onSelect={props.onSelect} />
+          <LayerPanel
+            scene={scene.id}
+            selected={props.selected}
+            onSelect={props.onSelect}
+            onConnection={props.onConnection}
+          />
         )}
       </For>
     </div>
@@ -33,8 +42,9 @@ export function LayerPreviews(props: {
  */
 function LayerPanel(props: {
   scene: SceneInstanceId;
-  selected: SceneId | undefined;
+  selected: SceneId;
   onSelect: (layer: SceneId) => void;
+  onConnection: ConnectionSink;
 }): JSX.Element {
   const layer = sceneIdForInstance(props.scene);
   return (
@@ -43,6 +53,7 @@ function LayerPanel(props: {
         label={props.scene}
         active={layer === props.selected}
         onSelect={() => props.onSelect(layer)}
+        onConnection={(connection) => props.onConnection(layer, connection)}
       />
     </SceneProvider>
   );
@@ -52,8 +63,17 @@ function LayerPanel(props: {
  * The same markup for every scene — its names come from the one `SceneParams`
  * schema, and the provider above decides which process answers them.
  */
-function LayerBody(props: { label: string; active: boolean; onSelect: () => void }): JSX.Element {
+function LayerBody(props: {
+  label: string;
+  active: boolean;
+  onSelect: () => void;
+  onConnection: (connection: TDConnection | undefined) => void;
+}): JSX.Element {
   const video = SceneClient.useVideo();
+  // Published upward because the scene picker sits outside every scene provider
+  // and still has to call this instance. Only reachable from in here.
+  props.onConnection(SceneClient.useConnection());
+  onCleanup(() => props.onConnection(undefined));
   return (
     <figure class="m-0">
       <Show when={video.stream('scene')} keyed>

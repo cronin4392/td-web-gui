@@ -20,3 +20,12 @@ export function sceneThumbnailUrl(folder: string): string {
   const name = sceneFolderName(folder);
   return name ? `${SCENES_ROUTE}/${encodeURIComponent(name)}/${SCENE_THUMBNAIL}` : '';
 }
+
+/** The loader identifies a scene by its `.tox` path, which `sceneLibrary` has no
+ * column for. Forward slashes only: TD's `Loader.LoadScene` splits on `/`, so a
+ * backslash path would yield an empty folder and an unsplit name. */
+export function sceneToxPath(folder: string, name: string): string {
+  if (!folder || !name) return '';
+  const root = folder.replace(/\\/g, '/').replace(/\/+$/, '');
+  return root ? `${root}/${name}.tox` : '';
+}

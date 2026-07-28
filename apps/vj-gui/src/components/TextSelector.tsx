@@ -10,7 +10,7 @@ import { PhraseList } from './PhraseList';
 
 export function TextSelector(props: {
   store: ReturnType<typeof createVjGuiStore>;
-  selectedLayer: SceneId | undefined;
+  selectedLayer: SceneId;
 }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
@@ -26,8 +26,7 @@ export function TextSelector(props: {
     props.store.commitRecent(phrase);
   }
   function applyToText1(phrase: string) {
-    const scene = props.selectedLayer;
-    if (scene) applyPhrase(sceneTextParam(scene, 1), phrase);
+    applyPhrase(sceneTextParam(props.selectedLayer, 1), phrase);
   }
   function clearText(name: SceneTextParamName) {
     applyPhrase(name, '');
@@ -43,15 +42,7 @@ export function TextSelector(props: {
     <div>
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
-      <Show
-        when={props.selectedLayer}
-        keyed
-        fallback={
-          <p class="mt-4 shrink-0 text-sm text-neutral-500">
-            Click a video preview above to select a layer.
-          </p>
-        }
-      >
+      <Show when={props.selectedLayer} keyed>
         {(scene) => (
           <section class="flex shrink-0 flex-col gap-1">
             <TextField

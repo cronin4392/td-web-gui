@@ -65,6 +65,10 @@ export type SceneInstanceId = (typeof sceneInstances)[number]['id'];
 export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export type SceneId = (typeof sceneIds)[number];
 
+/** The loader a freshly-opened page targets. A layer is always selected — every
+ * `selectedLayer` in the app is a `SceneId`, never `undefined`. */
+export const defaultLayer: SceneId = 'A';
+
 /** The loader id a scene instance's video tile stands for when selected as the
  * active layer — `'sceneA'` -> `'A'`, `'sceneB'` -> `'B'`. */
 export function sceneIdForInstance(instance: SceneInstanceId): SceneId {
@@ -86,6 +90,26 @@ export interface VjGuiParams extends Record<SceneTextParamName, string> {
 
 /** GUI readout names, declared read-only so bound controls render disabled. */
 export const guiReadonly = ['sceneLibrary'] as const satisfies readonly (keyof VjGuiParams)[];
+
+/**
+ * Calls each scene instance exposes — the TS half of `HANDLERS` in
+ * `td/scene-config.py`.
+ *
+ * There is no `scene` argument: the connection *is* the routing. A call reaches
+ * the one SceneLoader process it was sent to, which is why this bypasses the GUI
+ * project (and its MessageDispatcher) entirely.
+ *
+ * `path` is the scene's absolute `.tox`, forward slashes only — TD's
+ * `Loader.LoadScene` splits it on `/` into folder + name.
+ *
+ * A scene's layout and color are deliberately not here: the GUI project owns
+ * them and pushes them to the scene over Touch In/Out, so this path cannot set
+ * them. Inverting that is TODO.md #3.
+ */
+export interface SceneCalls {
+  loadScene: { args: { path: string }; result: { ok: boolean } };
+  clearScene: { args?: undefined; result: { ok: boolean } };
+}
 
 /**
  * Param schema shared by **both** scene instances — the TS half of the contract

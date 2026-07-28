@@ -22,8 +22,9 @@ The GUI project's config is separate: td/config.py at the repo root.
 
 CALLBACKS = "webserver1_callbacks"
 
-# Nothing on a scene is web-writable yet — they are read-only monitors, and the
-# writable params still live on the GUI project.
+# Nothing on a scene is web-writable as a *parameter* — the writable params still
+# live on the GUI project. Loading a scene is behaviour, not state, so it goes
+# through HANDLERS at the bottom of this file instead.
 REGISTRY = {}
 
 WEBRTC = "webrtc1"
@@ -51,3 +52,24 @@ READOUTS = {
         "chan": "level",
     },
 }
+
+LOADER = "/Scene1/Loader"
+
+
+# Layout/color are absent on purpose: the GUI still owns them and pushes them in
+# over Touch In/Out, so there is no par here to set. See TODO.md #3.
+def _load_scene(args):
+    path = str((args or {}).get("path", ""))
+    if not path:
+        raise ValueError("loadScene needs a tox path")
+    # Forward slashes only: LoadScene splits on '/' to derive folder and name.
+    opex(LOADER).LoadScene(path)
+    return {"ok": True}
+
+
+def _clear_scene(args):
+    opex(LOADER).ClearScene()
+    return {"ok": True}
+
+
+HANDLERS = {"loadScene": _load_scene, "clearScene": _clear_scene}

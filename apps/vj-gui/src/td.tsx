@@ -10,22 +10,43 @@
  */
 
 import type { JSX } from 'solid-js';
-import { createTDClient } from 'td-core';
+import { createTDClient, type TDConnection } from 'td-core';
 import {
   guiInstance,
   guiReadonly,
   sceneInstances,
   sceneReadonly,
+  type SceneCalls,
+  type SceneId,
   type SceneInstanceId,
   type SceneParams,
   type VjGuiParams,
 } from './td.config';
 
-/** The GUI project: loader selection and the eight loaders' text params. */
+/** The GUI project: the eight loaders' text params and the scene library. */
 export const GuiClient = createTDClient<VjGuiParams>();
 
-/** Both scene projects: performance readouts and the scene video stream. */
-export const SceneClient = createTDClient<SceneParams>();
+/** Both scene projects: performance readouts, the video stream, and the
+ * `loadScene` call. */
+export const SceneClient = createTDClient<SceneParams, SceneCalls>();
+
+/** The live connection for each layer, filled in by the mounted scene providers.
+ * A layer with no running process is simply absent. */
+export type SceneConnections = Partial<Record<SceneId, TDConnection>>;
+
+/**
+ * `SceneClient.call` is unavailable here: two providers are mounted from the one
+ * factory, so it refuses to guess which. Components outside a scene provider —
+ * the scene picker — reach a specific instance through {@link SceneConnections}
+ * and this wrapper, which is the only place the untyped `call` is narrowed back
+ * to {@link SceneCalls}.
+ */
+export function loadSceneOn(
+  connection: TDConnection,
+  path: string,
+): Promise<SceneCalls['loadScene']['result']> {
+  return connection.call('loadScene', { path }) as Promise<SceneCalls['loadScene']['result']>;
+}
 
 export type VjGuiParamName = keyof VjGuiParams & string;
 export type { SceneId, SceneTextParamName } from './td.config';

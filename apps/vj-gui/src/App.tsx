@@ -1,6 +1,6 @@
 import { createSignal, onCleanup, type JSX } from 'solid-js';
-import { guiInstance, sceneInstances, type SceneId } from './td.config';
-import { GuiProvider } from './td';
+import { defaultLayer, guiInstance, sceneInstances, type SceneId } from './td.config';
+import { GuiProvider, type SceneConnections } from './td';
 import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
@@ -17,18 +17,25 @@ export function App(props: AppProps): JSX.Element {
   const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } });
   onCleanup(() => store.dispose());
 
-  const [selectedLayer, setSelectedLayer] = createSignal<SceneId | undefined>(undefined);
+  const [selectedLayer, setSelectedLayer] = createSignal<SceneId>(defaultLayer);
+  const [sceneConnections, setSceneConnections] = createSignal<SceneConnections>({});
 
   return (
     <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
       {/* Eight columns for the eight loaders this grows into; two are live. */}
-      <LayerPreviews selected={selectedLayer()} onSelect={setSelectedLayer} />
+      <LayerPreviews
+        selected={selectedLayer()}
+        onSelect={setSelectedLayer}
+        onConnection={(layer, connection) =>
+          setSceneConnections((prev) => ({ ...prev, [layer]: connection }))
+        }
+      />
       {/* The GUI project is a separate process from the scenes, so its params
           live behind their own provider — the text selector is the only thing
           bound to it. */}
       <GuiProvider>
         <div class="grid grid-cols-3 gap-4">
-          <SceneSelector />
+          <SceneSelector selectedLayer={selectedLayer()} connections={sceneConnections()} />
           <TextSelector store={store} selectedLayer={selectedLayer()} />
         </div>
       </GuiProvider>

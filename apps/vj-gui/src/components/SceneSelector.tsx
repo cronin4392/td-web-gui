@@ -1,59 +1,38 @@
 import { For, Index, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import { GuiClient } from '../td';
-import { sceneThumbnailUrl } from '../scenes.config';
-
-interface Scene {
-  name: string;
-  tag: string;
-  rank: number;
-  thumbnail: string;
-}
+import { TDCallError } from 'td-core';
+import { GuiClient, loadSceneOn, type SceneConnections } from '../td';
+import type { SceneId } from '../td.config';
+import { parseSceneLibrary, uniqueByName, type Scene } from '../scene-library';
 
 // Tags with a fixed slot in the strip; the rest sort alphabetically between them.
 const TAGS_FIRST = ['blank', 'overlay', 'foreground', 'background'];
 const TAGS_LAST = ['random', 'custom'];
 
-/** Blank and non-numeric ranks sort last — `Number('')` is 0, which would sort mid-list. */
-function parseRank(cell: string | undefined): number {
-  const rank = Number(cell?.trim());
-  return cell?.trim() && Number.isFinite(rank) ? rank : -Infinity;
-}
-
-function uniqueByName(scenes: Scene[]): Scene[] {
-  const seen = new Set<string>();
-  return scenes.filter((scene) => {
-    if (seen.has(scene.name)) return false;
-    seen.add(scene.name);
-    return true;
-  });
-}
-
-export function SceneSelector(): JSX.Element {
+export function SceneSelector(props: {
+  selectedLayer: SceneId;
+  connections: SceneConnections;
+}): JSX.Element {
   const library = GuiClient.signal('sceneLibrary');
   const [pickedTag, setPickedTag] = createSignal<string | null>(null);
+  const [callError, setCallError] = createSignal<string | undefined>(undefined);
 
-  // Columns by header name, so reordering the DAT's columns can't swap fields.
-  const scenes = createMemo((): Scene[] => {
-    const value = library.value();
-    if (!Array.isArray(value) || value.length === 0) return [];
-    const [header, ...body] = value;
-    const nameCol = header!.indexOf('name');
-    const tagCol = header!.indexOf('tag');
-    const rankCol = header!.indexOf('rank');
-    const folderCol = header!.indexOf('folder');
-    if (nameCol === -1 || tagCol === -1) return [];
-    // One row per scene-tag pairing, kept as-is: a scene tagged twice belongs
-    // under both tags. Only the All list collapses them.
-    return body
-      .filter((row) => row[nameCol])
-      .map((row) => ({
-        name: row[nameCol]!,
-        tag: row[tagCol]?.trim() ?? '',
-        rank: parseRank(rankCol === -1 ? undefined : row[rankCol]),
-        thumbnail: folderCol === -1 ? '' : sceneThumbnailUrl(row[folderCol] ?? ''),
-      }))
-      .sort((a, b) => b.rank - a.rank);
-  });
+  const scenes = createMemo((): Scene[] => parseSceneLibrary(library.value()));
+
+  // The library is read from the GUI project, but the load goes straight to the
+  // selected layer's own SceneLoader process — the GUI is not in that path.
+  async function loadScene(scene: Scene) {
+    setCallError(undefined);
+    const connection = props.connections[props.selectedLayer];
+    if (!connection) {
+      setCallError(`layer ${props.selectedLayer} has no connected scene process`);
+      return;
+    }
+    try {
+      await loadSceneOn(connection, scene.path);
+    } catch (error) {
+      setCallError(error instanceof TDCallError ? error.code : String(error));
+    }
+  }
 
   const tags = createMemo(() => {
     const present = new Set(
@@ -108,31 +87,39 @@ export function SceneSelector(): JSX.Element {
         </fieldset>
       </Show>
 
-      <div class="grid min-w-0 flex-1 grid-cols-4 content-start gap-1 overflow-y-auto">
-        {/* Index, not For: the memo mints fresh objects on every library
-            snapshot, so referential keying would rebuild the whole grid. */}
-        <Index
-          each={visibleScenes()}
-          fallback={<p class="col-span-4 text-sm text-neutral-500">No scenes yet.</p>}
-        >
-          {(scene) => (
-            <button
-              type="button"
-              class="relative flex aspect-video items-end overflow-hidden rounded border border-neutral-700 bg-neutral-800 bg-cover bg-center text-left hover:border-neutral-500"
-              style={
-                scene().thumbnail
-                  ? { 'background-image': `url("${scene().thumbnail}")` }
-                  : undefined
-              }
-              title={scene().name}
-            >
-              {/* Scrim — the label sits over arbitrary artwork. */}
-              <span class="w-full truncate bg-black/60 px-1 py-0.5 text-xs text-neutral-100">
-                {scene().name}
-              </span>
-            </button>
-          )}
-        </Index>
+      <div class="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <Show when={callError()}>
+          {(code) => <p class="shrink-0 text-sm text-red-400">Load failed: {code()}</p>}
+        </Show>
+
+        <div class="grid grid-cols-4 content-start gap-1">
+          {/* Index, not For: the memo mints fresh objects on every library
+              snapshot, so referential keying would rebuild the whole grid. */}
+          <Index
+            each={visibleScenes()}
+            fallback={<p class="col-span-4 text-sm text-neutral-500">No scenes yet.</p>}
+          >
+            {(scene) => (
+              <button
+                type="button"
+                class="relative flex aspect-video items-end overflow-hidden rounded border border-neutral-700 bg-neutral-800 bg-cover bg-center text-left hover:border-neutral-500 disabled:opacity-40 disabled:hover:border-neutral-700"
+                style={
+                  scene().thumbnail
+                    ? { 'background-image': `url("${scene().thumbnail}")` }
+                    : undefined
+                }
+                title={scene().name}
+                disabled={!scene().path}
+                onClick={() => void loadScene(scene())}
+              >
+                {/* Scrim — the label sits over arbitrary artwork. */}
+                <span class="w-full truncate bg-black/60 px-1 py-0.5 text-xs text-neutral-100">
+                  {scene().name}
+                </span>
+              </button>
+            )}
+          </Index>
+        </div>
       </div>
     </section>
   );

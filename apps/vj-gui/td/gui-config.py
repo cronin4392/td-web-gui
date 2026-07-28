@@ -1,8 +1,12 @@
 """
-Config for the GUI instance — the scene-loader control surface, on port 9980.
+Config for the GUI instance — the scene-loader control surface, on port 8765.
 
 Backing operators this project expects:
         /GUI/ExternalScenes/SceneA … SceneH   custom pars `Text`, `Text2`
+
+Loading a scene does NOT go through here: the web app calls each SceneLoader
+process directly (`loadScene` in td/scene-config.py), bypassing this project's
+MessageDispatcher entirely.
 
 Which loader's text pair the web app shows is local UI state (`selectedLayer`
 in apps/vj-gui/src/App.tsx, set by clicking a video tile in LayerPreviews),
