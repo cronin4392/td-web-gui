@@ -1,6 +1,6 @@
 import { For, Show, onCleanup, type JSX } from 'solid-js';
 import type { LayerId } from './layers';
-import { layerIdForLoader, loaderInstances, type LoaderId } from './wire';
+import { LOADER_STREAM, layerIdForLoader, loaderInstances, type LoaderId } from './wire';
 import { LoaderClient, LoaderProvider } from './clients';
 import { usePlayback } from './PlaybackProvider';
 
@@ -55,7 +55,7 @@ function LayerBody(props: {
   onCleanup(() => registerConnection(props.layer, undefined));
   return (
     <figure class="m-0">
-      <Show when={video.stream('scene')} keyed>
+      <Show when={video.stream(LOADER_STREAM)} keyed>
         {(_stream) => (
           <button
             type="button"
@@ -63,9 +63,9 @@ function LayerBody(props: {
             classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
             onClick={props.onSelect}
           >
-            <LoaderClient.Video stream="scene" />
-            <Show when={video.streamStatus('scene') !== 'connected'}>
-              <div class="video-overlay">{video.streamStatus('scene')}…</div>
+            <LoaderClient.Video stream={LOADER_STREAM} />
+            <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
+              <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </button>
         )}
