@@ -1,11 +1,11 @@
 import { For, Show, type JSX } from 'solid-js';
-import { sceneInstances, sceneReadonly, type TDInstanceConfig } from '../td.config';
-import { SceneClient } from '../td';
+import { sceneInstances, type SceneInstanceId } from '../td.config';
+import { SceneClient, SceneProvider } from '../td';
 
 export function ScenePreviews(): JSX.Element {
   return (
     <div class="grid shrink-0 grid-cols-8 gap-2">
-      <For each={sceneInstances}>{(scene) => <ScenePanel instance={scene} />}</For>
+      <For each={sceneInstances}>{(scene) => <ScenePanel scene={scene.id} />}</For>
     </div>
   );
 }
@@ -19,16 +19,11 @@ export function ScenePreviews(): JSX.Element {
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function ScenePanel(props: { instance: TDInstanceConfig }): JSX.Element {
+function ScenePanel(props: { scene: SceneInstanceId }): JSX.Element {
   return (
-    <SceneClient.Provider
-      url={props.instance.url}
-      instance={props.instance.id}
-      video={true}
-      readonly={[...sceneReadonly]}
-    >
-      <SceneBody label={props.instance.id} />
-    </SceneClient.Provider>
+    <SceneProvider scene={props.scene} video>
+      <SceneBody label={props.scene} />
+    </SceneProvider>
   );
 }
 

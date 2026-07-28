@@ -1,6 +1,6 @@
 import { onCleanup, type JSX } from 'solid-js';
 import { guiInstance, sceneInstances } from './td.config';
-import { GuiClient } from './td';
+import { GuiProvider } from './td';
 import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
@@ -23,9 +23,9 @@ export function App(props: AppProps): JSX.Element {
       {/* The GUI project is a separate process from the scenes, so its params
           live behind their own provider — the text selector is the only thing
           bound to it. */}
-      <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id}>
+      <GuiProvider>
         <TextSelector store={store} />
-      </GuiClient.Provider>
+      </GuiProvider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
         Bound to{' '}
