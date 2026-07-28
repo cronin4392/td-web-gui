@@ -40,13 +40,6 @@ WEBRTC = None
 
 STREAMS = {}
 
-READOUTS = {
-    # "sceneLibraryTags": {
-    #     "op": "/GUI/GUI/Main/ScenePickerNew/null_tags",
-    #     "type": "string[][]",
-    # },
-    "sceneLibrary": {
-        "op": "/GUI/GUI/Main/ScenePickerNew/null_all_scenes",
-        "type": "string[][]",
-    }
-}
+# The scene catalog moved to SQLite (`server/scenes-db.ts`, built from the scene
+# folders' meta.json), so the GUI no longer publishes it.
+READOUTS = {}

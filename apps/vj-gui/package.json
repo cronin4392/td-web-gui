@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "db:scenes": "vite-node server/sync-scenes.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -22,6 +23,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
+    "vite-node": "^3.2.4",
     "vite-plugin-solid": "^2.11.0",
     "vitest": "^3.0.0"
   }

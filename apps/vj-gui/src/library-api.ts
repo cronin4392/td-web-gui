@@ -1,6 +1,6 @@
 /**
  * `/api/library` client (TEXT_SELECTOR.md §5). Talks to the Vite-mounted,
- * SQLite-backed API (`server/plugin.ts`) — the browser never touches SQLite
+ * SQLite-backed API (`server/library-api-plugin.ts`) — the browser never touches SQLite
  * directly.
  */
 

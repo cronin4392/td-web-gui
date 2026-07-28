@@ -67,6 +67,9 @@ importers:
       vite:
         specifier: ^6.0.7
         version: 6.4.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
+      vite-node:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
       vite-plugin-solid:
         specifier: ^2.11.0
         version: 2.11.12(solid-js@1.9.13)(vite@6.4.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))

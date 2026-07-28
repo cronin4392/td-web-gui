@@ -185,7 +185,7 @@ Storage is split by what the data _is_, not kept in one blob:
 ### Library — SQLite via `/api/library`
 
 `apps/text-selector` runs a small persistence API alongside its Vite dev/preview server (a Vite
-plugin, `server/plugin.ts`) backed by a SQLite file at `apps/text-selector/data/text-selector.db`
+plugin, `server/library-api-plugin.ts`) backed by a SQLite file at `apps/text-selector/data/text-selector.db`
 (gitignored; path overridable via `TEXT_SELECTOR_DB`). The browser never touches SQLite directly —
 it only ever calls `GET`/`PUT /api/library`.
 
@@ -299,7 +299,7 @@ Vitest, against the store module — it holds all the logic worth testing and ne
   active-tab change alone doesn't trigger a library write
 - `/api/library` client (`src/library-api.test.ts`): malformed-response / network-failure fallback
   to defaults, failed `PUT` rejects
-- SQLite layer (`server/db.test.ts`): schema + seed on a fresh file, migration is idempotent,
+- SQLite layer (`server/text-db.test.ts`): schema + seed on a fresh file, migration is idempotent,
   round-trip preserves ordering, a rewrite fully replaces prior contents, `ON DELETE CASCADE`,
   duplicate-phrase rejection, a failed write rolls back rather than half-applying
 
@@ -322,8 +322,8 @@ Escape reverts silently, no-op on unchanged value, `commitOn="input"` behaviour 
       tab reorder.
 - [x] **T9 — Accessibility pass.** Tablist roles, arrow-key tab nav, focus management on
       add/rename/delete.
-- [x] **T10 — SQLite persistence.** `server/db.ts` (schema, `PRAGMA user_version` migration + seed,
-      `readLibrary`/`writeLibrary`) and `server/plugin.ts` (`GET`/`PUT /api/library` on both the dev
+- [x] **T10 — SQLite persistence.** `server/text-db.ts` (schema, `PRAGMA user_version` migration + seed,
+      `readLibrary`/`writeLibrary`) and `server/library-api-plugin.ts` (`GET`/`PUT /api/library` on both the dev
       and preview servers) using `node:sqlite`. `src/library.ts` shared types/guards,
       `src/library-api.ts` client. `store.ts` reworked to split library writes (SQLite) from
       `activeTabId` (`localStorage`) on one shared debounce. Full test coverage across all three

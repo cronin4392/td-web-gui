@@ -31,7 +31,7 @@ function mount(middlewares: Connect.Server): void {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
 
       // connect has already stripped SCENES_ROUTE off req.url here.
-      const rel = decodeURIComponent((req.url ?? '').split('?')[0] ?? '').replace(/^\/+/, '');
+      const rel = decodeURIComponent((req.url ?? '').split('?')[0]!).replace(/^\/+/, '');
       const target = resolve(join(root, rel));
       const inside = relative(root, target);
       if (!rel || inside.startsWith('..') || inside.startsWith(`..${sep}`)) {
@@ -64,9 +64,9 @@ function mount(middlewares: Connect.Server): void {
   );
 }
 
-export function vjGuiScenesPlugin(): Plugin {
+export function vjGuiThumbnailsPlugin(): Plugin {
   return {
-    name: 'vj-gui-scenes',
+    name: 'vj-gui-thumbnails',
     configureServer: (server) => mount(server.middlewares),
     configurePreviewServer: (server) => mount(server.middlewares),
   };

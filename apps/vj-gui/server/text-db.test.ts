@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * `server/db.ts` tests, against real temp-file SQLite databases (not
+ * `server/text-db.ts` tests, against real temp-file SQLite databases (not
  * `:memory:` — the migration/reopen tests need the file to persist across
  * `openLibraryDb` calls). `vitest.config.ts` is globally `jsdom`; the
  * docblock above opts this file into the `node` environment instead.
@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Library } from '../src/library';
-import { openLibraryDb, readLibrary, writeLibrary } from './db';
+import { openLibraryDb, readLibrary, writeLibrary } from './text-db';
 
 let dir: string;
 let dbPath: string;

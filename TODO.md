@@ -32,3 +32,5 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       layout land in one call. Follow-up once that exists: add them to `SceneCalls` in
       `apps/vj-gui/src/td.config.ts` and surface them in the UI.
 - [ ] Investigate why some tags are not showing up in the scene loader tags. black, dancer, flashing, flowers, future
+- [ ] Convert SceneLoader using a TD derived dat (parsed from scene json files) into my sqlite database.
+- [ ] Add sqlite database to version tracking

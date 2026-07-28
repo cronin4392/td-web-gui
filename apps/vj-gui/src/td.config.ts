@@ -82,14 +82,11 @@ export type SceneTextParamName = `scene${SceneId}Text${1 | 2}`;
  * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
  * scene loader.
  */
-export interface VjGuiParams extends Record<SceneTextParamName, string> {
-  /** The scene library DAT — header row `name folder tag rank`, then one row
-   * per scene. A readout, never written from here. */
-  sceneLibrary: string[][];
-}
+export type VjGuiParams = Record<SceneTextParamName, string>;
 
-/** GUI readout names, declared read-only so bound controls render disabled. */
-export const guiReadonly = ['sceneLibrary'] as const satisfies readonly (keyof VjGuiParams)[];
+/** GUI readout names, declared read-only so bound controls render disabled.
+ * Empty since the scene catalog moved to `/api/scenes`. */
+export const guiReadonly = [] as const satisfies readonly (keyof VjGuiParams)[];
 
 /**
  * Calls each scene instance exposes — the TS half of `HANDLERS` in
