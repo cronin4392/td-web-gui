@@ -32,6 +32,15 @@ Terms are canonical: prefer them in code, tests, commits, and conversation.
 | **Selected layer** | The Layer that a pick in the GUI acts on                                                | Active deck, current output |
 | **Load**           | Telling a Layer's Loader to play a given Tox path                                       | Play, fire, trigger, cue    |
 
+## Wordbank
+
+| Term            | Definition                                                                                      | Aliases to avoid                    |
+| --------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`    | Library, phrase library, text state |
+| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                  | Tab, phrase tab, list               |
+| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick        | Line, entry, saved text             |
+| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged | History, recents                    |
+
 ## Relationships
 
 - A **Scene** and an **Effect** each resolve to exactly one **Tox**; the **Loader** cannot tell them apart.
@@ -39,6 +48,8 @@ Terms are canonical: prefer them in code, tests, commits, and conversation.
 - A **Scene** carries zero or more **Tags** and at most one **Rank**; an **Effect** carries neither.
 - A **Sync** rebuilds one catalog from one root folder — the **Scene catalog** and the **Effect catalog** never mix.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
+- A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
+- Applying a **Phrase** writes it to the **Selected layer**'s text param and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
 
 ## Example dialogue
 
@@ -60,7 +71,7 @@ Terms are canonical: prefer them in code, tests, commits, and conversation.
 
 ## Flagged ambiguities
 
-- **"Scene" is overloaded three ways in the current code.** It means (a) pickable content backed by `meta.json`, (b) a Layer — `SceneId`, `sceneInstances`, `SceneConnections` all name Layers, and (c) the load operation itself, in `loadScene` / `loadSceneOn`, which loads any Tox including an **Effect**. Prefer **Layer** for (b) and read `loadSceneOn` as "load a Tox onto a Layer". Renaming the TD-side call is a breaking change and has not been done.
+- **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene`, `sceneAText1`…`sceneHText2`, and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
 - **"Effect" collides with the `3 Effect` group folder.** That folder is one **Group** among several; every folder under the **Effect** root is an **Effect** regardless of which **Group** it sits in.
-- **"Library" vs "catalog".** `sceneLibrary` is the TouchDesigner-side table this project no longer reads, and `library.ts` is the GUI's saved text/phrase state — neither is a **catalog**. Use **catalog** only for the synced set of **Scenes** or **Effects**.
+- **"Library" vs "catalog" — resolved on the GUI side.** What was `library.ts`'s saved text/phrase state is now the **Wordbank** (`domain/wordbank/wordbank.ts`), a name **Catalog** no longer has to share. `sceneLibrary` is still the TouchDesigner-side table this project no longer reads; neither it nor the **Wordbank** is a **catalog** — use **catalog** only for the synced set of **Scenes** or **Effects**.
 - **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` rebuild a database from disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.
