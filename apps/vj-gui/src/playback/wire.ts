@@ -8,11 +8,24 @@ import type { TDConnection } from 'td-core';
  */
 const loaderAPort = import.meta.env.VITE_TD_PORT_SCENE_A ?? '4007';
 const loaderBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
+const loaderCPort = import.meta.env.VITE_TD_PORT_SCENE_C ?? '6007';
+const loaderDPort = import.meta.env.VITE_TD_PORT_SCENE_D ?? '7007';
+// 8007 is skipped: the GUI project already owns the 8000 block (8765).
+const loaderEPort = import.meta.env.VITE_TD_PORT_SCENE_E ?? '9007';
+const loaderFPort = import.meta.env.VITE_TD_PORT_SCENE_F ?? '10007';
+const loaderGPort = import.meta.env.VITE_TD_PORT_SCENE_G ?? '11007';
+const loaderHPort = import.meta.env.VITE_TD_PORT_SCENE_H ?? '12007';
 
 /** The scene projects, in display order. Same schema, one `<Provider>` each. */
 export const loaderInstances = [
   { id: 'sceneA', url: `ws://${host}:${loaderAPort}` },
   { id: 'sceneB', url: `ws://${host}:${loaderBPort}` },
+  { id: 'sceneC', url: `ws://${host}:${loaderCPort}` },
+  { id: 'sceneD', url: `ws://${host}:${loaderDPort}` },
+  { id: 'sceneE', url: `ws://${host}:${loaderEPort}` },
+  { id: 'sceneF', url: `ws://${host}:${loaderFPort}` },
+  { id: 'sceneG', url: `ws://${host}:${loaderGPort}` },
+  { id: 'sceneH', url: `ws://${host}:${loaderHPort}` },
 ] as const satisfies readonly TDInstanceConfig[];
 
 /** id of one entry in {@link loaderInstances}, e.g. `'sceneA'` — distinct from
@@ -20,7 +33,7 @@ export const loaderInstances = [
 export type LoaderId = (typeof loaderInstances)[number]['id'];
 
 /** The loader id a scene instance's video tile stands for when selected as the
- * active layer — `'sceneA'` -> `'A'`, `'sceneB'` -> `'B'`. */
+ * active layer — `'sceneA'` -> `'A'`, `'sceneH'` -> `'H'`. */
 export function layerIdForLoader(instance: LoaderId): LayerId {
   return instance.slice('scene'.length) as LayerId;
 }
@@ -59,8 +72,8 @@ export interface LoaderCalls {
 }
 
 /**
- * Param schema shared by **both** scene instances — the TS half of the contract
- * with `td/scene-config.py`, which is likewise one file for both processes.
+ * Param schema shared by **every** scene instance — the TS half of the contract
+ * with `td/scene-config.py`, which is likewise one file for all eight processes.
  *
  * All readouts today (`READOUTS` in that file), so every name here is in
  * {@link loaderReadonly}. The registry is empty, so nothing on a scene is
@@ -91,8 +104,8 @@ export function layerTextParam<N extends 1 | 2>(
 }
 
 /**
- * `LoaderClient.call` is unavailable here: two providers are mounted from the one
- * factory, so it refuses to guess which. Components outside a scene provider —
+ * `LoaderClient.call` is unavailable here: eight providers are mounted from the
+ * one factory, so it refuses to guess which. Components outside a scene provider —
  * the scene picker — reach a specific instance through {@link LayerConnections}
  * and this wrapper, which is the only place the untyped `call` is narrowed back
  * to {@link LoaderCalls}.

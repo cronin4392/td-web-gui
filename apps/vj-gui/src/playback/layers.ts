@@ -6,21 +6,21 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The page drives **three** TouchDesigner processes, of **two** kinds:
+ * The page drives **nine** TouchDesigner processes, of **two** kinds:
  *
  *   - the GUI project (`td/gui-config.py`), which owns the eight loaders'
  *     text params — one of a kind, one schema; which loader is active is
  *     local UI state (`selectedLayer` in `App.tsx`), not a TD-driven value;
  *   - the scene projects (`td/scene-config.py`), one process per live scene.
  *
- * The two scene processes run the same project, so they publish the same wire
+ * The eight scene processes run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
  * That is the opposite of `apps/example`, where the two instances deliberately
  * differ; here symmetry is the point, and duplicating the schema per scene
- * would only create two things to keep in sync.
+ * would only create eight things to keep in sync.
  *
- * Sharing the names is safe because a wire name is scoped to its instance: both
- * scenes publish a plain `level`, and which one a control reads is decided by
+ * Sharing the names is safe because a wire name is scoped to its instance: every
+ * scene publishes a plain `level`, and which one a control reads is decided by
  * the `<Provider>` it renders inside, not by the name.
  */
 

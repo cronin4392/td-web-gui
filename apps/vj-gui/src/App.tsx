@@ -26,7 +26,6 @@ export function App(props: AppProps): JSX.Element {
   return (
     <PlaybackProvider>
       <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
-        {/* Eight columns for the eight loaders this grows into; two are live. */}
         <LayerPreviews />
         {/* The GUI project is a separate process from the scenes, so its params
             live behind their own provider — the text selector is the only thing

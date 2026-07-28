@@ -2,8 +2,8 @@
  * The `createTDClient` factories, shared across the app's components — a
  * factory must be created once per *schema*, not per-component.
  *
- * Two factories for three instances, because a factory is purely compile-time:
- * its components bind to whichever `<Provider>` they render inside, so the two
+ * Two factories for nine instances, because a factory is purely compile-time:
+ * its components bind to whichever `<Provider>` they render inside, so the eight
  * scene instances — same project, same wire names — share one. `LoaderClient`
  * rendered under sceneA's provider reads sceneA; the identical markup under
  * sceneB's reads sceneB.
@@ -26,7 +26,7 @@ import {
 /** The GUI project: the eight loaders' text params and the scene library. */
 export const GuiClient = createTDClient<GuiParams>();
 
-/** Both scene projects: performance readouts, the video stream, and the
+/** Every scene project: performance readouts, the video stream, and the
  * `loadScene` call. */
 export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
