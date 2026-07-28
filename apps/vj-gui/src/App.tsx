@@ -3,7 +3,7 @@ import { defaultLayer, guiInstance, sceneInstances, type SceneId } from './td.co
 import { GuiProvider, type SceneConnections } from './td';
 import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
-import type { Library } from './library';
+import type { Library } from '@domain/wordbank/wordbank';
 import { EffectSelector } from './components/SceneEffectSelectors/EffectSelector';
 import { LayerPreviews } from './components/LayerPreviews';
 import { SceneSelector } from './components/SceneEffectSelectors/SceneSelector';

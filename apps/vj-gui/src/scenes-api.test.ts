@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchCatalog, syncCatalog } from './scenes-api';
-import type { Catalog, Scene } from './scenes';
+import type { Catalog, Scene } from '@domain/catalog/scene';
 
 const SCENE: Scene = {
   name: 'AudioSpectrum',

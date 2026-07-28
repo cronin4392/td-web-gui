@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Library } from '../src/library';
+import type { Library } from '../domain/wordbank/wordbank';
 import { openLibraryDb, readLibrary } from './text-db';
 import { libraryApiHandler } from './library-api-plugin';
 import { callHandler, callHandlerWithBody } from './api-plugin.test-helpers';

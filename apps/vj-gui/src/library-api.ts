@@ -4,7 +4,7 @@
  * directly.
  */
 
-import { defaultLibrary, isLibrary, type Library } from './library';
+import { defaultLibrary, isLibrary, type Library } from '@domain/wordbank/wordbank';
 
 const ENDPOINT = '/api/library';
 

@@ -4,7 +4,8 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@domain/*": ["domain/*"]
     }
   },
   "include": ["src"]

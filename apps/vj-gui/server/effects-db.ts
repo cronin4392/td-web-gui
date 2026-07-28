@@ -1,6 +1,11 @@
 import { DatabaseSync } from 'node:sqlite';
 import { resolve, join } from 'node:path';
-import { effectFrom, type Effect, type EffectCatalog, type EffectFields } from '../src/effects';
+import {
+  effectFrom,
+  type Effect,
+  type EffectCatalog,
+  type EffectFields,
+} from '../domain/catalog/effect';
 import {
   byName,
   catalogDbPath,

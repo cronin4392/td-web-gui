@@ -1,4 +1,4 @@
-import { sceneThumbnailUrl } from './scenes.config';
+import { sceneThumbnailUrl } from './thumbnail';
 import { toxPath } from './tox';
 
 export interface Scene {

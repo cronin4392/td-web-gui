@@ -2,7 +2,7 @@ import { For, type JSX } from 'solid-js';
 import type { SceneConnections } from '@/td';
 import type { SceneId } from '@/td.config';
 import { fetchEffectCatalog, syncEffectCatalog } from '@/effects-api';
-import type { EffectCatalog } from '@/effects';
+import type { EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from '@/catalog-picker';
 import { PickerToolbar } from './PickerToolbar';
 

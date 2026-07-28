@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Library } from './library';
+import type { Library } from '@domain/wordbank/wordbank';
 import { createVjGuiStore, type CreateStoreOptions } from './store';
 
 class FakeStorage implements Storage {

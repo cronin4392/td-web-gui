@@ -1,4 +1,4 @@
-import { emptyCatalog, isCatalog, type Catalog } from './scenes';
+import { emptyCatalog, isCatalog, type Catalog } from '@domain/catalog/scene';
 
 const ENDPOINT = '/api/scenes';
 

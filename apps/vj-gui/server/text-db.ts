@@ -10,7 +10,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { defaultLibrary, type Library, type PhraseTab } from '../src/library';
+import { defaultLibrary, type Library, type PhraseTab } from '../domain/wordbank/wordbank';
 
 const SCHEMA_VERSION = 1;
 

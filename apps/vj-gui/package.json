@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "db:scenes": "vite-node server/sync-scenes.ts",
     "db:effects": "vite-node server/sync-effects.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },

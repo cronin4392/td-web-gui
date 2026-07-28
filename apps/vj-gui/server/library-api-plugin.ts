@@ -8,7 +8,7 @@
 import type { IncomingMessage } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Connect, Plugin } from 'vite';
-import { isLibrary } from '../src/library';
+import { isLibrary } from '../domain/wordbank/wordbank';
 import { openLibraryDb, readLibrary, resolveDbPath, writeLibrary } from './text-db';
 import { sendError, sendJson, sqliteApiPlugin } from './api-plugin';
 

@@ -8,7 +8,7 @@ import { stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join, relative, resolve, sep } from 'node:path';
 import type { Connect, Plugin } from 'vite';
-import { SCENES_ROUTE } from '../src/scenes.config';
+import { SCENES_ROUTE } from '../domain/catalog/thumbnail';
 import { scenesRoot } from './scenes-db';
 
 const CONTENT_TYPES: Record<string, string> = {

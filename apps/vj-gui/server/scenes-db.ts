@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { resolve, join } from 'node:path';
-import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../src/scenes';
+import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../domain/catalog/scene';
 import {
   byName,
   catalogDbPath,

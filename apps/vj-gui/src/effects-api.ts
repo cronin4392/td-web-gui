@@ -1,4 +1,4 @@
-import { isEffectCatalog, type EffectCatalog } from './effects';
+import { isEffectCatalog, type EffectCatalog } from '@domain/catalog/effect';
 
 const ENDPOINT = '/api/effects';
 

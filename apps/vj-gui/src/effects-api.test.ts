@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchEffectCatalog, syncEffectCatalog } from './effects-api';
-import type { EffectCatalog } from './effects';
+import type { EffectCatalog } from '@domain/catalog/effect';
 
 const CATALOG: EffectCatalog = [{ name: 'Blur', path: 'C:/Effects/3 Effect/Blur/Blur.tox' }];
 

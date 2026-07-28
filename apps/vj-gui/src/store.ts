@@ -14,7 +14,7 @@
  */
 
 import { createStore, unwrap } from 'solid-js/store';
-import { defaultLibrary, type Library, type PhraseTab } from './library';
+import { defaultLibrary, type Library, type PhraseTab } from '@domain/wordbank/wordbank';
 
 export type { PhraseTab };
 

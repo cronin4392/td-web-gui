@@ -6,7 +6,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaultLibrary, type Library } from './library';
+import { defaultLibrary, type Library } from '@domain/wordbank/wordbank';
 import { fetchLibrary, saveLibrary } from './library-api';
 
 afterEach(() => {

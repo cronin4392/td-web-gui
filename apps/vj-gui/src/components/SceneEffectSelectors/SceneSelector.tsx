@@ -2,7 +2,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { SceneConnections } from '@/td';
 import type { SceneId } from '@/td.config';
 import { fetchCatalog, syncCatalog } from '@/scenes-api';
-import { emptyCatalog, type Catalog } from '@/scenes';
+import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from '@/catalog-picker';
 import { PickerToolbar } from './PickerToolbar';
 
