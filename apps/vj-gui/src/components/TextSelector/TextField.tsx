@@ -9,8 +9,8 @@
  */
 
 import type { JSX } from 'solid-js';
-import { hasPhraseDragData, readPhraseDragData } from '../dnd';
-import { GuiClient, type SceneTextParamName } from '../td';
+import { hasPhraseDragData, readPhraseDragData } from '@/dnd';
+import { GuiClient, type SceneTextParamName } from '@/td';
 
 export interface TextFieldProps {
   /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */

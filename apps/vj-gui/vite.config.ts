@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import solid from 'vite-plugin-solid';
 import tailwindcss from '@tailwindcss/vite';
@@ -18,6 +19,11 @@ export default defineConfig({
     vjGuiEffectsApiPlugin(),
     vjGuiThumbnailsPlugin(),
   ],
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
   server: {
     // The SQLite file (+ its -wal/-shm journals) is rewritten on every store
     // mutation. Without this, Vite's watcher sees those writes as project

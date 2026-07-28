@@ -5,13 +5,8 @@
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import type { PhraseTab, VjGuiStore } from '../store';
-import {
-  adjustReorderTarget,
-  dropIndexForRow,
-  hasPhraseDragData,
-  readPhraseDragData,
-} from '../dnd';
+import type { PhraseTab, VjGuiStore } from '@/store';
+import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from '@/dnd';
 import { PhraseChip } from './PhraseChip';
 
 export interface PhraseListProps {

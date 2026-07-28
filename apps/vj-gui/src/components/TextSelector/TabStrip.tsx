@@ -13,8 +13,8 @@
  */
 
 import { For, Show, createSignal, type JSX } from 'solid-js';
-import { RECENT_TAB_ID, type VjGuiStore } from '../store';
-import { TAB_MIME, adjustReorderTarget, hasDragMime } from '../dnd';
+import { RECENT_TAB_ID, type VjGuiStore } from '@/store';
+import { TAB_MIME, adjustReorderTarget, hasDragMime } from '@/dnd';
 
 export interface TabStripProps {
   store: VjGuiStore;

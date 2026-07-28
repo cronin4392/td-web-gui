@@ -1,8 +1,8 @@
 import { createMemo, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
-import { sceneTextParam, type SceneId } from '../td.config';
-import { GuiClient, type SceneTextParamName } from '../td';
-import { RECENT_TAB_ID, type createVjGuiStore } from '../store';
+import { sceneTextParam, type SceneId } from '@/td.config';
+import { GuiClient, type SceneTextParamName } from '@/td';
+import { RECENT_TAB_ID, type createVjGuiStore } from '@/store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { TabStrip } from './TabStrip';

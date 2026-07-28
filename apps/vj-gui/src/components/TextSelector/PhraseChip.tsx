@@ -7,7 +7,7 @@
  */
 
 import type { JSX } from 'solid-js';
-import { setPhraseDragData, type PhraseDragPayload } from '../dnd';
+import { setPhraseDragData, type PhraseDragPayload } from '@/dnd';
 
 export interface PhraseChipProps {
   phrase: string;

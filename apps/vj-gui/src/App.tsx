@@ -4,10 +4,10 @@ import { GuiProvider, type SceneConnections } from './td';
 import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
-import { EffectSelector } from './components/EffectSelector';
+import { EffectSelector } from './components/SceneEffectSelectors/EffectSelector';
 import { LayerPreviews } from './components/LayerPreviews';
-import { SceneSelector } from './components/SceneSelector';
-import { TextSelector } from './components/TextSelector';
+import { SceneSelector } from './components/SceneEffectSelectors/SceneSelector';
+import { TextSelector } from './components/TextSelector/TextSelector';
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchLibrary()`). */

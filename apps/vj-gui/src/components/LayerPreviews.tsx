@@ -5,8 +5,8 @@ import {
   sceneInstances,
   type SceneId,
   type SceneInstanceId,
-} from '../td.config';
-import { SceneClient, SceneProvider } from '../td';
+} from '@/td.config';
+import { SceneClient, SceneProvider } from '@/td';
 
 type ConnectionSink = (layer: SceneId, connection: TDConnection | undefined) => void;
 
