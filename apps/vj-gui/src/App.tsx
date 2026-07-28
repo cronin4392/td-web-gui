@@ -1,6 +1,7 @@
 import { createSignal, onCleanup, type JSX } from 'solid-js';
-import { defaultLayer, guiInstance, sceneInstances, type SceneId } from './playback/layers';
-import { GuiProvider, type SceneConnections } from './playback/clients';
+import { defaultLayer, guiInstance, type LayerId } from './playback/layers';
+import { loaderInstances } from './playback/wire';
+import { GuiProvider, type LayerConnections } from './playback/clients';
 import { createVjGuiStore } from './wordbank/store';
 import { saveLibrary } from './wordbank/library-api';
 import type { Library } from '@domain/wordbank/wordbank';
@@ -18,8 +19,8 @@ export function App(props: AppProps): JSX.Element {
   const store = createVjGuiStore({ initial: props.library, persistence: { save: saveLibrary } });
   onCleanup(() => store.dispose());
 
-  const [selectedLayer, setSelectedLayer] = createSignal<SceneId>(defaultLayer);
-  const [sceneConnections, setSceneConnections] = createSignal<SceneConnections>({});
+  const [selectedLayer, setSelectedLayer] = createSignal<LayerId>(defaultLayer);
+  const [layerConnections, setLayerConnections] = createSignal<LayerConnections>({});
 
   return (
     <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
@@ -28,7 +29,7 @@ export function App(props: AppProps): JSX.Element {
         selected={selectedLayer()}
         onSelect={setSelectedLayer}
         onConnection={(layer, connection) =>
-          setSceneConnections((prev) => ({ ...prev, [layer]: connection }))
+          setLayerConnections((prev) => ({ ...prev, [layer]: connection }))
         }
       />
       {/* The GUI project is a separate process from the scenes, so its params
@@ -36,15 +37,15 @@ export function App(props: AppProps): JSX.Element {
           bound to it. */}
       <GuiProvider>
         <div class="grid grid-cols-3 gap-4">
-          <SceneSelector selectedLayer={selectedLayer()} connections={sceneConnections()} />
-          <EffectSelector selectedLayer={selectedLayer()} connections={sceneConnections()} />
+          <SceneSelector selectedLayer={selectedLayer()} connections={layerConnections()} />
+          <EffectSelector selectedLayer={selectedLayer()} connections={layerConnections()} />
           <TextSelector store={store} selectedLayer={selectedLayer()} />
         </div>
       </GuiProvider>
       {/* Hidden for now — re-enable by dropping the `hidden` class. */}
       <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
         Bound to{' '}
-        {[guiInstance, ...sceneInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
+        {[guiInstance, ...loaderInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
       </p>
     </main>
   );

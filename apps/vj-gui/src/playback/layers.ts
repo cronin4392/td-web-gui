@@ -30,7 +30,7 @@ export interface TDInstanceConfig {
   url: string;
 }
 
-const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
+export const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
 
 /**
  * One port per instance. Separate variables rather than a base + offset: the
@@ -38,8 +38,6 @@ const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
  * makes them contiguous.
  */
 const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '8765';
-const sceneAPort = import.meta.env.VITE_TD_PORT_SCENE_A ?? '4007';
-const sceneBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
 
 /**
  * The GUI project. `id` matches its WebGuiServer `Identifier` par — the
@@ -51,26 +49,10 @@ export const guiInstance = {
   url: `ws://${host}:${guiPort}`,
 } as const satisfies TDInstanceConfig;
 
-/** The scene projects, in display order. Same schema, one `<Provider>` each. */
-export const sceneInstances = [
-  { id: 'sceneA', url: `ws://${host}:${sceneAPort}` },
-  { id: 'sceneB', url: `ws://${host}:${sceneBPort}` },
-] as const satisfies readonly TDInstanceConfig[];
-
-/** id of one entry in {@link sceneInstances}, e.g. `'sceneA'` — distinct from
- * {@link SceneId} (`'A'`–`'H'`), which names an external scene *loader*. */
-export type SceneInstanceId = (typeof sceneInstances)[number]['id'];
-
 /** The eight external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`. */
-export const sceneIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
-export type SceneId = (typeof sceneIds)[number];
+export const layerIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+export type LayerId = (typeof layerIds)[number];
 
 /** The loader a freshly-opened page targets. A layer is always selected — every
- * `selectedLayer` in the app is a `SceneId`, never `undefined`. */
-export const defaultLayer: SceneId = 'A';
-
-/** The loader id a scene instance's video tile stands for when selected as the
- * active layer — `'sceneA'` -> `'A'`, `'sceneB'` -> `'B'`. */
-export function sceneIdForInstance(instance: SceneInstanceId): SceneId {
-  return instance.slice('scene'.length) as SceneId;
-}
+ * `selectedLayer` in the app is a `LayerId`, never `undefined`. */
+export const defaultLayer: LayerId = 'A';

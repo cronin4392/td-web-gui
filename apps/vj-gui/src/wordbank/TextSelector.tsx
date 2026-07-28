@@ -1,8 +1,8 @@
 import { createMemo, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
-import { sceneTextParam } from '@/playback/wire';
-import type { SceneId } from '@/playback/layers';
-import { GuiClient, type SceneTextParamName } from '@/playback/clients';
+import { layerTextParam } from '@/playback/wire';
+import type { LayerId } from '@/playback/layers';
+import { GuiClient, type LayerTextParamName } from '@/playback/clients';
 import { RECENT_TAB_ID, type createVjGuiStore } from './store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
@@ -11,7 +11,7 @@ import { PhraseList } from './PhraseList';
 
 export function TextSelector(props: {
   store: ReturnType<typeof createVjGuiStore>;
-  selectedLayer: SceneId;
+  selectedLayer: LayerId;
 }): JSX.Element {
   // Resolved here, at render time: the phrase-apply path below runs from event
   // handlers, where there is no reactive owner for the context lookup.
@@ -22,14 +22,14 @@ export function TextSelector(props: {
   // This writes the signal directly, so it owes the same newline escaping the
   // multiline <TextInput> does on its own commits; stored phrases keep real
   // newlines.
-  function applyPhrase(name: SceneTextParamName, phrase: string) {
+  function applyPhrase(name: LayerTextParamName, phrase: string) {
     connection.signal(name).setValue(escapeNewlines(phrase));
     props.store.commitRecent(phrase);
   }
   function applyToText1(phrase: string) {
-    applyPhrase(sceneTextParam(props.selectedLayer, 1), phrase);
+    applyPhrase(layerTextParam(props.selectedLayer, 1), phrase);
   }
-  function clearText(name: SceneTextParamName) {
+  function clearText(name: LayerTextParamName) {
     applyPhrase(name, '');
   }
 
@@ -44,17 +44,17 @@ export function TextSelector(props: {
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
       <Show when={props.selectedLayer} keyed>
-        {(scene) => (
+        {(layer) => (
           <section class="flex shrink-0 flex-col gap-1">
             <TextField
-              name={sceneTextParam(scene, 1)}
+              name={layerTextParam(layer, 1)}
               label="Artist name"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
               onClear={clearText}
             />
             <TextField
-              name={sceneTextParam(scene, 2)}
+              name={layerTextParam(layer, 2)}
               label="Event"
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}

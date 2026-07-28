@@ -4,50 +4,38 @@
  *
  * Two factories for three instances, because a factory is purely compile-time:
  * its components bind to whichever `<Provider>` they render inside, so the two
- * scene instances — same project, same wire names — share one. `SceneClient`
+ * scene instances — same project, same wire names — share one. `LoaderClient`
  * rendered under sceneA's provider reads sceneA; the identical markup under
  * sceneB's reads sceneB.
  */
 
 import type { JSX } from 'solid-js';
 import { createTDClient, type TDConnection } from 'td-core';
-import { guiInstance, sceneInstances, type SceneId, type SceneInstanceId } from './layers';
+import { guiInstance, type LayerId } from './layers';
 import {
   guiReadonly,
-  sceneReadonly,
-  type SceneCalls,
-  type SceneParams,
-  type VjGuiParams,
+  loaderInstances,
+  loaderReadonly,
+  type GuiParams,
+  type LoaderCalls,
+  type LoaderId,
+  type LoaderParams,
 } from './wire';
 
 /** The GUI project: the eight loaders' text params and the scene library. */
-export const GuiClient = createTDClient<VjGuiParams>();
+export const GuiClient = createTDClient<GuiParams>();
 
 /** Both scene projects: performance readouts, the video stream, and the
  * `loadScene` call. */
-export const SceneClient = createTDClient<SceneParams, SceneCalls>();
+export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
 /** The live connection for each layer, filled in by the mounted scene providers.
  * A layer with no running process is simply absent. */
-export type SceneConnections = Partial<Record<SceneId, TDConnection>>;
+export type LayerConnections = Partial<Record<LayerId, TDConnection>>;
 
-/**
- * `SceneClient.call` is unavailable here: two providers are mounted from the one
- * factory, so it refuses to guess which. Components outside a scene provider —
- * the scene picker — reach a specific instance through {@link SceneConnections}
- * and this wrapper, which is the only place the untyped `call` is narrowed back
- * to {@link SceneCalls}.
- */
-export function loadSceneOn(
-  connection: TDConnection,
-  path: string,
-): Promise<SceneCalls['loadScene']['result']> {
-  return connection.call('loadScene', { path }) as Promise<SceneCalls['loadScene']['result']>;
-}
-
-export type VjGuiParamName = keyof VjGuiParams & string;
-export type { SceneId } from './layers';
-export type { SceneTextParamName } from './wire';
+export type GuiParamName = keyof GuiParams & string;
+export type { LayerId } from './layers';
+export type { LayerTextParamName } from './wire';
 
 /** `GuiClient.Provider` bound to the app's one GUI instance. */
 export function GuiProvider(props: { children: JSX.Element }): JSX.Element {
@@ -59,26 +47,26 @@ export function GuiProvider(props: { children: JSX.Element }): JSX.Element {
 }
 
 /**
- * `SceneClient.Provider` bound to one scene instance, keyed by id rather than
- * `url`/`instance` — looks the connection details up in `sceneInstances` so
+ * `LoaderClient.Provider` bound to one scene instance, keyed by id rather than
+ * `url`/`instance` — looks the connection details up in `loaderInstances` so
  * call sites never repeat them, and picking up a third scene later is a
- * `sceneInstances` edit, not a call-site edit.
+ * `loaderInstances` edit, not a call-site edit.
  */
-export function SceneProvider(props: {
-  scene: SceneInstanceId;
+export function LoaderProvider(props: {
+  loader: LoaderId;
   video?: boolean;
   children: JSX.Element;
 }): JSX.Element {
-  const instance = sceneInstances.find((s) => s.id === props.scene);
-  if (!instance) throw new Error(`[td] unknown scene id: ${props.scene}`);
+  const instance = loaderInstances.find((s) => s.id === props.loader);
+  if (!instance) throw new Error(`[td] unknown scene id: ${props.loader}`);
   return (
-    <SceneClient.Provider
+    <LoaderClient.Provider
       url={instance.url}
       instance={instance.id}
-      readonly={[...sceneReadonly]}
+      readonly={[...loaderReadonly]}
       video={props.video}
     >
       {props.children}
-    </SceneClient.Provider>
+    </LoaderClient.Provider>
   );
 }

@@ -2,22 +2,22 @@ import { createRoot } from 'solid-js';
 import { TDCallError } from 'td-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createCatalogPicker } from './createCatalogPicker';
-import type { SceneConnections } from '../playback/clients';
-import type { SceneId } from '../playback/layers';
+import type { LayerConnections } from '../playback/clients';
+import type { LayerId } from '../playback/layers';
 
-const loadSceneOn = vi.hoisted(() => vi.fn());
-vi.mock('../playback/clients', () => ({ loadSceneOn }));
+const loadToxOn = vi.hoisted(() => vi.fn());
+vi.mock('../playback/wire', () => ({ loadToxOn }));
 
 type Catalog = string[];
 
-const LAYER = 'scene1' as SceneId;
-const CONNECTION = { call: vi.fn() } as unknown as NonNullable<SceneConnections[SceneId]>;
+const LAYER = 'scene1' as LayerId;
+const CONNECTION = { call: vi.fn() } as unknown as NonNullable<LayerConnections[LayerId]>;
 
 function picker(
   overrides: {
     fetch?: () => Promise<Catalog>;
     sync?: () => Promise<Catalog>;
-    connections?: SceneConnections;
+    connections?: LayerConnections;
   } = {},
 ) {
   const state = { connections: overrides.connections ?? { [LAYER]: CONNECTION } };
@@ -31,7 +31,7 @@ function picker(
     }),
   );
   return Object.assign(api, {
-    connect: (connections: SceneConnections) => {
+    connect: (connections: LayerConnections) => {
       state.connections = connections;
     },
   });
@@ -79,7 +79,7 @@ describe('loadTox', () => {
 
     await p.loadTox('C:/Effects/Blur/Blur.tox');
 
-    expect(loadSceneOn).toHaveBeenCalledWith(CONNECTION, 'C:/Effects/Blur/Blur.tox');
+    expect(loadToxOn).toHaveBeenCalledWith(CONNECTION, 'C:/Effects/Blur/Blur.tox');
     expect(p.error()).toBeUndefined();
   });
 
@@ -88,12 +88,12 @@ describe('loadTox', () => {
 
     await p.loadTox('C:/Effects/Blur/Blur.tox');
 
-    expect(loadSceneOn).not.toHaveBeenCalled();
+    expect(loadToxOn).not.toHaveBeenCalled();
     expect(p.error()).toBe(`Layer ${LAYER} has no connected scene process`);
   });
 
   it('surfaces a TDCallError by its code rather than its message', async () => {
-    loadSceneOn.mockRejectedValueOnce(new TDCallError('no_such_tox', 'loadScene', 'boom'));
+    loadToxOn.mockRejectedValueOnce(new TDCallError('no_such_tox', 'loadScene', 'boom'));
     const p = picker();
 
     await p.loadTox('C:/gone.tox');
@@ -109,7 +109,7 @@ describe('loadTox', () => {
     p.connect({ [LAYER]: CONNECTION });
     await p.loadTox('C:/b.tox');
 
-    expect(loadSceneOn).toHaveBeenCalledWith(CONNECTION, 'C:/b.tox');
+    expect(loadToxOn).toHaveBeenCalledWith(CONNECTION, 'C:/b.tox');
     expect(p.error()).toBeUndefined();
   });
 });

@@ -1,7 +1,8 @@
 import { createResource, createSignal, type Accessor, type InitializedResource } from 'solid-js';
 import { TDCallError } from 'td-core';
-import { loadSceneOn, type SceneConnections } from '../playback/clients';
-import type { SceneId } from '../playback/layers';
+import type { LayerConnections } from '../playback/clients';
+import { loadToxOn } from '../playback/wire';
+import type { LayerId } from '../playback/layers';
 
 export interface CatalogPicker<T> {
   catalog: InitializedResource<T>;
@@ -26,8 +27,8 @@ export function createCatalogPicker<T>(config: {
   fetch: () => Promise<T>;
   sync: () => Promise<T>;
   initialValue: T;
-  selectedLayer: Accessor<SceneId>;
-  connections: Accessor<SceneConnections>;
+  selectedLayer: Accessor<LayerId>;
+  connections: Accessor<LayerConnections>;
 }): CatalogPicker<T> {
   const [catalog, { mutate }] = createResource(config.fetch, { initialValue: config.initialValue });
   const [error, setError] = createSignal<string | undefined>(undefined);
@@ -55,7 +56,7 @@ export function createCatalogPicker<T>(config: {
       return;
     }
     try {
-      await loadSceneOn(connection, path);
+      await loadToxOn(connection, path);
     } catch (err) {
       setError(`Load failed: ${reason(err)}`);
     }

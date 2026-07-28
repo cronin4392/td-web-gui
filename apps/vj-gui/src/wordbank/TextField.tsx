@@ -10,17 +10,17 @@
 
 import type { JSX } from 'solid-js';
 import { hasPhraseDragData, readPhraseDragData } from './dnd';
-import { GuiClient, type SceneTextParamName } from '@/playback/clients';
+import { GuiClient, type LayerTextParamName } from '@/playback/clients';
 
 export interface TextFieldProps {
   /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
-  name: SceneTextParamName;
+  name: LayerTextParamName;
   label: string;
   commitRecent: (phrase: string) => void;
   /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s (always Text 1) `onApply`. */
-  applyPhrase: (name: SceneTextParamName, phrase: string) => void;
+  applyPhrase: (name: LayerTextParamName, phrase: string) => void;
   /** Clear this field's TD text param. */
-  onClear: (name: SceneTextParamName) => void;
+  onClear: (name: LayerTextParamName) => void;
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {

@@ -1,14 +1,14 @@
 import { For, type JSX } from 'solid-js';
-import type { SceneConnections } from '@/playback/clients';
-import type { SceneId } from '@/playback/layers';
+import type { LayerConnections } from '@/playback/clients';
+import type { LayerId } from '@/playback/layers';
 import { fetchEffectCatalog, syncEffectCatalog } from './effects-api';
 import type { EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { PickerToolbar } from './PickerToolbar';
 
 export function EffectSelector(props: {
-  selectedLayer: SceneId;
-  connections: SceneConnections;
+  selectedLayer: LayerId;
+  connections: LayerConnections;
 }): JSX.Element {
   const picker = createCatalogPicker<EffectCatalog>({
     fetch: fetchEffectCatalog,
