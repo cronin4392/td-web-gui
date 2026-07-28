@@ -10,6 +10,8 @@
  *    JS can't observe the WS protocol's own frames) and `error` (surfaced,
  *    never fatal).
  *  - **Momentary params** — `pulse`, web → TD only, carrying no value.
+ *  - **Calls** — `call`/`result` (symmetric: either side can invoke a named
+ *    handler on the other and get a reply).
  *  - **WebRTC signaling** — `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams`,
  *    multiplexed here so video needs no second socket or TD component.
  *  - **Menus** — the one deliberate piece of TD → web introspection, for menus
@@ -43,6 +45,14 @@ export type ParamValue = number | string | boolean | number[] | string[][];
 
 /** Map of friendly param name → value, as carried by `snapshot`/`update`. */
 export type ParamMap = Record<string, ParamValue>;
+
+/**
+ * Any JSON-serializable value — the payload shape for `call`/`result` `args` and
+ * `value`. Unlike {@link ParamValue}, this isn't TD-coerced; it passes through
+ * untouched on both ends, since anything out of `JSON.parse` already satisfies
+ * this type by construction.
+ */
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
 /**
  * Encode a browser-side multi-line string for a TD string parameter: real line
@@ -135,6 +145,34 @@ export interface PulseMessage {
 export interface UpdateMessage {
   type: 'update';
   params: ParamMap;
+}
+
+/**
+ * Invoke a named handler on the far side. Symmetric, like the WebRTC signaling
+ * below: the web calls a Python function registered in `HANDLERS`, and TD calls
+ * a JS handler registered via `createTDHandler`/`connection.handle()`. Omit `id`
+ * for fire-and-forget (see `notify`/`connection.notify`) — the receiver runs the
+ * handler but never replies.
+ */
+export interface CallMessage {
+  type: 'call';
+  id?: string;
+  name: string;
+  args?: JsonValue;
+}
+
+/**
+ * Reply to a {@link CallMessage} that carried an `id`. Exactly one of `value` /
+ * `error` is present. Deliberately a separate type from {@link ErrorMessage}:
+ * `error` has connection-level semantics (routes to `lastError`, and
+ * `param_not_writable` triggers a snapshot re-request) that a failed call must
+ * not trigger — see docs/design-notes.md § "Calls".
+ */
+export interface CallResultMessage {
+  type: 'result';
+  id: string;
+  value?: JsonValue;
+  error?: { code: string; message?: string };
 }
 
 // ── WebRTC signaling, both directions ─────────────────────────────────────
@@ -265,6 +303,8 @@ export type ClientMessage =
   | UpdateMessage
   | PulseMessage
   | PingMessage
+  | CallMessage
+  | CallResultMessage
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
@@ -278,6 +318,8 @@ export type ServerMessage =
   | PongMessage
   | ErrorMessage
   | MenusMessage
+  | CallMessage
+  | CallResultMessage
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
@@ -299,6 +341,8 @@ const KNOWN_TYPES = new Set([
   'pong',
   'error',
   'menus',
+  'call',
+  'result',
   'rtc-offer',
   'rtc-answer',
   'rtc-ice',
@@ -423,6 +467,33 @@ export function parse(raw: string): Message | null {
     }
     case 'pulse':
       return typeof data.name === 'string' ? { type: 'pulse', name: data.name } : null;
+    case 'call': {
+      if (typeof data.name !== 'string') return null;
+      if (data.id !== undefined && typeof data.id !== 'string') return null;
+      return {
+        type: 'call',
+        name: data.name,
+        ...(typeof data.id === 'string' ? { id: data.id } : {}),
+        ...(data.args !== undefined ? { args: data.args as JsonValue } : {}),
+      };
+    }
+    case 'result': {
+      if (typeof data.id !== 'string') return null;
+      let error: { code: string; message?: string } | undefined;
+      if (data.error !== undefined) {
+        if (!isPlainObject(data.error) || typeof data.error.code !== 'string') return null;
+        error = {
+          code: data.error.code,
+          ...(typeof data.error.message === 'string' ? { message: data.error.message } : {}),
+        };
+      }
+      return {
+        type: 'result',
+        id: data.id,
+        ...(data.value !== undefined ? { value: data.value as JsonValue } : {}),
+        ...(error !== undefined ? { error } : {}),
+      };
+    }
     case 'ping':
       return { type: 'ping' };
     case 'pong':

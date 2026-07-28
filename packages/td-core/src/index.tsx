@@ -12,8 +12,9 @@
  *    component.
  *  - **`createTDConnection(url)`** — the connection manager the provider wraps.
  *    Handshake, reconnect/backoff, handshake watchdog, ping/pong heartbeat,
- *    outbound throttle, backpressure, read-only params, and error routing, all
- *    as per-connection options. Usable standalone with zero context.
+ *    outbound throttle, backpressure, read-only params, error routing, and
+ *    named calls (`call`/`notify`/`handle`), all as per-connection options.
+ *    Usable standalone with zero context.
  *  - **`createTDVideoStream(config)`** — the WebRTC peer, whose signaling is
  *    multiplexed over that same socket.
  *  - **The wire format** — message types plus `parse`, for code that handles
@@ -35,9 +36,12 @@ export {
   escapeNewlines,
   parse,
   unescapeNewlines,
+  type CallMessage,
+  type CallResultMessage,
   type ClientMessage,
   type ErrorMessage,
   type HelloMessage,
+  type JsonValue,
   type Message,
   type ParamMap,
   type ParamValue,
@@ -72,6 +76,9 @@ export {
 // Scheduler (injectable clock; default backed by the platform globals)
 export { defaultScheduler, type TDScheduler } from './scheduler';
 
+// Calls (named-handler invocation, both directions)
+export { TDCallError, type CallHandler, type CallOptions } from './calls';
+
 // WebRTC peer
 export {
   createTDVideoStream,
@@ -87,9 +94,12 @@ export {
 // Factory + context
 export {
   createTDClient,
+  createTDHandler,
   createTDSignal,
   useTDConnection,
   useTDVideoStream,
+  type CallSchema,
+  type CallSignature,
   type TDProviderProps,
 } from './context';
 

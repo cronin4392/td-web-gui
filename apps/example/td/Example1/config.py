@@ -228,3 +228,24 @@ READOUTS = {
         "type": "string[][]",
     },
 }
+
+# friendly call name -> `fn(args) -> JSON-serializable`, invoked by the web via
+# `await Example1.call('name', args)`. See packages/td-core/docs/touchdesigner-setup.md
+# § Handlers for the full contract.
+#
+# The other direction — TD invoking a handler the web page registered — needs
+# no entry here: call `parent.WebGuiServer.Notify('alert', {'text': '...'})`
+# from anywhere in project code (e.g. the Textport), or
+# `parent.WebGuiServer.Call('name', args, on_result=fn)` for a reply.
+
+
+def _print(args):
+    print("web says:", (args or {}).get("text", ""))
+    return {"ok": True}
+
+
+def _echo(args):
+    return {"echo": args, "frame": absTime.frame}
+
+
+HANDLERS = {"print": _print, "echo": _echo}
