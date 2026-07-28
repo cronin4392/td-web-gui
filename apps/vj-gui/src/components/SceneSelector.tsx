@@ -13,10 +13,19 @@ interface Scene {
 const TAGS_FIRST = ['blank', 'overlay', 'foreground', 'background'];
 const TAGS_LAST = ['random', 'custom'];
 
-/** Blank and non-numeric ranks sort last — `Number('')` is 0, which would sort first. */
+/** Blank and non-numeric ranks sort last — `Number('')` is 0, which would sort mid-list. */
 function parseRank(cell: string | undefined): number {
   const rank = Number(cell?.trim());
-  return cell?.trim() && Number.isFinite(rank) ? rank : Infinity;
+  return cell?.trim() && Number.isFinite(rank) ? rank : -Infinity;
+}
+
+function uniqueByName(scenes: Scene[]): Scene[] {
+  const seen = new Set<string>();
+  return scenes.filter((scene) => {
+    if (seen.has(scene.name)) return false;
+    seen.add(scene.name);
+    return true;
+  });
 }
 
 export function SceneSelector(): JSX.Element {
@@ -33,19 +42,25 @@ export function SceneSelector(): JSX.Element {
     const rankCol = header!.indexOf('rank');
     const folderCol = header!.indexOf('folder');
     if (nameCol === -1 || tagCol === -1) return [];
+    // One row per scene-tag pairing, kept as-is: a scene tagged twice belongs
+    // under both tags. Only the All list collapses them.
     return body
-      .filter((row) => row[nameCol] && row[tagCol])
+      .filter((row) => row[nameCol])
       .map((row) => ({
         name: row[nameCol]!,
-        tag: row[tagCol]!,
+        tag: row[tagCol]?.trim() ?? '',
         rank: parseRank(rankCol === -1 ? undefined : row[rankCol]),
         thumbnail: folderCol === -1 ? '' : sceneThumbnailUrl(row[folderCol] ?? ''),
       }))
-      .sort((a, b) => a.rank - b.rank);
+      .sort((a, b) => b.rank - a.rank);
   });
 
   const tags = createMemo(() => {
-    const present = new Set(scenes().map((scene) => scene.tag));
+    const present = new Set(
+      scenes()
+        .map((scene) => scene.tag)
+        .filter(Boolean),
+    );
     const pinned = new Set([...TAGS_FIRST, ...TAGS_LAST]);
     return [
       ...TAGS_FIRST.filter((tag) => present.has(tag)),
@@ -65,7 +80,8 @@ export function SceneSelector(): JSX.Element {
 
   const visibleScenes = createMemo(() => {
     const tag = selectedTag();
-    return scenes().filter((scene) => tag === null || scene.tag === tag);
+    if (tag === null) return uniqueByName(scenes());
+    return scenes().filter((scene) => scene.tag === tag);
   });
 
   return (
