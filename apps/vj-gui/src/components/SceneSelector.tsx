@@ -1,50 +1,26 @@
-import { For, Show, createMemo, createResource, createSignal, type JSX } from 'solid-js';
-import { TDCallError } from 'td-core';
-import { loadSceneOn, type SceneConnections } from '../td';
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import type { SceneConnections } from '../td';
 import type { SceneId } from '../td.config';
 import { fetchCatalog, syncCatalog } from '../scenes-api';
-import { emptyCatalog, type Scene } from '../scenes';
+import { emptyCatalog, type Catalog } from '../scenes';
+import { createCatalogPicker } from '../catalog-picker';
+import { PickerToolbar } from './PickerToolbar';
 
 export function SceneSelector(props: {
   selectedLayer: SceneId;
   connections: SceneConnections;
 }): JSX.Element {
-  const [catalog, { mutate }] = createResource(fetchCatalog, { initialValue: emptyCatalog() });
-  const scenes = () => catalog().scenes;
+  const picker = createCatalogPicker<Catalog>({
+    fetch: fetchCatalog,
+    sync: syncCatalog,
+    initialValue: emptyCatalog(),
+    selectedLayer: () => props.selectedLayer,
+    connections: () => props.connections,
+  });
+
+  const scenes = () => picker.catalog().scenes;
+  const tags = () => picker.catalog().tags;
   const [pickedTag, setPickedTag] = createSignal<string | null>(null);
-  const [callError, setCallError] = createSignal<string | undefined>(undefined);
-  const [refreshing, setRefreshing] = createSignal(false);
-
-  async function refresh() {
-    setCallError(undefined);
-    setRefreshing(true);
-    try {
-      mutate(await syncCatalog());
-    } catch (error) {
-      setCallError(`Refresh failed: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  // The catalog is served by the dev/preview server, but the load goes straight
-  // to the selected layer's own SceneLoader process — the GUI is not in that path.
-  async function loadScene(scene: Scene) {
-    setCallError(undefined);
-    const connection = props.connections[props.selectedLayer];
-    if (!connection) {
-      setCallError(`Layer ${props.selectedLayer} has no connected scene process`);
-      return;
-    }
-    try {
-      await loadSceneOn(connection, scene.path);
-    } catch (error) {
-      const reason = error instanceof TDCallError ? error.code : String(error);
-      setCallError(`Load failed: ${reason}`);
-    }
-  }
-
-  const tags = () => catalog().tags;
 
   /** `null` is the unfiltered "All" option, the default, and the fallback for a
    * tag that vanishes from a refreshed catalog. */
@@ -86,19 +62,11 @@ export function SceneSelector(props: {
       </Show>
 
       <div class="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
-        <div class="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            class="rounded border border-neutral-700 px-2 py-0.5 text-xs text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
-            disabled={refreshing()}
-            onClick={() => void refresh()}
-          >
-            {refreshing() ? 'Refreshing…' : 'Refresh'}
-          </button>
-          <Show when={callError()}>
-            {(message) => <p class="truncate text-sm text-red-400">{message()}</p>}
-          </Show>
-        </div>
+        <PickerToolbar
+          refreshing={picker.refreshing()}
+          error={picker.error()}
+          onRefresh={() => void picker.refresh()}
+        />
 
         <div class="grid grid-cols-4 content-start gap-1">
           <For
@@ -114,7 +82,7 @@ export function SceneSelector(props: {
                 }
                 title={scene.name}
                 disabled={!scene.path}
-                onClick={() => void loadScene(scene)}
+                onClick={() => void picker.loadTox(scene.path)}
               >
                 {/* Scrim — the label sits over arbitrary artwork. */}
                 <span class="w-full truncate bg-black/60 px-1 py-0.5 text-xs text-neutral-100">

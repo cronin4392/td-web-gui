@@ -1,4 +1,5 @@
-import { sceneThumbnailUrl, sceneToxPath } from './scenes.config';
+import { sceneThumbnailUrl } from './scenes.config';
+import { toxPath } from './tox';
 
 export interface Scene {
   name: string;
@@ -28,7 +29,7 @@ export interface Catalog {
 export function sceneFrom({ folder, ...fields }: SceneFields): Scene {
   return {
     ...fields,
-    path: sceneToxPath(folder, fields.name),
+    path: toxPath(folder, fields.name),
     thumbnail: sceneThumbnailUrl(folder),
   };
 }

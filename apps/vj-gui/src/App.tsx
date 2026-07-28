@@ -4,6 +4,7 @@ import { GuiProvider, type SceneConnections } from './td';
 import { createVjGuiStore } from './store';
 import { saveLibrary } from './library-api';
 import type { Library } from './library';
+import { EffectSelector } from './components/EffectSelector';
 import { LayerPreviews } from './components/LayerPreviews';
 import { SceneSelector } from './components/SceneSelector';
 import { TextSelector } from './components/TextSelector';
@@ -36,6 +37,7 @@ export function App(props: AppProps): JSX.Element {
       <GuiProvider>
         <div class="grid grid-cols-3 gap-4">
           <SceneSelector selectedLayer={selectedLayer()} connections={sceneConnections()} />
+          <EffectSelector selectedLayer={selectedLayer()} connections={sceneConnections()} />
           <TextSelector store={store} selectedLayer={selectedLayer()} />
         </div>
       </GuiProvider>
