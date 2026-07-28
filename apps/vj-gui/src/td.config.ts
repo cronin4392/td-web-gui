@@ -36,7 +36,7 @@ const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
  * ports are whatever each `.toe`'s WebGuiServer `Port` par says, and nothing
  * makes them contiguous.
  */
-const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '9980';
+const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '8765';
 const sceneAPort = import.meta.env.VITE_TD_PORT_SCENE_A ?? '4007';
 const sceneBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
 
