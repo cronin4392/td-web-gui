@@ -38,6 +38,10 @@ op.WebGuiServer                    ← a Base COMP with a global OP shortcut
 ├── datexec_…               DAT Execute DAT        ┘ your READOUTS references
 ├── config_watch            DAT Execute DAT    ← generated; re-runs Rebuild
 │                                                when config.py is saved
+├── exit_watch              Execute DAT        ← generated; rebuilds on Create,
+│                                                drops the generated ops on Exit
+├── pre_release             Text DAT           ← generated; drops the generated
+│                                                ops from a .tox export's copy
 │
 ├── webrtc1_callbacks       Text DAT   ← webrtc-callbacks.py     (unchanged)   ┐ video
 └── webrtc1                 WebRTC DAT                                          ┘ only
@@ -460,6 +464,8 @@ Schemas are per-instance, so each gets its own `createTDClient<Schema>()`. See
 | [`chop-execute.py`](../touchdesigner/chop-execute.py)               | Never   | CHOP Execute DAT: TD → web readout broadcast                     |
 | [`dat-execute.py`](../touchdesigner/dat-execute.py)                 | Never   | DAT Execute DAT: TD → web readout broadcast                      |
 | [`config-execute.py`](../touchdesigner/config-execute.py)           | Never   | DAT Execute DAT: re-runs `Rebuild()` when `config.py` is saved   |
+| [`exit-execute.py`](../touchdesigner/exit-execute.py)               | Never   | Execute DAT: rebuilds on Create, drops generated ops on Exit     |
+| [`pre-release.py`](../touchdesigner/pre-release.py)                 | Never   | Embody `pre_release` hook: keeps generated ops out of a `.tox`   |
 | [`webrtc-callbacks.py`](../touchdesigner/webrtc-callbacks.py)       | Never   | WebRTC DAT callbacks: outbound signaling, `streams` announce     |
 | [`config-template.py`](../touchdesigner/config-template.py)         | **Yes** | Your registry, readouts, wiring names, and stream map            |
 
