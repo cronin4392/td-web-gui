@@ -1,6 +1,5 @@
 import type { Plugin } from 'vite';
-import { scenesRoot } from '../src/scenes.config';
-import { openScenesDb, readCatalog, scenesDbPath, syncScenes } from './scenes-db';
+import { openScenesDb, readCatalog, scenesDbPath, scenesRoot, syncScenes } from './scenes-db';
 import { catalogApiHandler, sqliteApiPlugin } from './api-plugin';
 
 const ROUTE = '/api/scenes';

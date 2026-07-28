@@ -1,5 +1,7 @@
-import { scenesRoot } from '../src/scenes.config';
-import { openScenesDb, scenesDbPath, syncScenes } from './scenes-db';
+import { loadDotEnv } from './env';
+import { openScenesDb, scenesDbPath, scenesRoot, syncScenes } from './scenes-db';
+
+loadDotEnv();
 
 const dbPath = scenesDbPath();
 const root = scenesRoot(process.env);

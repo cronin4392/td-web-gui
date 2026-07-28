@@ -1,4 +1,7 @@
+import { loadDotEnv } from './env';
 import { effectsDbPath, effectsRoot, openEffectsDb, syncEffects } from './effects-db';
+
+loadDotEnv();
 
 const dbPath = effectsDbPath();
 const root = effectsRoot(process.env);

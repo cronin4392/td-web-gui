@@ -8,7 +8,8 @@ import { stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { join, relative, resolve, sep } from 'node:path';
 import type { Connect, Plugin } from 'vite';
-import { SCENES_ROUTE, scenesRoot } from '../src/scenes.config';
+import { SCENES_ROUTE } from '../src/scenes.config';
+import { scenesRoot } from './scenes-db';
 
 const CONTENT_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -23,12 +24,21 @@ function contentType(path: string): string {
 }
 
 function mount(middlewares: Connect.Server): void {
-  const root = resolve(scenesRoot(process.env));
-
   middlewares.use(
     SCENES_ROUTE,
     async (req: IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+      // Resolved per request, not at mount: an unset VJ_SCENES_ROOT should cost
+      // thumbnails, not the whole dev server's startup.
+      let root: string;
+      try {
+        root = resolve(scenesRoot(process.env));
+      } catch (err) {
+        res.statusCode = 500;
+        res.end(err instanceof Error ? err.message : String(err));
+        return;
+      }
 
       // connect has already stripped SCENES_ROUTE off req.url here.
       const rel = decodeURIComponent((req.url ?? '').split('?')[0]!).replace(/^\/+/, '');

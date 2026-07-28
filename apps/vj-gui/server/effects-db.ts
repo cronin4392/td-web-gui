@@ -9,6 +9,7 @@ import {
   openCatalogDb,
   transaction,
 } from './catalog-db';
+import { requiredEnv } from './env';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
   effects: ['name', 'folder', 'position'],
@@ -28,9 +29,7 @@ const DDL = `
 /** Read by the dev/preview server only — effects have no browser-facing assets,
  * so unlike the scene library this root never reaches the client. */
 export function effectsRoot(env: Record<string, string | undefined>): string {
-  return (
-    env.VJ_EFFECTS_ROOT ?? 'C:/Users/croni/Projects/Touchdesigner/Touchdesigner-VJ-v2/Effects-35280'
-  );
+  return requiredEnv(env, 'VJ_EFFECTS_ROOT');
 }
 
 export function effectsDbPath(): string {

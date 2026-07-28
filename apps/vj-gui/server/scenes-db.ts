@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { resolve, join } from 'node:path';
 import { sceneFrom, type Catalog, type Scene, type SceneFields } from '../src/scenes';
 import { catalogDbPath, directoryNames, isFile, openCatalogDb, transaction } from './catalog-db';
+import { requiredEnv } from './env';
 
 const TABLE_COLUMNS: Record<string, string[]> = {
   scenes: ['name', 'folder', 'rank', 'dark', 'position'],
@@ -48,6 +49,11 @@ const DDL = `
     PRIMARY KEY (scene_name, tag)
   );
 `;
+
+/** Read by the dev/preview server only — the browser goes through SCENES_ROUTE. */
+export function scenesRoot(env: Record<string, string | undefined>): string {
+  return requiredEnv(env, 'VJ_SCENES_ROOT');
+}
 
 export function scenesDbPath(): string {
   return catalogDbPath('VJ_SCENES_DB', 'scenes.db');
