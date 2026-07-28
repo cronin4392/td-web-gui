@@ -13,13 +13,13 @@ folder are project-agnostic and are dropped in unchanged:
         webrtc-callbacks.py      WebRTC DAT callbacks      (outbound video signaling)
 
 All of them find this file through the WebGuiServer component's `Config File`
-parameter, which loads it into a Text DAT named `config` inside the component.
-They read it back as `op.WebGuiServer.op('config').module`.
+parameter, loaded into a Text DAT named `config` inside the component, and
+read back as `op.WebGuiServer.op('config').module`.
 
 REGISTRY and READOUTS below are the whole of the setup for TD -> web: the
-extension generates one watcher DAT per operator you name in either, so there is
-no watcher to create or keep in sync by hand. STREAMS works the same way for
-video — name the TOP you want streamed and the encoder chain is generated for it.
+extension generates one watcher DAT per operator you name in either, so there
+is no watcher to create or keep in sync by hand. STREAMS works the same way
+for video — name the TOP you want streamed and the encoder chain is generated.
 
 The instance name the web app sees comes from WebGuiServer's `Identifier`
 parameter, not from anything in here.
@@ -29,13 +29,9 @@ See docs/touchdesigner-setup.md for the full walkthrough.
 
 # ── Wiring ───────────────────────────────────────────────────────────────────
 
-# Name of the Web Server DAT's callbacks DAT. The Parameter Execute DAT reads
-# this to find the module it broadcasts through.
-#
-# Resolved from *inside* WebGuiServer by both scripts, so a bare name is correct
-# when the DAT sits in the component. Use an absolute path if it lives elsewhere.
-# TD operator names can't contain hyphens, so this won't literally be
-# "webserver-callbacks".
+# Name of the Web Server DAT's callbacks DAT, resolved from *inside*
+# WebGuiServer (use an absolute path if it lives elsewhere). TD operator names
+# can't contain hyphens, so this won't literally be "webserver-callbacks".
 CALLBACKS = "webserver1_callbacks"
 
 
@@ -43,10 +39,9 @@ CALLBACKS = "webserver1_callbacks"
 
 # friendly wire name -> backing parameter.
 #
-#   op:   Absolute path to the operator, e.g. '/project1/params'.
-#         WebGuiServer is a global operator that can live anywhere, and these
-#         lookups run from inside it — so a bare name resolves against the
-#         component, not against your project. Always use an absolute path.
+#   op:   Absolute path to the operator, e.g. '/project1/params'. These
+#         lookups run from inside WebGuiServer, so a bare name resolves
+#         against the component, not your project — always use an absolute path.
 #
 #   par:  The parameter name on that operator. Custom parameters are
 #         Capitalized ('Intensity'); TD's built-in parameters are lowercase
@@ -60,17 +55,12 @@ CALLBACKS = "webserver1_callbacks"
 #           dedicated `pulse` message rather than `update`, and calls par.pulse().
 #
 #   writable: Optional, defaults True. False makes the entry read-only to the
-#         web — it still snapshots and broadcasts, but a write is refused with a
-#         `param_not_writable` error instead of applied. Use it for a parameter
-#         the browser must never drive. (For a value that has no parameter
-#         behind it at all, use READOUTS below instead — those are one-way by
-#         construction and need no flag.)
-#
-#         Note this flag is NOT sent to the web. The web authors its own
-#         read-only set beside its TypeScript schema; this is the TD-side
-#         backstop. A par in EXPRESSION/EXPORT/BIND mode is refused whether or
-#         not it's flagged, so you only need this for a CONSTANT par you want to
-#         keep TD-driven.
+#         web — it still snapshots and broadcasts, but a write is refused with
+#         `param_not_writable`. For a value with no parameter behind it at
+#         all, use READOUTS below instead. Not sent to the web (the browser
+#         authors its own read-only set); a par in EXPRESSION/EXPORT/BIND mode
+#         is refused regardless of this flag, so it's only needed for a
+#         CONSTANT par you want to keep TD-driven.
 #
 # These names must match the keys of your TypeScript param schema on the web
 # side. Nothing checks that for you — see docs/protocol.md § Keeping the two
@@ -92,21 +82,18 @@ REGISTRY = {
 # friendly wire name -> data read straight out of a CHOP or a DAT, with no
 # parameter in between. **One-way, TD -> web, always.**
 #
-# Use these for values that are data rather than settings: an analysis CHOP's
-# level, a timecode, a now-playing table. Exporting such a value onto a parameter
-# just to publish it works, but it costs a par per value and puts that par in
-# EXPORT mode — which the web then has to refuse writes to anyway.
+# Use these for data rather than settings: an analysis CHOP's level, a
+# timecode, a now-playing table. Exporting such a value onto a parameter just
+# to publish it works, but costs a par per value and puts it in EXPORT mode,
+# which the web then has to refuse writes to anyway.
 #
-# Readouts share the wire namespace with REGISTRY: they ride the same `snapshot`
-# and `update` messages, and the browser binds them by name exactly like a
-# parameter (`<Value name="fps" />`). The web never learns which side of this
-# file a name came from, which is the point — where a value lives in TD is a TD
-# detail. A name in BOTH maps is a config error: the REGISTRY entry wins, the
-# readout is ignored, and a warning names it.
+# Readouts share the wire namespace with REGISTRY: same `snapshot`/`update`
+# messages, bound by name exactly like a parameter (`<Value name="fps" />`) —
+# the web never learns which side of this file a name came from. A name in
+# BOTH maps is a config error: the REGISTRY entry wins, the readout is
+# ignored, and a warning names it.
 #
-#   op:   Absolute path to the CHOP or DAT, same rule as REGISTRY — these
-#         lookups run from inside WebGuiServer, so a bare name resolves against
-#         the component rather than your project.
+#   op:   Absolute path to the CHOP or DAT — same rule as REGISTRY.
 #
 # The rest of the entry says what to read, and its SHAPE picks the source:
 #
@@ -115,28 +102,23 @@ REGISTRY = {
 #   row/col: 'title', 1        one DAT cell            -> string
 #   (neither, + the type)      the whole DAT table     -> string[][]
 #
-#   type: Optional. Defaults to the natural type above; declare it only to
-#         override. A channel may also be 'bool' (a 0/1 gate) or 'string'; a
-#         cell may also be 'number' (parsed, and an unparseable cell is skipped
-#         with a warning rather than sent as garbage). A cell may NOT be 'bool' —
-#         the string "false" is truthy, so there is no guess-free cast, and
-#         silently turning an off into an on is worse than refusing.
-#         **A whole-table readout must declare `'type': 'string[][]'`**, since
-#         an entry naming only an operator is otherwise indistinguishable from
-#         one where you forgot the `chan`.
+#   type: Optional, defaults to the natural type above. A channel may also be
+#         'bool' (a 0/1 gate) or 'string'; a cell may also be 'number'
+#         (parsed, and an unparseable cell is skipped with a warning). A cell
+#         may NOT be 'bool' — the string "false" is truthy, so there's no
+#         guess-free cast. **A whole-table readout must declare
+#         `'type': 'string[][]'`**, since an op-only entry is otherwise
+#         indistinguishable from one where you forgot the `chan`.
 #
 # Channel order is the array order on the wire, exactly like a ParGroup's
-# component order — so reordering a `chan` list reassigns which number is which
-# on the web. A pattern ('band*') is deliberately not accepted: it would make the
-# array's length and order depend on what the CHOP happens to hold this frame.
+# component order. A pattern ('band*') is deliberately not accepted — it would
+# make the array's length and order depend on what the CHOP happens to hold.
 #
-# **Rate.** A CHOP Execute DAT fires once per changed SAMPLE per channel, so a
-# time-sliced CHOP can call back several times in a single frame. Everything
-# dirtied within a frame is coalesced into one `update` sent at end of frame, so
-# the ceiling is one message per frame no matter how many readouts change. That
-# is still 60 messages/sec for a channel that changes every frame — if you don't
-# need that resolution, resample or filter the CHOP in TD rather than reaching
-# for a knob here.
+# **Rate.** A CHOP Execute DAT fires once per changed SAMPLE per channel, but
+# everything dirtied within a frame is coalesced into one `update` at end of
+# frame, so the ceiling is one message per frame no matter how many readouts
+# change — still 60/sec for a channel that changes every frame, so resample or
+# filter in TD if you don't need that resolution.
 READOUTS = {
     # 'fps':    {'op': '/project1/perf_stats',  'chan': 'fps'},
     # 'level':  {'op': '/project1/audio_bands', 'chan': ['low', 'mid', 'high']},
@@ -149,37 +131,33 @@ READOUTS = {
 # ── Video (optional) ─────────────────────────────────────────────────────────
 
 # The WebRTC DAT, as a bare name when it sits inside WebGuiServer beside the
-# callbacks DAT (these lookups run from in there), or an absolute path otherwise.
+# callbacks DAT, or an absolute path otherwise.
 #
-# Leave as None for a params-only project: the signaling branches then reply with
-# a clear error instead of raising, and nothing on the parameter side is affected.
+# Leave as None for a params-only project: the signaling branches then reply
+# with a clear error instead of raising.
 WEBRTC = None
 
 # friendly stream id -> the TOP whose picture that stream carries.
 #
-#   source: Absolute path to the TOP you want on the web. Any TOP, anywhere in
-#           the project — same path rule as REGISTRY, since these lookups run
-#           from inside WebGuiServer.
+#   source: Absolute path to the TOP you want on the web — same path rule as REGISTRY.
 #   label:  Optional human-readable name, passed through to the browser.
 #
-# **You do not build the encoder.** WebGuiServerExt generates one per entry,
-# inside WebGuiServer, on the next Rebuild — so an entry here is the whole of the
-# work. Your own chain ends at `source`: don't add a Flip TOP or otherwise
-# compensate for the mirroring TD's WebRTC encoder introduces, since that is
-# corrected downstream of `source` and doing it twice cancels out.
+# **You do not build the encoder.** WebGuiServerExt generates one per entry on
+# the next Rebuild. Your own chain ends at `source` — don't add a Flip TOP or
+# otherwise compensate for the mirroring TD's WebRTC encoder introduces, since
+# that's corrected downstream of `source` and doing it twice cancels out.
 #
-# The id is what `<Video stream="...">` selects on. The `mid` pairing an id to a
-# track is derived from the negotiated SDP, not authored here. A bare `<Video />`
-# takes the first entry, so the first stream is the single-stream default.
+# The id is what `<Video stream="...">` selects on. The `mid` pairing an id to
+# a track is derived from the negotiated SDP, not authored here. A bare
+# `<Video />` takes the first entry.
 #
-# **Insertion order is load-bearing.** webrtc-callbacks.py zips this dict against
-# the video m-lines of the negotiated SDP in order, so reordering these entries
-# reassigns which id names which track.
+# **Insertion order is load-bearing** — webrtc-callbacks.py zips this dict
+# against the video m-lines of the negotiated SDP in order, so reordering
+# entries reassigns which id names which track.
 #
-# One Video Stream Out TOP serves ONE peer — its WebRTC Connection parameter
-# holds a single value — so N entries here are N streams for ONE browser, not one
-# stream for N browsers. See docs/touchdesigner-setup.md § Video for the
-# single-viewer limit.
+# One Video Stream Out TOP serves ONE peer, so N entries here are N streams
+# for ONE browser, not one stream for N browsers — see
+# docs/touchdesigner-setup.md § Video for the single-viewer limit.
 STREAMS = {
     # 'main': {'source': '/project1/render_out', 'label': 'Main'},
 }
