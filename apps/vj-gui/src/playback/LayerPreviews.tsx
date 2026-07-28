@@ -1,28 +1,13 @@
 import { For, Show, onCleanup, type JSX } from 'solid-js';
-import type { TDConnection } from 'td-core';
 import type { LayerId } from './layers';
 import { layerIdForLoader, loaderInstances, type LoaderId } from './wire';
 import { LoaderClient, LoaderProvider } from './clients';
+import { usePlayback } from './PlaybackProvider';
 
-type ConnectionSink = (layer: LayerId, connection: TDConnection | undefined) => void;
-
-export function LayerPreviews(props: {
-  selected: LayerId;
-  onSelect: (layer: LayerId) => void;
-  onConnection: ConnectionSink;
-}): JSX.Element {
+export function LayerPreviews(): JSX.Element {
   return (
     <div class="grid grid-cols-8 gap-2">
-      <For each={loaderInstances}>
-        {(loader) => (
-          <LayerPanel
-            loader={loader.id}
-            selected={props.selected}
-            onSelect={props.onSelect}
-            onConnection={props.onConnection}
-          />
-        )}
-      </For>
+      <For each={loaderInstances}>{(loader) => <LayerPanel loader={loader.id} />}</For>
     </div>
   );
 }
@@ -36,20 +21,16 @@ export function LayerPreviews(props: {
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function LayerPanel(props: {
-  loader: LoaderId;
-  selected: LayerId;
-  onSelect: (layer: LayerId) => void;
-  onConnection: ConnectionSink;
-}): JSX.Element {
+function LayerPanel(props: { loader: LoaderId }): JSX.Element {
+  const { selectedLayer, selectLayer } = usePlayback();
   const layer = layerIdForLoader(props.loader);
   return (
     <LoaderProvider loader={props.loader} video>
       <LayerBody
         label={props.loader}
-        active={layer === props.selected}
-        onSelect={() => props.onSelect(layer)}
-        onConnection={(connection) => props.onConnection(layer, connection)}
+        layer={layer}
+        active={layer === selectedLayer()}
+        onSelect={() => selectLayer(layer)}
       />
     </LoaderProvider>
   );
@@ -61,15 +42,17 @@ function LayerPanel(props: {
  */
 function LayerBody(props: {
   label: string;
+  layer: LayerId;
   active: boolean;
   onSelect: () => void;
-  onConnection: (connection: TDConnection | undefined) => void;
 }): JSX.Element {
+  const { registerConnection } = usePlayback();
   const video = LoaderClient.useVideo();
-  // Published upward because the scene picker sits outside every scene provider
-  // and still has to call this instance. Only reachable from in here.
-  props.onConnection(LoaderClient.useConnection());
-  onCleanup(() => props.onConnection(undefined));
+  // Published to PlaybackProvider because the scene picker sits outside every
+  // scene provider and still has to call this instance. Only reachable from
+  // in here.
+  registerConnection(props.layer, LoaderClient.useConnection());
+  onCleanup(() => registerConnection(props.layer, undefined));
   return (
     <figure class="m-0">
       <Show when={video.stream('scene')} keyed>

@@ -1,7 +1,8 @@
-import { createSignal, onCleanup, type JSX } from 'solid-js';
-import { defaultLayer, guiInstance, type LayerId } from './playback/layers';
+import { onCleanup, type JSX } from 'solid-js';
+import { guiInstance } from './playback/layers';
 import { loaderInstances } from './playback/wire';
-import { GuiProvider, loadOnLayer, type LayerConnections } from './playback/clients';
+import { GuiProvider } from './playback/clients';
+import { PlaybackProvider } from './playback/PlaybackProvider';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
@@ -22,36 +23,27 @@ export function App(props: AppProps): JSX.Element {
   });
   onCleanup(() => store.dispose());
 
-  const [selectedLayer, setSelectedLayer] = createSignal<LayerId>(defaultLayer);
-  const [layerConnections, setLayerConnections] = createSignal<LayerConnections>({});
-
-  const load = (path: string) => loadOnLayer(selectedLayer(), layerConnections(), path);
-
   return (
-    <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
-      {/* Eight columns for the eight loaders this grows into; two are live. */}
-      <LayerPreviews
-        selected={selectedLayer()}
-        onSelect={setSelectedLayer}
-        onConnection={(layer, connection) =>
-          setLayerConnections((prev) => ({ ...prev, [layer]: connection }))
-        }
-      />
-      {/* The GUI project is a separate process from the scenes, so its params
-          live behind their own provider — the text selector is the only thing
-          bound to it. */}
-      <GuiProvider>
-        <div class="grid grid-cols-3 gap-4">
-          <SceneSelector load={load} />
-          <EffectSelector load={load} />
-          <TextSelector store={store} selectedLayer={selectedLayer()} />
-        </div>
-      </GuiProvider>
-      {/* Hidden for now — re-enable by dropping the `hidden` class. */}
-      <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
-        Bound to{' '}
-        {[guiInstance, ...loaderInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
-      </p>
-    </main>
+    <PlaybackProvider>
+      <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
+        {/* Eight columns for the eight loaders this grows into; two are live. */}
+        <LayerPreviews />
+        {/* The GUI project is a separate process from the scenes, so its params
+            live behind their own provider — the text selector is the only thing
+            bound to it. */}
+        <GuiProvider>
+          <div class="grid grid-cols-3 gap-4">
+            <SceneSelector />
+            <EffectSelector />
+            <TextSelector store={store} />
+          </div>
+        </GuiProvider>
+        {/* Hidden for now — re-enable by dropping the `hidden` class. */}
+        <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
+          Bound to{' '}
+          {[guiInstance, ...loaderInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
+        </p>
+      </main>
+    </PlaybackProvider>
   );
 }

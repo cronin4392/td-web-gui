@@ -2,14 +2,16 @@ import { For, type JSX } from 'solid-js';
 import { fetchEffectCatalog, syncEffectCatalog } from './effects-api';
 import type { EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
+import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 
-export function EffectSelector(props: { load: (path: string) => Promise<void> }): JSX.Element {
+export function EffectSelector(): JSX.Element {
+  const { loadTox } = usePlayback();
   const picker = createCatalogPicker<EffectCatalog>({
     fetch: fetchEffectCatalog,
     sync: syncEffectCatalog,
     initialValue: [],
-    load: props.load,
+    load: loadTox,
   });
 
   return (

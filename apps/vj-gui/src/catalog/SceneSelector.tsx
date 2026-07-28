@@ -2,14 +2,16 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import { fetchCatalog, syncCatalog } from './scenes-api';
 import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
+import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 
-export function SceneSelector(props: { load: (path: string) => Promise<void> }): JSX.Element {
+export function SceneSelector(): JSX.Element {
+  const { loadTox } = usePlayback();
   const picker = createCatalogPicker<Catalog>({
     fetch: fetchCatalog,
     sync: syncCatalog,
     initialValue: emptyCatalog(),
-    load: props.load,
+    load: loadTox,
   });
 
   const scenes = () => picker.catalog().scenes;
