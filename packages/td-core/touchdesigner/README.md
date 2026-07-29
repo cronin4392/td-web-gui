@@ -20,10 +20,12 @@ exactly that operator's registered parameters. Add a registry entry and the
 watcher follows.
 
 You never create a Video Stream Out TOP yourself either. The same extension reads
-`STREAMS` and generates a `select_<id> → flip_<id> → videostreamout_<id>` chain
-per entry, inside the component — so a stream is one config line naming the TOP
-you want on the web, and the mirroring TD's WebRTC encoder introduces is dealt
-with in the generated `flip_<id>`.
+`STREAMS` and generates a
+`select_<id> → fit_<id> → flip_<id> → videostreamout_<id>` chain per entry,
+inside the component — so a stream is one config line naming the TOP you want on
+the web. The generated `fit_<id>` caps the resolution the encoder sees (the
+entry's `width`, default 480, aspect preserved) and `flip_<id>` deals with the
+mirroring TD's WebRTC encoder introduces.
 
 Saving the config is the whole of the work: the extension also generates a
 `config_watch` DAT Execute DAT pointed at the config DAT itself, so an edit to

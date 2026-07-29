@@ -14,6 +14,12 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Added
 
+- **Per-stream `width` and `fps`** — a `STREAMS` entry can now cap what it costs
+  to encode. `width` (default 480) is applied by a generated `fit_<id>` inserted
+  between the select and the flip, in Limit Resolution mode so the aspect is
+  preserved and a source already under the cap is never upscaled; `fps` (default 15) sets the Video Stream Out TOP's rate. Existing configs get both defaults,
+  so a wall of streams no longer encodes at project resolution and project rate.
+
 - **Readouts** — a `READOUTS` map in the project config publishes values that
   have no parameter behind them: one CHOP channel (`number`), several channels
   (`number[]`), one DAT cell (`string`), or a whole DAT table (`string[][]`).

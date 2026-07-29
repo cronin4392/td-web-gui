@@ -3,8 +3,8 @@ WebGuiServer extension — generates the operators the config implies.
 
 WATCHERS carry TD -> web changes: one Parameter Execute DAT per operator
 (parameter-execute.py), one CHOP/DAT Execute DAT per readout (chop-execute.py,
-dat-execute.py). STREAM CHAINS carry TD -> web video: one select/flip/videostreamout
-chain per STREAMS entry (webrtc-callbacks.py).
+dat-execute.py). STREAM CHAINS carry TD -> web video: one
+select/fit/flip/videostreamout chain per STREAMS entry (webrtc-callbacks.py).
 
 Three more operators aren't derived from the config but keep the above derived
 from it: config_watch re-runs Rebuild when config.py changes on disk
@@ -81,16 +81,21 @@ _RELEASE_HOOK_NAME = "pre_release"
 _RELEASE_HOOK_FILE = _TDCOREDIR % "pre-release.py"
 
 # Per-stream chain, in flow order: select_ fetches the source TOP across the COMP
-# boundary, flip_ unmirrors it (TD's WebRTC output is mirrored in X even though
-# the viewer isn't — forum.derivative.ca/t/stunned-by-webrtcpanel/293915), and
-# videostreamout_ encodes it.
+# boundary, fit_ bounds the resolution the encoder sees, flip_ unmirrors it (TD's
+# WebRTC output is mirrored in X even though the viewer isn't —
+# forum.derivative.ca/t/stunned-by-webrtcpanel/293915), and videostreamout_
+# encodes it.
 _SELECT_PREFIX = "select_"
+_FIT_PREFIX = "fit_"
 _FLIP_PREFIX = "flip_"
 _STREAMOUT_PREFIX = "videostreamout_"
 
-# Pinned rather than left at the TOP's default me.time.rate expression, so a
-# 60fps project with many streams doesn't spend its whole GPU budget encoding.
-_STREAM_FPS = 30
+# Defaults for the per-stream 'width' and 'fps' keys. Both exist because the
+# Video Stream Out TOP is expensive per pixel and per frame, and a wall of them
+# at project resolution and project rate eats the whole GPU budget — fps is also
+# pinned rather than left at the TOP's default me.time.rate expression.
+_STREAM_WIDTH = 480
+_STREAM_FPS = 15
 
 # Reconciliation only deletes operators carrying this tag.
 GENERATED_TAG = "webgui-generated"
@@ -639,7 +644,8 @@ class WebGuiServerExt:
     # ── streams ───────────────────────────────────────────────────────────────
 
     def _streams(self):
-        """The config's STREAMS map: stream id -> {'source': ..., 'label': ...}."""
+        """The config's STREAMS map: stream id ->
+        {'source': ..., 'label': ..., 'width': ..., 'fps': ...}."""
         config = self._config()
         return getattr(config, "STREAMS", {}) if config is not None else {}
 
@@ -653,9 +659,26 @@ class WebGuiServerExt:
             return None
         return source
 
+    def _streamLimit(self, stream_id, info, key, default):
+        """One stream's 'width' or 'fps' cap, falling back to the default when
+        the config omits it or names something that isn't a positive number."""
+        if key not in info:
+            return default
+        try:
+            value = int(info[key])
+        except (TypeError, ValueError):
+            value = 0
+        if value <= 0:
+            debug(
+                "WebGuiServerExt: stream '%s' has a bad '%s' (%r) - using %d"
+                % (stream_id, key, info[key], default)
+            )
+            return default
+        return value
+
     def _rebuildStreams(self):
         """Make the generated video chains match STREAMS. Returns the live chains
-        (each [select, flip, videostreamout]) in config order for _layout.
+        (each [select, fit, flip, videostreamout]) in config order for _layout.
         Matched by NAME rather than target, unlike the watchers — a chain's
         identity IS its stream id, which is in the name."""
         chains = []
@@ -706,38 +729,55 @@ class WebGuiServerExt:
         dest.inputConnectors[0].connect(source)
 
     def _applyStream(self, stream_id, info, source):
-        """Build or update one stream's select -> flip -> videostreamout chain.
-        Returns the three operators, or None if any could not be created."""
+        """Build or update one stream's select -> fit -> flip -> videostreamout
+        chain. Returns the four operators, or None if any could not be created."""
         select = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
+        fit = self._getOrCreateStreamOp(fitTOP, _FIT_PREFIX, stream_id)
         flip = self._getOrCreateStreamOp(flipTOP, _FLIP_PREFIX, stream_id)
         out = self._getOrCreateStreamOp(videostreamoutTOP, _STREAMOUT_PREFIX, stream_id)
-        if select is None or flip is None or out is None:
+        if select is None or fit is None or flip is None or out is None:
             return None
 
+        width = self._streamLimit(stream_id, info, "width", _STREAM_WIDTH)
+        fps = self._streamLimit(stream_id, info, "fps", _STREAM_FPS)
+
         self._setPar(select.par.top, source)
+
+        # Limit rather than Custom: aspect is preserved and a source already
+        # under the cap is left alone rather than upscaled. Height gets the same
+        # value so a portrait source is bounded on its long side too.
+        self._setPar(fit.par.outputresolution, "limit")
+        self._setPar(fit.par.resolutionw, width)
+        self._setPar(fit.par.resolutionh, width)
+
         self._setPar(flip.par.flipx, 1)
 
         self._setPar(out.par.mode, "webrtc")
-        self._setPar(out.par.fps, _STREAM_FPS)
+        self._setPar(out.par.fps, fps)
         self._setPar(out.par.active, 1)
         # webrtc/webrtcconnection/webrtcvideotrack deliberately NOT set here —
         # they're per-peer, set a frame after negotiation by
         # webserver-callbacks.attach_streams. Setting them here would cut a
         # live peer's video on every Rebuild.
 
-        self._wire(select, flip)
+        self._wire(select, fit)
+        self._wire(fit, flip)
         self._wire(flip, out)
 
-        self._setNoteText(self._getOrCreateNote(select), self._streamText(stream_id, info, source))
-        return [select, flip, out]
+        self._setNoteText(
+            self._getOrCreateNote(select),
+            self._streamText(stream_id, info, source, width, fps),
+        )
+        return [select, fit, flip, out]
 
-    def _streamText(self, stream_id, info, source):
-        return "stream: %s (%s)\nsource: %s\nflipx -> WebRTC track '%s' @ %d fps" % (
+    def _streamText(self, stream_id, info, source, width, fps):
+        return "stream: %s (%s)\nsource: %s\nmax %dpx, flipx -> WebRTC track '%s' @ %d fps" % (
             stream_id,
             info.get("label", stream_id),
             source,
+            width,
             stream_id,
-            _STREAM_FPS,
+            fps,
         )
 
     # ── layout ────────────────────────────────────────────────────────────────
