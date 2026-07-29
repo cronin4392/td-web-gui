@@ -443,6 +443,18 @@ about the picture. Your chain ends there: **don't add a Flip TOP, and don't
 compensate for the mirroring TD's WebRTC encoder introduces.** That is handled
 downstream of `source`, and doing it twice cancels out.
 
+Two optional keys cap what a stream costs, since a Video Stream Out TOP encodes
+every frame at full resolution and a wall of them will drop your frame rate:
+
+| Key     | Default | Effect                                                                                            |
+| ------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `width` | `480`   | Pixel cap applied by the generated `fit_<id>`. Aspect preserved; a smaller source isn't upscaled. |
+| `fps`   | `15`    | Encode rate on the generated `videostreamout_<id>`, independent of the project rate.              |
+
+```python
+'tile1': {'source': '/project1/videowall/level_tile1', 'width': 960, 'fps': 30},
+```
+
 > Derivative's own WebRTC palette component compensates in CSS instead, on the
 > video container. Don't copy that: going fullscreen in Chrome drops the styling
 > and the mirror comes back

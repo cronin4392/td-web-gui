@@ -141,6 +141,14 @@ WEBRTC = None
 #
 #   source: Absolute path to the TOP you want on the web — same path rule as REGISTRY.
 #   label:  Optional human-readable name, passed through to the browser.
+#   width:  Optional pixel cap on the encoded picture, default 480. Aspect is
+#           preserved and a smaller source is left alone, never upscaled.
+#   fps:    Optional encode rate, default 15 — independent of the project rate.
+#
+# `width` and `fps` are the two knobs on what a stream costs: the Video Stream
+# Out TOP encodes every frame at full resolution, so a wall of them at project
+# resolution and project rate will drop your frame rate. Raise them per entry
+# only for the streams that need it.
 #
 # **You do not build the encoder.** WebGuiServerExt generates one per entry on
 # the next Rebuild. Your own chain ends at `source` — don't add a Flip TOP or
