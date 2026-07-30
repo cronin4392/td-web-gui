@@ -7,9 +7,9 @@
  *    schema-bound bundle (typed `Provider`, controls, and `signal` helper) so
  *    parameter names autocomplete and typos are compile errors inside JSX.
  *  - **Bound components** — `TextInput`, `NumberInput`, `RangeInput`, `Value`,
- *    `Toggle`, `Button`, `Select`, `Vector`, `Color`, `Table`, `Video`. Exported
- *    unbound here for use without the schema typing; both forms are the same
- *    component.
+ *    `Toggle`, `Button`, `Select`, `Vector`, `Color`, `Table`, `Video`,
+ *    `StreamToggle`. Exported unbound here for use without the schema typing;
+ *    both forms are the same component.
  *  - **`createTDConnection(url)`** — the connection manager the provider wraps.
  *    Handshake, reconnect/backoff, handshake watchdog, ping/pong heartbeat,
  *    outbound throttle, backpressure, read-only params, error routing, and
@@ -54,8 +54,10 @@ export {
   type ServerMessage,
   type SnapshotMessage,
   type SnapshotRequestMessage,
+  type StreamEnableMessage,
   type StreamInfo,
   type StreamsMessage,
+  type StreamStateMessage,
   type UpdateMessage,
   type WelcomeMessage,
 } from './wire';
@@ -87,6 +89,7 @@ export {
   type RTCPeerConnectionLike,
   type RTCPeerConnectionLikeConstructor,
   type TDPeerStatus,
+  type TDStreamStatus,
   type TDVideoStream,
   type TDVideoStreamOptions,
 } from './video';
@@ -109,6 +112,7 @@ export { Color, type ColorProps } from './components/Color';
 export { NumberInput, type NumberInputProps } from './components/NumberInput';
 export { RangeInput, type RangeInputProps } from './components/RangeInput';
 export { Select, type SelectOption, type SelectProps } from './components/Select';
+export { StreamToggle, type StreamToggleProps } from './components/StreamToggle';
 export { Table, type TableProps } from './components/Table';
 export { TextInput, type TextInputProps } from './components/TextInput';
 export { Toggle, type ToggleProps } from './components/Toggle';

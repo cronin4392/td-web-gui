@@ -19,5 +19,7 @@ describe('td-core public surface', () => {
     expect(typeof td.RangeInput).toBe('function');
     expect(typeof td.Value).toBe('function');
     expect(typeof td.Table).toBe('function');
+    expect(typeof td.Video).toBe('function');
+    expect(typeof td.StreamToggle).toBe('function');
   });
 });

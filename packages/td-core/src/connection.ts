@@ -594,7 +594,8 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
       // handled here — it's dispatched to subscribers below, so the connection
       // stays ignorant of peers.
       // Client-only types (hello / snapshot-request / menus-request / ping /
-      // pulse) are never expected inbound; ignored if they somehow arrive.
+      // pulse / stream-enable) are never expected inbound; ignored if they
+      // somehow arrive.
     }
 
     // Narrowed to the TD → web half of the union: the client-only types above
@@ -606,7 +607,8 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
       message.type !== 'snapshot-request' &&
       message.type !== 'menus-request' &&
       message.type !== 'ping' &&
-      message.type !== 'pulse'
+      message.type !== 'pulse' &&
+      message.type !== 'stream-enable'
     ) {
       for (const listener of listeners) {
         try {
