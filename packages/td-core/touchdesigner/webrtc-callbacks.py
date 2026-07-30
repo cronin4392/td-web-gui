@@ -33,12 +33,12 @@ from typing import Any
 
 
 def _webgui():
-    """The WebGuiServer component, via its global OP shortcut."""
-    comp = getattr(op, "WebGuiServer", None)
+    """The WebGuiServer component, via its parent shortcut."""
+    comp = getattr(parent, "WebGuiServer", None)
     if comp is None:
         raise RuntimeError(
-            "webrtc-callbacks: no global OP shortcut 'WebGuiServer' - "
-            "set one on the component holding the config DAT"
+            "webrtc-callbacks: no parent OP shortcut 'WebGuiServer' found above this DAT - "
+            "set Parent Shortcut on the WebGuiServer component"
         )
     return comp
 

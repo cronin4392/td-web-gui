@@ -37,7 +37,7 @@ WEBRTC = "webrtc1"
 # Repoint this at the TOP feeding `videostreamout1` and delete that TOP — it is a
 # redundant encoder now, and only passes its input through.
 STREAMS = {
-    "scene": {"source": "/Scene1/out1", "label": "Main"},
+    # "scene": {"source": "/Scene1/out1", "label": "Main"},
 }
 
 READOUTS = {

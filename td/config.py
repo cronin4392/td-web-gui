@@ -2,7 +2,7 @@
 Project configuration for the TD Web GUI bridge — the scene-loader GUI.
 
 The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
-are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
+are drop-in copies that read it back out via parent.WebGuiServer.op('config').module.
 
 Setup: point the WebGuiServer component's Config File par at this file — it
 loads it into the `config` Text DAT the two scripts read. The instance name the
@@ -14,14 +14,14 @@ Backing operators this project expects:
 
 The Parameter Execute DATs are NOT set by hand. WebGuiServerExt generates one per
 operator named above, straight out of REGISTRY — adding an entry here is the whole
-of the work, and `op.WebGuiServer.Rebuild()` picks up a change without a restart.
+of the work, and `parent.WebGuiServer.Rebuild()` picks up a change without a restart.
 Generating them also narrows the watch: the old hand-written `Scene*` pattern
 matched any scene, registered or not.
 
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
         Web Server DAT          Callbacks DAT = the callbacks DAT named below;
-                                Port = `op.WebGuiServer.par.Port`.
+                                Port = `parent.WebGuiServer.par.Port`.
 """
 
 # The Web Server DAT's callbacks DAT — the Parameter Execute DAT reads this to

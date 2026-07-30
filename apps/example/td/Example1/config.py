@@ -10,7 +10,7 @@ two are independent: separate WebSocket, separate WebRTC peer, separate
 reconnect lifecycle. Nothing but the web page knows they are related.
 
 The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
-are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
+are drop-in copies that read it back out via parent.WebGuiServer.op('config').module.
 
 Setup: point the WebGuiServer component's Config File par at this file — it
 loads it into the `config` Text DAT the two scripts read. The instance name the
@@ -67,7 +67,7 @@ Value Change, so `reset` needs no watcher.
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
         Web Server DAT          Callbacks DAT = the callbacks DAT named below;
-                                Port = `op.WebGuiServer.par.Port`.
+                                Port = `parent.WebGuiServer.par.Port`.
         WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;
                                 ICE Servers = empty (browser and TD share a machine).
 """

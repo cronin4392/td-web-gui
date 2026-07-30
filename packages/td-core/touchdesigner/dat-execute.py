@@ -24,12 +24,12 @@ rather than sends, so both paths share one end-of-frame `update`.
 
 
 def _webgui():
-    """The WebGuiServer component, via its global OP shortcut."""
-    comp = getattr(op, "WebGuiServer", None)
+    """The WebGuiServer component, via its parent shortcut."""
+    comp = getattr(parent, "WebGuiServer", None)
     if comp is None:
         raise RuntimeError(
-            "dat-execute: no global OP shortcut 'WebGuiServer' - "
-            "set one on the component holding the config DAT"
+            "dat-execute: no parent OP shortcut 'WebGuiServer' found above this DAT - "
+            "set Parent Shortcut on the WebGuiServer component"
         )
     return comp
 

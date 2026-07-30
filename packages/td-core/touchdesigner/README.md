@@ -41,9 +41,11 @@ the staged copy during an Embody portable `.tox` export — so the component shi
 its machinery and none of your project's output.
 
 Everything project-specific lives in your config: which operators and parameters
-to expose, and which TOPs carry which video streams. The three scripts find it
-through the `WebGuiServer` component's global OP shortcut, which is what lets
-them be dropped in unchanged no matter where the component sits.
+to expose, and which TOPs carry which video streams. The scripts find it
+through the `WebGuiServer` component's parent shortcut, which is what lets
+them be dropped in unchanged no matter where the component sits, and lets
+several WebGuiServer components live in one project without one stealing
+another's shortcut.
 
 **→ [Full walkthrough: ../docs/touchdesigner-setup.md](../docs/touchdesigner-setup.md)**
 

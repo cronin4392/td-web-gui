@@ -79,7 +79,7 @@ in unchanged, plus a config template you edit.
 
 **→ [Full walkthrough: docs/touchdesigner-setup.md](docs/touchdesigner-setup.md)**
 
-In short: a Base COMP with the global OP shortcut `WebGuiServer`, holding a Web
+In short: a Base COMP with the parent shortcut `WebGuiServer`, holding a Web
 Server DAT, the callbacks, and an extension that generates the watcher DATs
 observing your operators; and a config mapping friendly names to parameters.
 

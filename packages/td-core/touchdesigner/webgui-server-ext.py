@@ -16,7 +16,7 @@ is Embody's export hook, dropping the same build product from a staged .tox copy
 so a shipped component doesn't carry another project's watchers (pre-release.py).
 
 Nothing here is project specific. Reads the same config as the callbacks, via
-`op.WebGuiServer`.
+`parent.WebGuiServer`.
 
 Set on the WebGuiServer component: Tdcoredir (Folder par) — where the three
 callback scripts above resolve from, and where every generated DAT syncs its
@@ -34,7 +34,7 @@ import math
 
 # Resolved inside Tdcoredir as an expression (not a baked path) so repointing
 # Tdcoredir moves every generated DAT's source at once.
-_TDCOREDIR = "op.WebGuiServer.par.Tdcoredir.eval() + '/%s'"
+_TDCOREDIR = "parent.WebGuiServer.par.Tdcoredir.eval() + '/%s'"
 
 # Each kind names its target through a different par, which is also how
 # _watchedBy tells kinds apart without a tag that could go stale.
@@ -79,6 +79,11 @@ _EXIT_WATCH_FILE = _TDCOREDIR % "exit-execute.py"
 # among the exported COMP's direct children.
 _RELEASE_HOOK_NAME = "pre_release"
 _RELEASE_HOOK_FILE = _TDCOREDIR % "pre-release.py"
+
+# Storage key on the pre_release DAT holding the live component's own path —
+# see the store() call in _ensureReleaseHook for why this replaces a global
+# OP shortcut lookup.
+_SOURCE_PATH_KEY = "WebGuiServerSourcePath"
 
 # Per-stream chain, in flow order: select_ fetches the source TOP across the COMP
 # boundary, fit_ bounds the resolution the encoder sees, flip_ unmirrors it (TD's
@@ -193,7 +198,7 @@ class WebGuiServerExt:
         or `connection.handle()`), replying through `on_result`/`on_error` —
         never blocking. Delegates to the callbacks module's `call()` so project
         code writes `parent.WebGuiServer.Call(...)` rather than reaching through
-        `op.WebGuiServer.op('webserver1_callbacks').module`."""
+        `parent.WebGuiServer.op('webserver1_callbacks').module`."""
         callbacks = self._callbacks()
         if callbacks is None:
             return
@@ -218,8 +223,10 @@ class WebGuiServerExt:
         `comp` targets a component other than our own: Embody stages a .tox copy
         under /sys/quiet with cooking disabled, so that copy's own extension can
         never compile, and its pre_release hook borrows the live extension
-        instead, pointing it at the copy. (Embody clears the copy's opshortcut,
-        so op.WebGuiServer still resolves to the live component during this call.)
+        instead, pointing it at the copy. (The live component's path is read
+        from storage on the copy's pre_release DAT — see _SOURCE_PATH_KEY —
+        so this resolves the same live component regardless of any global OP
+        shortcut, and works with several WebGuiServer instances in one project.)
         """
         for dat in self._generatedWatchers(comp):
             self._destroyWithNote(dat)
@@ -377,6 +384,16 @@ class WebGuiServerExt:
 
         self._setExpr(dat.par.file, _RELEASE_HOOK_FILE)
         self._setPar(dat.par.syncfile, 1)
+
+        # Storage, not a global OP shortcut: Embody stages the copy under
+        # /sys/quiet, which isn't a descendant of the live component, so
+        # neither a relative path nor a parent shortcut can find it from
+        # there. Storage rides along with the DAT into the staged copy (a
+        # .copy()/.tox export preserves it, same as a par), giving
+        # pre-release.py a live-component path even with several
+        # WebGuiServer instances in one project, each holding no global
+        # shortcut at all.
+        dat.store(_SOURCE_PATH_KEY, self.ownerComp.path)
 
         self._setNoteText(
             self._getOrCreateNote(dat),
