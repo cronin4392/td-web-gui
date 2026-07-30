@@ -54,22 +54,24 @@ function LayerBody(props: {
   registerConnection(props.layer, LoaderClient.useConnection());
   onCleanup(() => registerConnection(props.layer, undefined));
   return (
-    <figure class="m-0">
-      <Show when={video.stream(LOADER_STREAM)} keyed>
-        {(_stream) => (
-          <button
-            type="button"
-            class="video-tile block w-full cursor-pointer border-2 p-0"
-            classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
-            onClick={props.onSelect}
-          >
-            <LoaderClient.Video stream={LOADER_STREAM} />
-            <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
-              <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
-            </Show>
-          </button>
-        )}
-      </Show>
+    <figure class="m-0 bg-red-500">
+      <button
+        type="button"
+        class="video-tile block w-full cursor-pointer border-2 p-0 aspect-video bg-black"
+        classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
+        onClick={props.onSelect}
+      >
+        <Show when={video.stream(LOADER_STREAM)} keyed>
+          {(_stream) => (
+            <>
+              <LoaderClient.Video stream={LOADER_STREAM} />
+              <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
+                <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
+              </Show>
+            </>
+          )}
+        </Show>
+      </button>
       <figcaption class="text-xs text-neutral-500">{props.label}</figcaption>
       <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
       <fieldset>

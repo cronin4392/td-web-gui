@@ -1,16 +1,5 @@
 @import 'tailwindcss';
 
-/* td-core ships zero CSS, so the tile box and the "reconnecting" overlay are
-   the app's to style. The tile holds its 16:9 box whether or not a track has
-   arrived, so the layout doesn't jump when video starts. */
-.video-tile {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  background: #111;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
 .video-tile .td-video {
   display: block;
   width: 100%;
