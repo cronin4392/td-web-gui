@@ -35,3 +35,4 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [x] Convert SceneLoader using a TD derived dat (parsed from scene json files) into my sqlite database.
 - [ ] Add sqlite database to version tracking
 - [ ] Wire midi controls (from Input.toe) to trigger callbacks in web (like selectedScene)
+- [x] In SceneLoader.toe the WebGuiServer is a global and therefore can't be embedded in each scene loader. Leave as a global or allow for multiple? Right now it references the global inside itself.
