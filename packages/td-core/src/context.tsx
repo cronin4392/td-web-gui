@@ -37,6 +37,7 @@ import { Color, type ColorProps } from './components/Color';
 import { NumberInput, type NumberInputProps } from './components/NumberInput';
 import { RangeInput, type RangeInputProps } from './components/RangeInput';
 import { Select, type SelectProps } from './components/Select';
+import { StreamToggle, type StreamToggleProps } from './components/StreamToggle';
 import { Table, type TableProps } from './components/Table';
 import { TextInput, type TextInputProps } from './components/TextInput';
 import { Toggle, type ToggleProps } from './components/Toggle';
@@ -305,8 +306,9 @@ export function createTDClient<
     Vector: TypedVector,
     Color: TypedColor,
     Table: TypedTable,
-    // Not schema-typed: `<Video>` selects on a stream id TD announces at
-    // runtime, which isn't part of the param schema.
+    // Not schema-typed: both select on a stream id TD announces at runtime,
+    // which isn't part of the param schema.
     Video: (props: VideoProps): JSX.Element => Video(props),
+    StreamToggle: (props: StreamToggleProps): JSX.Element => StreamToggle(props),
   };
 }

@@ -89,6 +89,12 @@ WEBRTC = "webrtc1"
 # friendly stream id -> the TOP whose picture that stream carries.
 #   source: absolute path to the TOP you want on the web.
 #   label:  optional human-readable name, passed through to the browser.
+#   enabled: optional, default True — whether the stream starts encoding. Read
+#           only when the encoder is first created; after that the generated
+#           videostreamout_<id> TOP's Active par is the live state, which
+#           apps/example toggles per tile. All four start on here so the wall is
+#           populated on first load; turning one off stops its whole chain
+#           cooking, which is visible in TD immediately.
 # The encoder is generated per entry inside WebGuiServer, so these paths name the
 # last op in the wall that is about the picture, and the wall ends there.
 #

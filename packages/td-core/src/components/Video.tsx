@@ -25,7 +25,11 @@ export function Video(props: VideoProps): JSX.Element {
     // Re-runs when the track arrives or a renegotiation shifts this id onto a
     // different mid — that rebinding is the reason the id → mid map is explicit.
     const media = video.stream(props.stream) as MediaStream | undefined;
-    element.srcObject = media ?? null;
+    // A stopped encoder leaves the track live and silent, so the element would
+    // otherwise hold its last decoded frame indefinitely — a still picture that
+    // reads as running video. Detaching is what makes "off" look off.
+    const off = video.enabled(props.stream) === false;
+    element.srcObject = off ? null : (media ?? null);
   });
 
   createEffect(() => {

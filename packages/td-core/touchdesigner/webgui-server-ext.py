@@ -3,8 +3,12 @@ WebGuiServer extension — generates the operators the config implies.
 
 WATCHERS carry TD -> web changes: one Parameter Execute DAT per operator
 (parameter-execute.py), one CHOP/DAT Execute DAT per readout (chop-execute.py,
-dat-execute.py). STREAM CHAINS carry TD -> web video: one
-select/fit/flip/videostreamout chain per STREAMS entry (webrtc-callbacks.py).
+dat-execute.py), plus one more Parameter Execute DAT covering every generated
+encoder's Active par, so a stream switched off in TD reaches the browser too.
+STREAM CHAINS carry TD -> web video: one select/fit/flip/videostreamout chain
+per STREAMS entry (webrtc-callbacks.py). That chain's Active par is the stream's
+on/off state — the config's `enabled` key only seeds it at creation, since a
+Rebuild must not undo a toggle.
 
 Three more operators aren't derived from the config but keep the above derived
 from it: config_watch re-runs Rebuild when config.py changes on disk
@@ -102,6 +106,22 @@ _STREAMOUT_PREFIX = "videostreamout_"
 _STREAM_WIDTH = 480
 _STREAM_FPS = 15
 
+# Default for the per-stream 'enabled' key: whether the encoder starts running.
+_STREAM_ENABLED = True
+
+# The encoder's Active par IS a stream's on/off state — there is no second copy
+# of it anywhere. Off stops the Video Stream Out TOP AND everything feeding it
+# (measured: the whole select/fit/flip chain stops cooking), which is the entire
+# point of the toggle.
+_STREAM_ACTIVE_PAR = "active"
+
+# One Parameter Execute DAT covers every generated encoder, matched by pattern
+# rather than one DAT per stream. The cross product this module's docstring warns
+# about can't arise here: every op it matches is the same type, and the single
+# watched par is the built-in `active`.
+_STREAM_ACTIVE_PATTERN = _STREAMOUT_PREFIX + "*"
+_STREAM_WATCH_NAME = "parexec_stream_active"
+
 # Reconciliation only deletes operators carrying this tag.
 GENERATED_TAG = "webgui-generated"
 
@@ -192,6 +212,26 @@ class WebGuiServerExt:
     def StreamTop(self, stream_id):
         """The generated Video Stream Out TOP carrying `stream_id`, or None."""
         return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
+
+    def StreamEnabled(self, stream_id):
+        """Whether `stream_id` is currently encoding, or None when it has no
+        generated encoder (an unknown id, or Rebuild hasn't run)."""
+        top = self.StreamTop(stream_id)
+        return None if top is None else bool(getattr(top.par, _STREAM_ACTIVE_PAR).eval())
+
+    def SetStreamEnabled(self, stream_id, enabled):
+        """Start or stop `stream_id`'s encoder. Returns the state actually in
+        effect, or None when the stream has no generated encoder.
+
+        The peer is untouched: the track stays negotiated either way, so this
+        takes effect on the next frame with no renegotiation, and re-enabling
+        needs no new SDP.
+        """
+        top = self.StreamTop(stream_id)
+        if top is None:
+            return None
+        self._setPar(getattr(top.par, _STREAM_ACTIVE_PAR), int(bool(enabled)))
+        return bool(enabled)
 
     def Call(self, name, args=None, on_result=None, on_error=None, client=None, timeout=10.0):
         """Invoke a named handler the web page registered (via `createTDHandler`
@@ -485,6 +525,16 @@ class WebGuiServerExt:
                 else:
                     watch["builtin"] = True
 
+        # The encoders' own Active pars, so a toggle flipped in TD's parameter
+        # dialog reaches the browser the same way a REGISTRY par does. Skipped
+        # when there are no streams, since the pattern would then match nothing.
+        if self._streams():
+            watches[(_PAREXEC, _STREAM_ACTIVE_PATTERN)] = {
+                "pars": [_STREAM_ACTIVE_PAR],
+                "custom": False,
+                "builtin": True,
+            }
+
         for path, readout in self._readoutWatches().items():
             kind = _CHOPEXEC if readout["family"] == "CHOP" else _DATEXEC
             watch = watches.setdefault((kind, path), {"chans": []})
@@ -549,6 +599,10 @@ class WebGuiServerExt:
 
     def _datName(self, kind, path):
         """A legal, collision-free DAT name derived from the full watched op path."""
+        if path == _STREAM_ACTIVE_PATTERN:
+            # Derived, this would come out as 'parexec_videostreamout__' — the
+            # glob sanitised into a trailing underscore. Named outright instead.
+            return _STREAM_WATCH_NAME
         return tdu.validName(_WATCH[kind]["prefix"] + path.strip("/").replace("/", "_"))
 
     def _createWatcher(self, key):
@@ -610,6 +664,11 @@ class WebGuiServerExt:
 
     def _watchText(self, key, watch):
         kind, path = key
+        if path == _STREAM_ACTIVE_PATTERN:
+            return (
+                "OPs: %s\nparameter: %s\nbroadcasts a stream turned on or off in TD,\n"
+                "so the web toggle follows" % (path, _STREAM_ACTIVE_PAR)
+            )
         if kind == _PAREXEC:
             return "OP: %s\nparameters: %s" % (path, ", ".join(watch["pars"]))
         if kind == _CHOPEXEC:
@@ -693,6 +752,11 @@ class WebGuiServerExt:
             return default
         return value
 
+    def _streamEnabled(self, info):
+        """A stream's starting on/off state from its config entry. Only ever read
+        when the encoder is first created — see _applyStream."""
+        return bool(info.get("enabled", _STREAM_ENABLED))
+
     def _rebuildStreams(self):
         """Make the generated video chains match STREAMS. Returns the live chains
         (each [select, fit, flip, videostreamout]) in config order for _layout.
@@ -718,10 +782,15 @@ class WebGuiServerExt:
         return chains
 
     def _getOrCreateStreamOp(self, optype, prefix, stream_id):
-        """One stage of one stream's chain, created if missing, adopted by name if
-        it survived a TDN reimport. Refused (returns None) rather than rebuilt
-        when the name is taken by the wrong type — that operator belongs to
-        someone else."""
+        """One stage of one stream's chain as `(op, created)`, created if missing
+        and adopted by name if it survived a TDN reimport. Refused (returns
+        `(None, False)`) rather than rebuilt when the name is taken by the wrong
+        type — that operator belongs to someone else.
+
+        `created` is what keeps the encoder's Active par a live value rather than
+        a derived one: the config's `enabled` seeds it once, and every later
+        Rebuild leaves whatever it is now alone.
+        """
         name = self._streamOpName(prefix, stream_id)
         o = self.ownerComp.op(name)
         if o is not None and not isinstance(o, optype):
@@ -730,13 +799,14 @@ class WebGuiServerExt:
                 "already has that name - rename it, or rename the stream"
                 % (stream_id, name, o.OPType)
             )
-            return None
-        if o is None:
+            return None, False
+        created = o is None
+        if created:
             o = self.ownerComp.create(optype, name)
             o.comment = GENERATED_COMMENT
         o.tags.add(GENERATED_TAG)
         o.tags.add(STREAM_TAG)
-        return o
+        return o, created
 
     def _wire(self, source, dest):
         # Compared by .id, not identity: two lookups of one operator need not
@@ -748,10 +818,12 @@ class WebGuiServerExt:
     def _applyStream(self, stream_id, info, source):
         """Build or update one stream's select -> fit -> flip -> videostreamout
         chain. Returns the four operators, or None if any could not be created."""
-        select = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
-        fit = self._getOrCreateStreamOp(fitTOP, _FIT_PREFIX, stream_id)
-        flip = self._getOrCreateStreamOp(flipTOP, _FLIP_PREFIX, stream_id)
-        out = self._getOrCreateStreamOp(videostreamoutTOP, _STREAMOUT_PREFIX, stream_id)
+        select, _ = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
+        fit, _ = self._getOrCreateStreamOp(fitTOP, _FIT_PREFIX, stream_id)
+        flip, _ = self._getOrCreateStreamOp(flipTOP, _FLIP_PREFIX, stream_id)
+        out, out_created = self._getOrCreateStreamOp(
+            videostreamoutTOP, _STREAMOUT_PREFIX, stream_id
+        )
         if select is None or fit is None or flip is None or out is None:
             return None
 
@@ -771,7 +843,11 @@ class WebGuiServerExt:
 
         self._setPar(out.par.mode, "webrtc")
         self._setPar(out.par.fps, fps)
-        self._setPar(out.par.active, 1)
+        if out_created:
+            # Seeded once, never re-asserted: after this the par IS the stream's
+            # live on/off state, and a Rebuild (any config.py save) must not undo
+            # a toggle the web or the parameter dialog just made.
+            self._setPar(getattr(out.par, _STREAM_ACTIVE_PAR), int(self._streamEnabled(info)))
         # webrtc/webrtcconnection/webrtcvideotrack deliberately NOT set here —
         # they're per-peer, set a frame after negotiation by
         # webserver-callbacks.attach_streams. Setting them here would cut a
@@ -788,13 +864,21 @@ class WebGuiServerExt:
         return [select, fit, flip, out]
 
     def _streamText(self, stream_id, info, source, width, fps):
-        return "stream: %s (%s)\nsource: %s\nmax %dpx, flipx -> WebRTC track '%s' @ %d fps" % (
-            stream_id,
-            info.get("label", stream_id),
-            source,
-            width,
-            stream_id,
-            fps,
+        # Says where the on/off state lives rather than what it is: notes are
+        # only rewritten on Rebuild, so a live value here would go stale the
+        # first time anyone toggled the stream.
+        return (
+            "stream: %s (%s)\nsource: %s\nmax %dpx, flipx -> WebRTC track '%s' @ %d fps\n"
+            "on/off: %s Active"
+            % (
+                stream_id,
+                info.get("label", stream_id),
+                source,
+                width,
+                stream_id,
+                fps,
+                self._streamOpName(_STREAMOUT_PREFIX, stream_id),
+            )
         )
 
     # ── layout ────────────────────────────────────────────────────────────────

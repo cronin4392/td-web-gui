@@ -15,6 +15,9 @@ Speaks the WebSocket wire contract the web app expects:
         rtc-offer         -> drive the WebRTC DAT to answer (video)
         rtc-answer        -> apply the browser's answer to a TD-initiated offer
         rtc-ice           -> add a remote ICE candidate
+        stream-enable     -> start or stop one stream's encoder, then
+                             `stream-state` (broadcast; TD -> web on its own too,
+                             when a stream is switched on or off inside TD)
 
 Param-scoped failures reply with an `error` carrying the offending name as
 `ref`, and are never fatal to the socket:
@@ -28,6 +31,12 @@ Param-scoped failures reply with an `error` carrying the offending name as
                               READOUTS entry, which is TD -> web only
         param_type_mismatch   the value doesn't fit the entry's declared wire type:
                               wrong JSON type, wrong array length, unknown menu key
+
+Stream-scoped failures reply the same way, with `ref` carrying the stream id:
+
+        unknown_stream        no such id in STREAMS
+        stream_unavailable    configured, but its encoder hasn't been generated —
+                              WebGuiServerExt.Rebuild() hasn't run
 
 Call failures reply with a `result` carrying `error: {code, message}` instead
 of `value` -- deliberately not the `error` message above, since these are
@@ -919,6 +928,79 @@ def _attach_streams_next_frame(connection):
     run("op(%r).module.attach_streams(%r)" % (dat.path, connection), delayFrames=1)
 
 
+# ── stream enable/disable ─────────────────────────────────────────────────────
+#
+# A stream's on/off state is its generated Video Stream Out TOP's `active` par
+# and nothing else — no second copy to keep in step. Off stops the encoder AND
+# everything feeding it (the select/fit/flip chain stops cooking outright), which
+# is the whole reason the toggle exists: a wall of encoders costs main-thread
+# cook time per stream per frame.
+#
+# The peer is never renegotiated. Every configured stream keeps its track for the
+# life of the connection, so a toggle takes effect on the next frame and costs no
+# SDP round trip — which is also what lets a project offer more streams than it
+# can afford to run at once.
+
+_STREAM_ACTIVE_PAR = "active"
+
+
+def _stream_enabled(stream_id):
+    """Whether `stream_id` is encoding right now. None when its encoder hasn't
+    been generated (see _stream_top)."""
+    getter = getattr(_webgui(), "StreamEnabled", None)
+    return getter(stream_id) if getter is not None else None
+
+
+def _stream_state():
+    """Every configured stream's on/off state: `{id: bool}`. A stream with no
+    generated encoder is left out rather than guessed at, so the browser
+    disables its toggle instead of showing a state nothing backs."""
+    state = {}
+    for stream_id in _streams():
+        enabled = _stream_enabled(stream_id)
+        if enabled is not None:
+            state[stream_id] = enabled
+    return state
+
+
+def broadcast_stream_state():
+    """Push every stream's on/off state to all clients. Public: reached from
+    broadcast_param_change when the generated watcher sees an encoder's `active`
+    par change, whoever changed it."""
+    if clients:
+        _broadcast({"type": "stream-state", "streams": _stream_state()})
+
+
+def _stream_of(par):
+    """The stream id whose encoder owns `par`, or None. Matched by operator id
+    rather than by name, so a project's own `active` par can never be mistaken
+    for one of ours."""
+    if par.name != _STREAM_ACTIVE_PAR:
+        return None
+    for stream_id in _streams():
+        top = _stream_top(stream_id)
+        if top is not None and top.id == par.owner.id:
+            return stream_id
+    return None
+
+
+def _enable_stream(name, enabled):
+    """Start or stop one stream's encoder, as `(problem, changed)`. `problem` is
+    None or an (error code, message) pair; `changed` says whether the par
+    actually moved, which decides who announces the new state."""
+    if name not in _streams():
+        return ("unknown_stream", "no stream '%s' in STREAMS" % name), False
+    setter = getattr(_webgui(), "SetStreamEnabled", None)
+    before = _stream_enabled(name)
+    if setter is None or setter(name, enabled) is None:
+        return (
+            "stream_unavailable",
+            "stream '%s' has no generated Video Stream Out TOP - "
+            "call parent.WebGuiServer.Rebuild()" % name,
+        ), False
+    return None, before != enabled
+
+
 def _close_peer(client):
     connection = peer_by_client.pop(client, None)
     if connection is None:
@@ -1138,6 +1220,12 @@ def broadcast_param_change(par):
     par.val, firing the Parameter Execute DAT — one uniform broadcast path.
     The originating browser ignores its own echo while the input is focused.
     """
+    if _stream_of(par) is not None:
+        # The encoders' Active pars ride this same generated-watcher machinery,
+        # but carry stream state rather than a registered param's value.
+        broadcast_stream_state()
+        return
+
     owner = par.owner
     for name, entry in _registry().items():
         if entry["type"] == "pulse":
@@ -1214,6 +1302,12 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
         if menus:
             _send(client, {"type": "menus", "menus": menus})
         _send(client, {"type": "snapshot", "params": _snapshot()})
+        # Stream state rides the snapshot rather than the `streams` announce:
+        # it is knowable before any peer exists, so a reloaded page renders its
+        # toggles correctly without waiting on WebRTC to negotiate.
+        state = _stream_state()
+        if state:
+            _send(client, {"type": "stream-state", "streams": state})
 
     elif mtype == "update":
         for name, value in (message.get("params") or {}).items():
@@ -1243,6 +1337,17 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
 
     elif mtype == "rtc-ice":
         _handle_rtc_ice(client, message)
+
+    elif mtype == "stream-enable":
+        name = message.get("id")
+        problem, changed = _enable_stream(name, bool(message.get("enabled")))
+        _report(client, name, problem)
+        if not changed:
+            # A real change already reaches every client through the Active
+            # par's Parameter Execute DAT. This covers the two cases that never
+            # touch the par — a refusal, and a toggle already in that state —
+            # where the sender still needs its optimistic value corrected.
+            broadcast_stream_state()
 
     elif mtype == "call":
         _handle_call(client, message)

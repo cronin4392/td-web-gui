@@ -207,7 +207,50 @@ describe('parse', () => {
     expect(parse('{"type":"menus","menus":{"m":[{"value":1,"label":"A"}]}}')).toBeNull();
   });
 
+  it('parses a stream-enable request', () => {
+    expect(parse('{"type":"stream-enable","id":"tile3","enabled":false}')).toEqual({
+      type: 'stream-enable',
+      id: 'tile3',
+      enabled: false,
+    });
+  });
+
+  it('rejects a stream-enable missing an id or a boolean', () => {
+    expect(parse('{"type":"stream-enable","enabled":true}')).toBeNull();
+    expect(parse('{"type":"stream-enable","id":"tile3"}')).toBeNull();
+    // 0/1 would be a plausible thing for a hand-rolled client to send, and
+    // coercing it here would hide the mismatch rather than surface it.
+    expect(parse('{"type":"stream-enable","id":"tile3","enabled":1}')).toBeNull();
+  });
+
+  it('parses a stream-state map', () => {
+    expect(parse('{"type":"stream-state","streams":{"tile1":true,"tile2":false}}')).toEqual({
+      type: 'stream-state',
+      streams: { tile1: true, tile2: false },
+    });
+  });
+
+  it('accepts an empty stream-state map', () => {
+    // A project with no generated encoders yet — legitimate, and distinct from
+    // never having been told.
+    expect(parse('{"type":"stream-state","streams":{}}')).toEqual({
+      type: 'stream-state',
+      streams: {},
+    });
+  });
+
+  it('rejects a stream-state carrying a non-boolean', () => {
+    // All-or-nothing, unlike `params`: this map replaces the previous state
+    // wholesale, so salvaging half of it would silently demote the dropped ids
+    // to "TD has no encoder for this".
+    expect(parse('{"type":"stream-state","streams":{"tile1":1}}')).toBeNull();
+    expect(parse('{"type":"stream-state","streams":[]}')).toBeNull();
+    expect(parse('{"type":"stream-state"}')).toBeNull();
+  });
+
   it('exports the current protocol version', () => {
+    // Adding `stream-enable`/`stream-state` is additive: an older project
+    // simply never sends or understands them, so the version does not move.
     expect(PROTOCOL_VERSION).toBe(1);
   });
 });

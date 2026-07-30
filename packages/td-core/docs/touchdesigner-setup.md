@@ -448,16 +448,19 @@ about the picture. Your chain ends there: **don't add a Flip TOP, and don't
 compensate for the mirroring TD's WebRTC encoder introduces.** That is handled
 downstream of `source`, and doing it twice cancels out.
 
-Two optional keys cap what a stream costs, since a Video Stream Out TOP encodes
-every frame at full resolution and a wall of them will drop your frame rate:
+Three optional keys govern what a stream costs, since a Video Stream Out TOP
+encodes every frame at full resolution and a wall of them will drop your frame
+rate:
 
-| Key     | Default | Effect                                                                                            |
-| ------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `width` | `480`   | Pixel cap applied by the generated `fit_<id>`. Aspect preserved; a smaller source isn't upscaled. |
-| `fps`   | `15`    | Encode rate on the generated `videostreamout_<id>`, independent of the project rate.              |
+| Key       | Default | Effect                                                                                                  |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `width`   | `480`   | Pixel cap applied by the generated `fit_<id>`. Aspect preserved; a smaller source isn't upscaled.       |
+| `fps`     | `15`    | Encode rate on the generated `videostreamout_<id>`, independent of the project rate.                    |
+| `enabled` | `True`  | Whether this stream **starts** encoding. See [Turning streams on and off](#turning-streams-on-and-off). |
 
 ```python
 'tile1': {'source': '/project1/videowall/level_tile1', 'width': 960, 'fps': 30},
+'tile2': {'source': '/project1/videowall/level_tile2', 'enabled': False},
 ```
 
 > Derivative's own WebRTC palette component compensates in CSS instead, on the
@@ -485,6 +488,40 @@ offered up front:
 `receivers` must be **≥** the number of entries in `STREAMS`. Get it wrong and
 the surplus streams have nowhere to land; `webrtc-callbacks.py` prints a warning
 naming both counts.
+
+### Turning streams on and off
+
+A stream's on/off state is the generated `videostreamout_<id>` TOP's **Active**
+par, and nothing else. Off stops that TOP **and everything feeding it** — the
+whole `select_`/`fit_`/`flip_` chain stops cooking — so a disabled stream costs
+nothing at all. On a live four-tile wall each running encoder measured ~0.25 ms of
+CPU cook time per frame plus GPU, which is what you get back.
+
+The web drives it with `<StreamToggle stream="tile1" />`; you can also flip
+Active in TD's parameter dialog and the browser follows, because the extension
+generates a `parexec_stream_active` Parameter Execute DAT watching every encoder.
+
+**The peer is never renegotiated.** Every configured stream keeps its track for
+the life of the connection, so a stream comes back on TD's next frame with no SDP
+round trip — and `receivers` still has to cover every entry in `STREAMS`, not just
+the running ones.
+
+That combination is what lets a project **offer more streams than it can afford
+to run at once**: list them all, start the expensive ones `'enabled': False`, and
+let the operator pick which are live.
+
+```python
+STREAMS = {
+    'main':    {'source': '/project1/render_out',  'label': 'Main'},
+    'cam1':    {'source': '/project1/cam1',        'label': 'Cam 1', 'enabled': False},
+    'cam2':    {'source': '/project1/cam2',        'label': 'Cam 2', 'enabled': False},
+}
+```
+
+`enabled` is read **only when the encoder is first created**. After that the
+Active par is the live state, so saving `config.py` (which rebuilds) never undoes
+a toggle. The generated operators are dropped when TouchDesigner exits, so each
+session starts from the config's defaults again.
 
 ### One viewer at a time
 

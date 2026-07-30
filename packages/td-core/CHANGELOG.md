@@ -14,6 +14,45 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Added
 
+- **Per-stream on/off** — a stream's encoder can now be started and stopped from
+  the web, live, with `<StreamToggle stream="tile1" />` (or
+  `useVideo().setEnabled(id, on)` / `.toggle(id)`). Two new wire messages carry
+  it: `stream-enable` (web → TD) and `stream-state` (TD → web). `PROTOCOL_VERSION`
+  is unchanged — an older project simply never sends or understands them.
+
+  **This is not signaling.** Every configured stream keeps its WebRTC track for
+  the life of the connection, so a toggle renegotiates nothing and a stream
+  resumes on TD's next frame. What it flips is the generated
+  `videostreamout_<id>` TOP's `Active` par, which stops that TOP **and everything
+  feeding it** — measured on a live four-tile wall, a disabled stream's whole
+  `select`/`fit`/`flip`/`videostreamout` chain stops cooking outright, against
+  ~0.25 ms of CPU cook time per frame plus GPU for each running encoder.
+
+  That is what lets a project **announce more streams than it can afford to run
+  at once**: list them all in `STREAMS`, start the expensive ones
+  `'enabled': False`, and let the operator pick. `receivers` must still cover
+  every entry, not just the running ones.
+
+  State is TouchDesigner's, exactly as for a parameter: writes are optimistic and
+  corrected by the next `stream-state`, and `WebGuiServerExt` now generates a
+  `parexec_stream_active` Parameter Execute DAT watching every encoder's `Active`
+  par, so a stream switched off **inside TD** updates the browser too. A refused
+  write replies `unknown_stream` / `stream_unavailable` and re-announces the
+  truth.
+
+  `enabled(id)` returns `undefined` — not `false` — for an id TD hasn't spoken
+  for, so `<StreamToggle>` renders disabled rather than claiming the stream is
+  off. `streamStatus(id)` gains `'off'` (widening its return type to the new
+  `TDStreamStatus`), and `<Video>` detaches its source when a stream is off, since
+  a stopped encoder leaves the track live and silent and the element would
+  otherwise hold its last decoded frame and read as running video.
+
+- **`enabled` key on a `STREAMS` entry** (default `True`) — whether that stream
+  _starts_ encoding. Read **only when the encoder is first created**: after that
+  the `Active` par is the live state, so saving `config.py` (which rebuilds) no
+  longer stomps a toggle. The generated operators are dropped on exit, so each
+  session starts from the config's defaults again.
+
 - **Per-stream `width` and `fps`** — a `STREAMS` entry can now cap what it costs
   to encode. `width` (default 480) is applied by a generated `fit_<id>` inserted
   between the select and the flip, in Limit Resolution mode so the aspect is

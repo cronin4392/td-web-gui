@@ -22,7 +22,8 @@ bind through the same context.
   [`<RangeInput>`](#rangeinput) · [`<Toggle>`](#toggle) ·
   [`<Button>`](#button) · [`<Select>`](#select) ·
   [`<Vector>`](#vector) · [`<Color>`](#color) ·
-  [`<Value>`](#value) · [`<Table>`](#table) · [`<Video>`](#video)
+  [`<Value>`](#value) · [`<Table>`](#table) · [`<Video>`](#video) ·
+  [`<StreamToggle>`](#streamtoggle)
 - [Styling](#styling)
 
 ## Shared behavior
@@ -60,7 +61,7 @@ component's own — yours never replaces the binding logic.
 | XYZ / UV / WH ParGroup  | `number[]` | [`<Vector>`](#vector)                                          |
 | RGB / RGBA ParGroup     | `number[]` | [`<Color>`](#color)                                            |
 | any (read-only)         | any        | [`<Value>`](#value)                                            |
-| Video Stream Out TOP    | —          | [`<Video>`](#video)                                            |
+| Video Stream Out TOP    | —          | [`<Video>`](#video), [`<StreamToggle>`](#streamtoggle)         |
 
 A [readout](touchdesigner-setup.md#readouts) — a `READOUTS` entry with no
 parameter behind it — binds by name like anything else, so the same components
@@ -399,24 +400,68 @@ Stream ids come from TD's `streams` announcement, re-sent on every renegotiation
 so a tile rebinds automatically if track `mid`s shift. For per-tile status
 overlays see [`useVideo()`](api.md#video).
 
+A `<Video>` whose stream is switched off (see below) renders **blank**, not its
+last frame: a stopped encoder leaves the track live and silent, so holding the
+last decoded frame would read as running video.
+
+## `<StreamToggle>`
+
+Checkbox that starts and stops one stream's TouchDesigner-side encoder. Requires
+`video` on the `<Provider>`, same as `<Video>`.
+
+| Prop     | Type     | Description                                       |
+| -------- | -------- | ------------------------------------------------- |
+| `stream` | `string` | Announced stream id. Omit for the primary stream. |
+
+```tsx
+<For each={video.streams()}>
+  {(s) => (
+    <figure>
+      <App.Video stream={s.id} />
+      <label>
+        <App.StreamToggle stream={s.id} />
+        {s.label ?? s.id}
+      </label>
+    </figure>
+  )}
+</For>
+```
+
+It binds a **stream id, not a parameter** — the thing it drives is an operator
+`td-core` generates, so it takes no schema typing and needs no `REGISTRY` entry.
+Otherwise it behaves exactly like [`<Toggle>`](#toggle): optimistic write,
+corrected by TD's next `stream-state`, and it follows a flip made in TD's own
+parameter dialog.
+
+**Turning a stream off stops its encoder and everything feeding it in TD**, so it
+costs nothing while off — that is the point of the control, and what lets a
+project offer more streams than the machine can run at once. The peer is
+untouched, so a stream comes back on TD's next frame with no renegotiation. See
+[TouchDesigner setup § Turning streams on and off](touchdesigner-setup.md#turning-streams-on-and-off).
+
+It renders **disabled until TD has announced a state** for that id. An id with no
+generated encoder never becomes clickable, which is the difference between "off"
+and "TD can't serve this".
+
 ## Styling
 
 `td-core` ships **zero CSS**. Every component renders bare HTML with a stable
 class hook and passes through `class`, `style`, and everything else.
 
-| Component       | Class                                                      |
-| --------------- | ---------------------------------------------------------- |
-| `<TextInput>`   | `.td-text-input`                                           |
-| `<NumberInput>` | `.td-number-input`                                         |
-| `<RangeInput>`  | `.td-range-input`                                          |
-| `<Toggle>`      | `.td-toggle`                                               |
-| `<Button>`      | `.td-button` plus `.td-button-pulse` / `-hold` / `-toggle` |
-| `<Select>`      | `.td-select`                                               |
-| `<Vector>`      | `.td-vector`, sub-inputs `.td-vector-input`                |
-| `<Color>`       | `.td-color`, `.td-color-rgb`, `.td-color-alpha`            |
-| `<Value>`       | `.td-value`                                                |
-| `<Table>`       | `.td-table`                                                |
-| `<Video>`       | `.td-video`                                                |
+| Component        | Class                                                      |
+| ---------------- | ---------------------------------------------------------- |
+| `<TextInput>`    | `.td-text-input`                                           |
+| `<NumberInput>`  | `.td-number-input`                                         |
+| `<RangeInput>`   | `.td-range-input`                                          |
+| `<Toggle>`       | `.td-toggle`                                               |
+| `<Button>`       | `.td-button` plus `.td-button-pulse` / `-hold` / `-toggle` |
+| `<Select>`       | `.td-select`                                               |
+| `<Vector>`       | `.td-vector`, sub-inputs `.td-vector-input`                |
+| `<Color>`        | `.td-color`, `.td-color-rgb`, `.td-color-alpha`            |
+| `<Value>`        | `.td-value`                                                |
+| `<Table>`        | `.td-table`                                                |
+| `<Video>`        | `.td-video`                                                |
+| `<StreamToggle>` | `.td-stream-toggle`                                        |
 
 **A `class` prop replaces the hook rather than adding to it.** Passthrough props
 are spread after the default `class`, so `<App.Toggle name="x" class="mine" />`

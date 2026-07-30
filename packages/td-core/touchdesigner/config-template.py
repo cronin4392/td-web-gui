@@ -144,11 +144,23 @@ WEBRTC = None
 #   width:  Optional pixel cap on the encoded picture, default 480. Aspect is
 #           preserved and a smaller source is left alone, never upscaled.
 #   fps:    Optional encode rate, default 15 — independent of the project rate.
+#   enabled: Optional, default True. Whether this stream STARTS encoding. Only
+#           read when the encoder is first created: after that the generated
+#           `videostreamout_<id>` TOP's Active par is the live state, so editing
+#           this file (which rebuilds) never undoes a toggle.
 #
-# `width` and `fps` are the two knobs on what a stream costs: the Video Stream
-# Out TOP encodes every frame at full resolution, so a wall of them at project
-# resolution and project rate will drop your frame rate. Raise them per entry
-# only for the streams that need it.
+# `width` and `fps` are the two knobs on what a *running* stream costs: the
+# Video Stream Out TOP encodes every frame at full resolution, so a wall of them
+# at project resolution and project rate will drop your frame rate. Raise them
+# per entry only for the streams that need it.
+#
+# `enabled` is the knob on *how many run at once*, and it's the one that scales:
+# a disabled stream costs nothing at all — the encoder and everything feeding it
+# stop cooking. The web toggles it live (`<StreamToggle stream="...">`), and the
+# track stays negotiated either way, so a stream comes back on the next frame
+# with no renegotiation. That is what lets a project offer more streams than it
+# can afford to run simultaneously: list them all here, start the expensive ones
+# off, and let the operator pick.
 #
 # **You do not build the encoder.** WebGuiServerExt generates one per entry on
 # the next Rebuild. Your own chain ends at `source` — don't add a Flip TOP or
@@ -167,7 +179,9 @@ WEBRTC = None
 # for ONE browser, not one stream for N browsers — see
 # docs/touchdesigner-setup.md § Video for the single-viewer limit.
 STREAMS = {
-    # 'main': {'source': '/project1/render_out', 'label': 'Main'},
+    # 'main':    {'source': '/project1/render_out', 'label': 'Main'},
+    # 'preview': {'source': '/project1/preview_out', 'label': 'Preview',
+    #             'enabled': False},
 }
 
 

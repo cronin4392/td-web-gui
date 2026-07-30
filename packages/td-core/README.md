@@ -185,6 +185,7 @@ props, and carries a stable `td-*` class hook.
 | `<Value>`                      | Read-only readout, with an optional `format`.                        |
 | `<Table>`                      | A whole DAT table, read-only, with an optional `header`.             |
 | `<Video>`                      | One WebRTC stream, selected by announced id.                         |
+| `<StreamToggle>`               | Starts and stops that stream's TouchDesigner-side encoder.           |
 
 **Connection** — `createTDClient<Schema>()` for typed UI;
 `createTDConnection(url)` standalone, with no context or component tree.
@@ -194,7 +195,10 @@ sane defaults.
 
 **Video** — `createTDVideoStream()`. One peer per instance carrying every one of
 its tracks, signaling multiplexed over the control socket, per-stream status, and
-rebuild-on-failure.
+rebuild-on-failure. Streams can be started and stopped individually from the web,
+which stops the TouchDesigner encoder **and everything feeding it** without
+touching the peer — so a project can offer more streams than the machine can
+afford to run at once.
 
 **Readouts** — `READOUTS` publishes a CHOP channel, several channels, a DAT cell,
 or a whole DAT table with no parameter behind it, one-way TD → web. They share

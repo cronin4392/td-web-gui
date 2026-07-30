@@ -120,6 +120,14 @@ button {
   object-fit: contain;
 }
 
+/* The per-tile encoder switch. Sits in the caption beside the label so the
+   thing it controls and the thing it names read as one control. */
+.video-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .video-overlay {
   position: absolute;
   inset: 0;

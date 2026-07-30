@@ -59,7 +59,7 @@ The bundle:
 | `useConnection()`                                                                                  | `TDConnection` — the nearest provider's connection              |
 | `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                   |
 | `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys         |
-| `Video`                                                                                            | Bound video; not schema-typed (stream ids aren't parameters)    |
+| `Video` `StreamToggle`                                                                             | Bound to a stream id; not schema-typed (ids aren't parameters)  |
 
 ### Why a factory rather than plain components
 
@@ -349,14 +349,17 @@ exactly as before. `CallSchema<Schema>` is written the same way as
 `useVideo()` returns the nearest provider's peer. Throws if the provider didn't
 opt into `video`.
 
-| Member              | Type                                                        | Description                                                   |
-| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
-| `status()`          | `'connecting' \| 'connected' \| 'reconnecting' \| 'closed'` | Reactive peer-wide status.                                    |
-| `streams()`         | `StreamInfo[]`                                              | Reactive `{ id, mid, label }` list TD last announced.         |
-| `stream(id?)`       | `MediaStream \| undefined`                                  | Decoded stream for an id. Omit `id` for the primary.          |
-| `streamStatus(id?)` | `TDPeerStatus`                                              | Per-stream status.                                            |
-| `rebuild()`         | `void`                                                      | Tear down and renegotiate from scratch.                       |
-| `close()`           | `void`                                                      | Close the peer, stop every track, unsubscribe from signaling. |
+| Member               | Type                                                        | Description                                                    |
+| -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
+| `status()`           | `'connecting' \| 'connected' \| 'reconnecting' \| 'closed'` | Reactive peer-wide status.                                     |
+| `streams()`          | `StreamInfo[]`                                              | Reactive `{ id, mid, label }` list TD last announced.          |
+| `stream(id?)`        | `MediaStream \| undefined`                                  | Decoded stream for an id. Omit `id` for the primary.           |
+| `streamStatus(id?)`  | `TDStreamStatus`                                            | Per-stream status — the peer's, plus `'off'`.                  |
+| `enabled(id?)`       | `boolean \| undefined`                                      | Whether TD is encoding this stream. `undefined` until TD says. |
+| `setEnabled(id, on)` | `void`                                                      | Start or stop TD's encoder for this stream.                    |
+| `toggle(id)`         | `void`                                                      | `setEnabled` against the current state.                        |
+| `rebuild()`          | `void`                                                      | Tear down and renegotiate from scratch.                        |
+| `close()`            | `void`                                                      | Close the peer, stop every track, unsubscribe from signaling.  |
 
 **Read `streamStatus(id)`, not `status()`, for a per-tile overlay.** The peer
 reaches `connected` as soon as _any_ track flows, so a tile still waiting for its
@@ -377,6 +380,28 @@ own track would otherwise show a frozen black box with no explanation.
 
 Driving the grid off `streams()` rather than a fixed count is what makes a short
 announce visible as _missing_ tiles instead of silently black ones.
+
+### Turning a stream off
+
+`setEnabled(id, false)` stops TD **encoding** that stream. It does not touch the
+peer: every configured stream keeps its track for the life of the connection, so
+this costs no renegotiation and video resumes on TD's next frame. TD-side, an off
+stream stops the encoder and everything feeding it, so it costs nothing while off
+— which is what lets an instance announce more streams than it can afford to run
+at once.
+
+State is TD's, exactly as for a parameter: `setEnabled` applies optimistically and
+every client is corrected by TD's next `stream-state`, whether the flip came from
+a browser or from TD's own parameter dialog. `enabled()` distinguishes
+`undefined` ("TD hasn't said", or no encoder exists for that id) from `false`, so
+a control can disable itself rather than claim the stream is off.
+
+`streamStatus(id)` reports `'off'` for these, and `<Video>` detaches its source —
+a stopped encoder leaves the track live and silent, so the element would otherwise
+hold its last decoded frame and read as running video.
+
+Most apps want [`<StreamToggle>`](components.md#streamtoggle) rather than these
+directly.
 
 ### Options
 

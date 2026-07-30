@@ -14,6 +14,8 @@
  *    handler on the other and get a reply).
  *  - **WebRTC signaling** — `rtc-offer`, `rtc-answer`, `rtc-ice`, and `streams`,
  *    multiplexed here so video needs no second socket or TD component.
+ *  - **Stream enable** — `stream-enable` (web → TD) and `stream-state` (TD → web),
+ *    which start and stop a stream's *encoder* without touching the peer.
  *  - **Menus** — the one deliberate piece of TD → web introspection, for menus
  *    the web cannot author ahead of time (see {@link MenusMessage}).
  *
@@ -231,6 +233,48 @@ export interface StreamsMessage {
   streams: StreamInfo[];
 }
 
+/**
+ * Start or stop one stream's TD-side encoder (web → TD).
+ *
+ * Deliberately **not** a parameter: what it drives is a generated operator
+ * td-core owns, not something a project registers, so it needs no `REGISTRY`
+ * entry and can't collide with the param namespace.
+ *
+ * The peer is untouched — every configured stream keeps its track for the life
+ * of the connection, so this takes effect on TD's next frame with no
+ * renegotiation and no SDP round trip. That is what makes it cheap enough to
+ * expose as a checkbox, and what lets a project announce more streams than it
+ * can afford to run at once: a disabled stream stops the encoder *and*
+ * everything feeding it, so it costs nothing while off.
+ */
+export interface StreamEnableMessage {
+  type: 'stream-enable';
+  /** Announced stream id, as carried by {@link StreamInfo}. */
+  id: string;
+  enabled: boolean;
+}
+
+/**
+ * Every stream's current on/off state (TD → web), as the authoritative map.
+ *
+ * Sent after `snapshot` — before any peer exists, so a reloaded page renders
+ * its toggles without waiting on WebRTC — and again whenever a stream is
+ * switched on or off, **by either side**: TD watches its own encoders, so
+ * flipping one in TD's parameter dialog updates the browser exactly like a
+ * parameter change does.
+ *
+ * Replaced wholesale rather than merged, for the same reason {@link MenusMessage}
+ * is: it is the truth about the whole set, and an id that has left the config
+ * has to disappear rather than linger at its last known state.
+ *
+ * A stream whose encoder TD hasn't generated yet is **absent** from the map
+ * rather than reported `false` — "unknown" and "off" call for different UI.
+ */
+export interface StreamStateMessage {
+  type: 'stream-state';
+  streams: Record<string, boolean>;
+}
+
 // ── TD → web ────────────────────────────────────────────────────────────────
 
 /** Reply to `hello`: TD's protocol version plus optional instance metadata. */
@@ -308,7 +352,8 @@ export type ClientMessage =
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
-  | StreamsMessage;
+  | StreamsMessage
+  | StreamEnableMessage;
 
 /** Messages the web receives from TD. */
 export type ServerMessage =
@@ -323,7 +368,8 @@ export type ServerMessage =
   | RTCOfferMessage
   | RTCAnswerMessage
   | RTCIceMessage
-  | StreamsMessage;
+  | StreamsMessage
+  | StreamStateMessage;
 
 /** Every known message in either direction. */
 export type Message = ClientMessage | ServerMessage;
@@ -347,6 +393,8 @@ const KNOWN_TYPES = new Set([
   'rtc-answer',
   'rtc-ice',
   'streams',
+  'stream-enable',
+  'stream-state',
 ]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -420,6 +468,10 @@ function isStreamList(value: unknown): value is StreamInfo[] {
         (s.label === undefined || typeof s.label === 'string'),
     )
   );
+}
+
+function isStreamStateMap(value: unknown): value is Record<string, boolean> {
+  return isPlainObject(value) && Object.values(value).every((v) => typeof v === 'boolean');
 }
 
 /**
@@ -522,6 +574,17 @@ export function parse(raw: string): Message | null {
       return isMenuMap(data.menus) ? { type: 'menus', menus: data.menus } : null;
     case 'streams':
       return isStreamList(data.streams) ? { type: 'streams', streams: data.streams } : null;
+    case 'stream-enable':
+      return typeof data.id === 'string' && typeof data.enabled === 'boolean'
+        ? { type: 'stream-enable', id: data.id, enabled: data.enabled }
+        : null;
+    case 'stream-state':
+      // All-or-nothing, unlike `params`: this map replaces the previous state
+      // wholesale, so salvaging half of it would leave the dropped ids reading
+      // as "TD has no encoder for this" — a different claim from the truth.
+      return isStreamStateMap(data.streams)
+        ? { type: 'stream-state', streams: data.streams }
+        : null;
     case 'error':
       return typeof data.code === 'string'
         ? {

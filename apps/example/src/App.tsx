@@ -2,6 +2,7 @@ import { createSignal, For, Show } from 'solid-js';
 import {
   createTDClient,
   createTDHandler,
+  StreamToggle,
   TDCallError,
   useTDConnection,
   useTDVideoStream,
@@ -295,15 +296,19 @@ function Example1Readouts() {
  * Each overlay reads that stream's own `streamStatus(id)`, not the peer-wide
  * `status()`: the peer reaches `connected` as soon as *any* track flows, so a
  * tile still waiting for its own track would otherwise show a frozen black box
- * with no explanation.
+ * with no explanation. `off` is one of its values, and the one to try here —
+ * unchecking a tile stops that stream's encoder and everything feeding it in TD,
+ * which is what makes a wall bigger than the machine can run at once affordable.
  */
 function VideoWall() {
   const video = useTDVideoStream();
+  const running = () => video.streams().filter((s) => video.enabled(s.id) !== false).length;
 
   return (
     <section>
       <h3>
-        Video wall — {video.streams().length} of {VIDEO_TILES} streams announced
+        Video wall — {video.streams().length} of {VIDEO_TILES} streams announced, {running()}{' '}
+        encoding
       </h3>
       <div class="video-grid">
         <For
@@ -327,7 +332,16 @@ function VideoWall() {
                 </Show>
               </div>
               <figcaption class="caption">
-                {stream.label ?? stream.id} · mid <code>{stream.mid}</code>
+                {/* Not schema-typed, and needs no REGISTRY entry: it drives the
+                    generated encoder td-core owns, selected by the same
+                    announced id <Video> uses. Turning it off stops that stream's
+                    whole chain cooking in TD; the track stays negotiated, so it
+                    comes back on the next frame with no renegotiation. */}
+                <label class="video-switch">
+                  <StreamToggle stream={stream.id} />
+                  {stream.label ?? stream.id}
+                </label>
+                mid <code>{stream.mid}</code>
               </figcaption>
             </figure>
           )}
