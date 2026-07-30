@@ -55,10 +55,10 @@ sockets.
 
 Nothing here is project specific — drop this into any project unchanged.
 Everything project specific comes from the WebGuiServer component, reached by
-its global OP shortcut:
+its parent shortcut:
 
         Identifier    names this instance to the web app.
-        Config File   loaded into op.WebGuiServer.op('config'); its REGISTRY maps
+        Config File   loaded into parent.WebGuiServer.op('config'); its REGISTRY maps
                       friendly wire names to (operator, parameter, wire-type), and
                       its READOUTS maps them to CHOP channels and DAT cells. See
                       config-template.py.
@@ -105,12 +105,12 @@ _readout_flush_scheduled = False
 
 
 def _webgui():
-    """The WebGuiServer component, via its global OP shortcut."""
-    comp = getattr(op, "WebGuiServer", None)
+    """The WebGuiServer component, via its parent shortcut."""
+    comp = getattr(parent, "WebGuiServer", None)
     if comp is None:
         raise RuntimeError(
-            "webserver-callbacks: no global OP shortcut 'WebGuiServer' - "
-            "set one on the component holding the config DAT"
+            "webserver-callbacks: no parent OP shortcut 'WebGuiServer' found above this DAT - "
+            "set Parent Shortcut on the WebGuiServer component"
         )
     return comp
 
@@ -623,7 +623,7 @@ def broadcast_menus_if_changed():
                def onFrameStart(frame):
                        if absTime.frame % 120:   # ~2s at 60fps
                                return
-                       op.WebGuiServer.op('webserver1_callbacks').module.broadcast_menus_if_changed()
+                       parent.WebGuiServer.op('webserver1_callbacks').module.broadcast_menus_if_changed()
 
     3. **Best when it applies: the pulse that causes the change** — if a menu
        is rebuilt by a TD action (a Screen Grab TOP's Refresh Sources), hook
@@ -900,7 +900,7 @@ def attach_streams(connection):
         if top is None:
             print(
                 "webserver-callbacks: warning - no generated Video Stream Out TOP "
-                "for stream '%s'; call op.WebGuiServer.Rebuild()" % stream_id
+                "for stream '%s'; call parent.WebGuiServer.Rebuild()" % stream_id
             )
             continue
         # Lowercase: built-in pars (custom pars are Capitalized, see REGISTRY).

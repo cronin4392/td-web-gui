@@ -318,7 +318,7 @@ every second or two:
 def onFrameStart(frame):
     if absTime.frame % 120:   # ~2s at 60fps
         return
-    op.WebGuiServer.op('webserver1_callbacks').module.broadcast_menus_if_changed()
+    parent.WebGuiServer.op('webserver1_callbacks').module.broadcast_menus_if_changed()
 ```
 
 **Not wired up by default**, because it costs a `menuNames` read per registered

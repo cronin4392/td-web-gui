@@ -14,7 +14,7 @@ folder are project-agnostic and are dropped in unchanged:
 
 All of them find this file through the WebGuiServer component's `Config File`
 parameter, loaded into a Text DAT named `config` inside the component, and
-read back as `op.WebGuiServer.op('config').module`.
+read back as `parent.WebGuiServer.op('config').module`.
 
 REGISTRY and READOUTS below are the whole of the setup for TD -> web: the
 extension generates one watcher DAT per operator you name in either, so there

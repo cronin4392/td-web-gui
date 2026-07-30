@@ -35,10 +35,10 @@ window, so it's cycling through backoff. This is almost always a TD-side
 exception during `hello` or `snapshot-request` — **check the textport**, where
 the specific error will be waiting.
 
-**Textport: `no global OP shortcut 'WebGuiServer'`**
+**Textport: `no parent OP shortcut 'WebGuiServer' found above this DAT`**
 
-The component's `Global OP Shortcut` (Common page) isn't set to `WebGuiServer`.
-All three scripts find the component this way. See
+The component's `Parent Shortcut` (Common page) isn't set to `WebGuiServer`.
+Every script finds the component this way. See
 [touchdesigner-setup.md § 1](touchdesigner-setup.md#1-create-the-webguiserver-component).
 
 **Textport: `WebGuiServer has no 'config' DAT`**
@@ -168,7 +168,7 @@ from the start rather than after the first refused edit.
 
 The snapshot works and the watcher doesn't. Check for a `chopexec_…` or
 `datexec_…` DAT for that operator inside `WebGuiServer`, then run
-`op.WebGuiServer.Rebuild()` — same diagnosis path as the `parexec_…` DATs below.
+`parent.WebGuiServer.Rebuild()` — same diagnosis path as the `parexec_…` DATs below.
 
 **A readout updates far more often than expected**
 
@@ -198,7 +198,7 @@ checks below read the same for all three. Check, in order:
 
 1. There is one for the operator in question. If the component has none at all,
    the extension isn't wired — see setup step 4.
-2. Run `op.WebGuiServer.Rebuild()` and re-read the textport. It reconciles
+2. Run `parent.WebGuiServer.Rebuild()` and re-read the textport. It reconciles
    against the live network and warns about registry entries it can't resolve.
 3. The registry entry names an operator that exists, spelled absolutely. An
    entry pointing at a missing operator generates a watcher that watches nothing.
@@ -309,7 +309,7 @@ The classic case. In order of likelihood:
    `WebGuiServer` carries the error, and its viewer shows exactly what is being
    encoded.
 2. **The chain was never generated.** Textport: _"no generated Video Stream Out
-   TOP for stream 'x'; call op.WebGuiServer.Rebuild()"_.
+   TOP for stream 'x'; call parent.WebGuiServer.Rebuild()"_.
 3. **No NVIDIA GPU, or not on Windows.** The Video Stream Out TOP requires
    NVIDIA's hardware encoder. There is no software fallback.
 4. **Over 8 encoder sessions on a GeForce card.** That's a hard per-system limit.
