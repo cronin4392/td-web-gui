@@ -1,7 +1,11 @@
 # Ubiquitous Language
 
-The vocabulary this project uses for the VJ GUI and the TouchDesigner projects behind it.
+The vocabulary `apps/vj-gui` uses for itself and the TouchDesigner projects behind it.
 Terms are canonical: prefer them in code, tests, commits, and conversation.
+
+Scope is this app only. `td-core` is a general-purpose library and knows none of
+these terms — it has instances, params, calls, and streams. Paths below are
+relative to `apps/vj-gui`.
 
 ## Loadable content
 

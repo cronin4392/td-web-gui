@@ -37,7 +37,7 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [ ] Wire midi controls (from Input.toe) to trigger callbacks in web (like selectedScene)
 - [x] In SceneLoader.toe the WebGuiServer is a global and therefore can't be embedded in each scene loader. Leave as a global or allow for multiple? Right now it references the global inside itself.
 - [ ] DDD refactor of packages/td-core
-  - [ ] Move UBIQUITOUS_LANGUAGE.md into apps/vj-gui
+  - [x] Move UBIQUITOUS_LANGUAGE.md into apps/vj-gui
 - [ ] Re-cooking the callbacks DAT (`packages/td-core/touchdesigner/webserver-callbacks.py`) silently
       loses every live WebRTC peer. `clients` already self-heals — `onWebSocketReceiveText` re-adds
       the sender on every message, which the heartbeat guarantees within one interval — but
