@@ -920,6 +920,13 @@ class WebGuiServerExt:
         # they're per-peer, set a frame after negotiation by
         # webserver-callbacks.attach_streams. Setting them here would cut a
         # live peer's video on every Rebuild.
+        #
+        # webrtcconnection holds a GUID that TD re-rolls on every negotiation, so
+        # a project externalising this component gets a fresh diff each time a
+        # browser connects. Marking it read-only is how Embody is asked to leave
+        # a parameter out of a .tdn export (read-only pars are skipped); it does
+        # not stop attach_streams writing it, since that goes through Python.
+        out.par.webrtcconnection.readOnly = True
 
         self._wire(select, fit)
         self._wire(fit, flip)
