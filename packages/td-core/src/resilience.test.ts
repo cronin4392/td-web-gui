@@ -1,10 +1,10 @@
 /**
  * Connection-resilience integration tests, driven against the mock TD
  * server with a manual scheduler so every timing path is deterministic:
- * reconnect + backoff (3.1), handshake watchdog (3.2), ping/pong heartbeat
- * (3.3), backpressure/congestion (3.5), disconnected-send drops + error routing
- * (3.6), and full teardown (3.7). The outbound throttle (3.4) is covered
- * through `<RangeInput>` in components/RangeInput.test.tsx.
+ * reconnect + backoff, handshake watchdog, ping/pong heartbeat,
+ * backpressure/congestion, disconnected-send drops + error routing, and full
+ * teardown. The outbound throttle is covered through `<RangeInput>` in
+ * components/RangeInput.test.tsx.
  */
 
 import { createRoot } from 'solid-js';
@@ -29,7 +29,7 @@ function lastType(td: ReturnType<typeof createMockTD>): string | undefined {
   return (received(td).at(-1) as { type?: string } | undefined)?.type;
 }
 
-describe('reconnect + backoff (3.1)', () => {
+describe('reconnect + backoff', () => {
   it('reconnects and re-runs the full handshake after an unexpected drop', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: { speed: 1 } });
@@ -110,7 +110,7 @@ describe('reconnect + backoff (3.1)', () => {
   });
 });
 
-describe('handshake watchdog (3.2)', () => {
+describe('handshake watchdog', () => {
   it('abandons an attempt that never syncs and retries', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ autoHandshake: false });
@@ -148,7 +148,7 @@ describe('handshake watchdog (3.2)', () => {
   });
 });
 
-describe('ping/pong heartbeat (3.3)', () => {
+describe('ping/pong heartbeat', () => {
   it('sends a ping each interval and stays synced while pongs arrive', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: {} });
@@ -208,7 +208,7 @@ describe('ping/pong heartbeat (3.3)', () => {
   });
 });
 
-describe('backpressure / congestion (3.5)', () => {
+describe('backpressure / congestion', () => {
   it('skips updates over the high-water mark and flips congested', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: { level: 0 } });
@@ -256,7 +256,7 @@ describe('backpressure / congestion (3.5)', () => {
   });
 });
 
-describe('disconnected sends + errors (3.6)', () => {
+describe('disconnected sends + errors', () => {
   it('drops updates written while disconnected instead of queuing them', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: { level: 0 } });
@@ -310,7 +310,7 @@ describe('disconnected sends + errors (3.6)', () => {
   });
 });
 
-describe('pulse (4.3)', () => {
+describe('pulse', () => {
   it('sends a pulse message immediately, uncoalesced by the throttle', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: {} });
@@ -363,7 +363,7 @@ describe('pulse (4.3)', () => {
   });
 });
 
-describe('read-only params (4.10)', () => {
+describe('read-only params', () => {
   it('honors a statically-declared readonly set from construction', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: { fps: 60 } });
@@ -408,7 +408,7 @@ describe('read-only params (4.10)', () => {
   });
 });
 
-describe('teardown (3.7)', () => {
+describe('teardown', () => {
   it('cancels every timer and closes the socket on dispose', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: { level: 0 } });
