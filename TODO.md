@@ -50,3 +50,32 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
       connection table on module load, or have the web re-offer when it sees a `snapshot` arrive on
       a socket whose peer TD no longer claims. The second is probably right, since only the browser
       knows which peer id is its own.
+- [ ] Both apps (apps\example, apps\vj-gui) and the packages\td-core treat touchdesigner (td) as a second class citizen by embedded those files inside the web directories src directory. I'd like to make it so the td (touchdesigner) files are siblings with the web code rather than inside of it. An example would be:
+
+apps
+example
+docs
+web
+src
+docs
+touchdesigner
+docs
+...
+vj-gui
+docs
+web
+src
+docs
+touchdesigner
+docs
+...
+packages
+td-core
+docs...
+web
+src
+docs
+...
+touchdesigner
+docs
+...
