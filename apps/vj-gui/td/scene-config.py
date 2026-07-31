@@ -32,18 +32,20 @@ REGISTRY = {}
 WEBRTC = "webrtc1"
 
 # `source` names the TOP to stream; the encoder is generated inside each scene's
-# WebGuiServer from this entry.
-#
-# Repoint this at the TOP feeding `videostreamout1` and delete that TOP — it is a
-# redundant encoder now, and only passes its input through.
+# WebGuiServer from this entry. It is the only encoder in the project — a
+# hand-placed Video Stream Out beside it would be a second one on the same TOP.
 STREAMS = {
-    # "scene": {"source": "/Scene1/out1", "label": "Main"},
+    "scene": {"source": "/Scene1/out1", "label": "Main"},
 }
 
 READOUTS = {
     "cpuCookTime": {
         "op": "/Scene1/Tools/Performance/CookTimes/out1",
         "chan": "cpuCookTime",
+    },
+    "gpuCookTime": {
+        "op": "/Scene1/Tools/Performance/CookTimes/out1",
+        "chan": "gpuCookTime",
     },
     "performance": {
         "op": "/Scene1/Tools/Performance/CookTimes/cook_times_dat",
@@ -52,6 +54,10 @@ READOUTS = {
     "level": {
         "op": "/Scene1/Inputs/null_params",
         "chan": "level",
+    },
+    "activeScene": {
+        "op": "/Scene1/Loader/touchout2",
+        "type": "string[][]",
     },
 }
 

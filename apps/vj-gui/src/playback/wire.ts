@@ -80,16 +80,31 @@ export interface LoaderCalls {
  */
 export interface LoaderParams {
   cpuCookTime: number;
+  gpuCookTime: number;
   level: number;
   performance: string[][];
+  /** `[['Scene', toxPath], ['SceneName', name], ['Folder', folder]]` — the
+   * loader's own record of what it last loaded, straight from TD. Read via
+   * {@link activeSceneFolder}. */
+  activeScene: string[][];
 }
 
 /** Scene readout names, declared read-only so their controls render disabled. */
 export const loaderReadonly = [
   'cpuCookTime',
+  'gpuCookTime',
   'level',
   'performance',
+  'activeScene',
 ] as const satisfies readonly (keyof LoaderParams)[];
+
+/** Pulls the scene folder out of an `activeScene` readout table — `Folder`,
+ * not `Scene`, so the caller needs no `.tox` parsing of its own (see
+ * `sceneThumbnailUrl`). `undefined` before TD has synced one / while a layer
+ * has never loaded anything. */
+export function activeSceneFolder(table: string[][] | undefined): string | undefined {
+  return table?.find(([key]) => key === 'Folder')?.[1] || undefined;
+}
 
 /** Wire name of the video stream each loader publishes over WebRTC. */
 export const LOADER_STREAM = 'scene';
