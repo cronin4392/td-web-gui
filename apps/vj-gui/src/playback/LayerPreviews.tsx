@@ -1,6 +1,13 @@
-import { For, Show, onCleanup, type JSX } from 'solid-js';
+import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
+import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import type { LayerId } from './layers';
-import { LOADER_STREAM, layerIdForLoader, loaderInstances, type LoaderId } from './wire';
+import {
+  activeSceneFolder,
+  LOADER_STREAM,
+  layerIdForLoader,
+  loaderInstances,
+  type LoaderId,
+} from './wire';
 import { LoaderClient, LoaderProvider } from './clients';
 import { usePlayback } from './PlaybackProvider';
 
@@ -48,36 +55,79 @@ function LayerBody(props: {
 }): JSX.Element {
   const { registerConnection } = usePlayback();
   const video = LoaderClient.useVideo();
+  const activeScene = LoaderClient.signal('activeScene');
   // Published to PlaybackProvider because the scene picker sits outside every
   // scene provider and still has to call this instance. Only reachable from
   // in here.
   registerConnection(props.layer, LoaderClient.useConnection());
   onCleanup(() => registerConnection(props.layer, undefined));
+
+  // A scene folder is not guaranteed to hold a thumbnail.jpg, and the server
+  // refuses one outside the library — either way the tile falls back to black
+  // rather than a broken-image glyph.
+  const [broken, setBroken] = createSignal<string>();
+  const thumbnail = () => {
+    const folder = activeSceneFolder(activeScene.value());
+    const url = folder ? sceneThumbnailUrlFrom(folder) : undefined;
+    return url && url !== broken() ? url : undefined;
+  };
+
   return (
-    <figure class="m-0 bg-red-500">
+    <figure class="m-0">
       <button
         type="button"
-        class="video-tile block w-full cursor-pointer border-2 p-0 aspect-video bg-black"
+        class="video-tile block w-full cursor-pointer border-2 p-0 aspect-video bg-black relative"
         classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
         onClick={props.onSelect}
       >
         <Show when={video.stream(LOADER_STREAM)} keyed>
-          {(_stream) => (
-            <>
-              <LoaderClient.Video stream={LOADER_STREAM} />
-              <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
-                <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
-              </Show>
-            </>
-          )}
+          {(_stream) => <LoaderClient.Video stream={LOADER_STREAM} />}
+        </Show>
+        <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
+          <Show when={thumbnail()}>
+            {(url) => (
+              <img
+                src={url()}
+                alt=""
+                class="absolute inset-0 h-full w-full object-cover"
+                onError={() => setBroken(url())}
+              />
+            )}
+          </Show>
+          {/* 'off' is the toggle below doing what it was asked; the checkbox
+              already says so, and an "off…" scrim would just hide the tile. */}
+          <Show when={video.streamStatus(LOADER_STREAM) !== 'off'}>
+            <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
+          </Show>
         </Show>
       </button>
-      <figcaption class="text-xs text-neutral-500">{props.label}</figcaption>
+      <figcaption class="text-xs text-neutral-500">
+        <label>
+          <LoaderClient.StreamToggle stream={LOADER_STREAM} />
+          {props.label}
+        </label>
+      </figcaption>
       <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
       <fieldset>
         <label>CPU Cooktime </label>
-        <LoaderClient.Value name="cpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
+        {/* <LoaderClient.Value name="cpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} /> */}
       </fieldset>
+      <table>
+        <tbody>
+          <tr>
+            <th>CPU</th>
+            <td>
+              <LoaderClient.Value name="cpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
+            </td>
+          </tr>
+          <tr>
+            <th>GPU</th>
+            <td>
+              <LoaderClient.Value name="gpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} />
+            </td>
+          </tr>
+        </tbody>
+      </table>
       {/* TODO: Table not getting data after load */}
       {/* <LoaderClient.Table name="performance" header /> */}
     </figure>
