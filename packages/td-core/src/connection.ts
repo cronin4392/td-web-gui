@@ -32,8 +32,9 @@
 import { createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
 import {
   createCallRegistry,
-  type CallHandler,
+  type AnyCalls,
   type CallOptions,
+  type CallSchema,
   type CallSendResult,
 } from './calls';
 import { createParamRegistry, type TDBinding, type TDSendOptions } from './params';
@@ -151,8 +152,17 @@ export interface TDConnectionOptions {
   readonly?: string[];
 }
 
-/** Schema-bound connection; defaults to an open `name → value` map. */
-export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>> {
+/**
+ * Schema-bound connection. `Schema` types parameter names, `Calls` types what TD
+ * exposes for the web to invoke, and `Handlers` types what the web exposes for
+ * TD to invoke. All three default to their permissive form, so a connection
+ * created without them behaves exactly as an untyped one.
+ */
+export interface TDConnection<
+  Schema extends ParamSchema<Schema> = Record<string, ParamValue>,
+  Calls extends CallSchema<Calls> = AnyCalls,
+  Handlers extends CallSchema<Handlers> = AnyCalls,
+> {
   status: Accessor<TDStatus>;
   /**
    * Reactive backpressure flag: `true` while `update` sends are being skipped
@@ -199,19 +209,30 @@ export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string
    * `callTimeout`), `call_disconnected` (dropped while not open, or the socket
    * closed while awaiting), or `call_congested` (backpressure).
    */
-  call: (name: string, args?: JsonValue, opts?: CallOptions) => Promise<JsonValue | undefined>;
+  call: <K extends keyof Calls & string>(
+    name: K,
+    args?: Calls[K]['args'],
+    opts?: CallOptions,
+  ) => Promise<Calls[K]['result']>;
   /**
    * Same as `call`, but fire-and-forget: sends a `call` with no `id` and creates
    * no pending entry. Follows `pulse`'s drop-and-debug-log behaviour while
    * disconnected or backpressured, since there is no Promise to settle.
    */
-  notify: (name: string, args?: JsonValue) => void;
+  notify: <K extends keyof Calls & string>(name: K, args?: Calls[K]['args']) => void;
   /**
    * Register a handler for a named `call` TD sends this way. Returns an
    * unregister fn (mirrors `subscribe`); registering under a name already bound
    * replaces the previous handler.
    */
-  handle: (name: string, fn: CallHandler) => () => void;
+  handle: <K extends keyof Handlers & string>(
+    name: K,
+    // `void` stays legal: a handler that only performs an effect replies with
+    // no `value`, which is not the same as being unable to reply.
+    fn: (
+      args: Handlers[K]['args'],
+    ) => Handlers[K]['result'] | void | Promise<Handlers[K]['result'] | void>,
+  ) => () => void;
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void;
   /**
@@ -235,10 +256,13 @@ const DEFAULT_HIGH_WATER_MARK = 1 << 20; // 1 MiB
 const DEFAULT_CONGESTION_TIMEOUT = 5_000;
 const DEFAULT_CALL_TIMEOUT = 10_000;
 
-export function createTDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>>(
-  url: string,
-  options: TDConnectionOptions = {},
-): TDConnection<Schema> {
+export function createTDConnection<
+  Schema extends ParamSchema<Schema> = Record<string, ParamValue>,
+  Calls extends CallSchema<Calls> = AnyCalls,
+  Handlers extends CallSchema<Handlers> = AnyCalls,
+>(url: string, options: TDConnectionOptions = {}): TDConnection<Schema, Calls, Handlers> {
+  type Connection = TDConnection<Schema, Calls, Handlers>;
+
   const WS: WebSocketLikeConstructor = options.WebSocket ?? globalThis.WebSocket;
   const scheduler = options.scheduler ?? defaultScheduler;
   const protocol = options.protocol ?? PROTOCOL_VERSION;
@@ -641,14 +665,16 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     status,
     congested,
     lastError,
-    signal: params.signal as TDConnection<Schema>['signal'],
+    signal: params.signal as Connection['signal'],
     pulse: sendPulse,
     isReadonly: params.isReadonly,
     menuOptions: params.menuOptions,
     requestMenus: () => rawSend({ type: 'menus-request' }),
-    call: calls.call,
-    notify: calls.notify,
-    handle: calls.handle,
+    // The registry is name-agnostic by design; the generics are a compile-time
+    // narrowing over the same three functions.
+    call: calls.call as Connection['call'],
+    notify: calls.notify as Connection['notify'],
+    handle: calls.handle as Connection['handle'],
     send: rawSend,
     subscribe,
     close,

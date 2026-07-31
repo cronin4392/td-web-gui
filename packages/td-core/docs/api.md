@@ -48,18 +48,14 @@ const Mixer = createTDClient<MixerParams>();
 
 The bundle:
 
-| Member                                                                                             | Type                                                            |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `Provider`                                                                                         | Context provider owning one connection (see below)              |
-| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter           |
-| `pulse(name)`                                                                                      | `void` — fire a momentary parameter                             |
-| `call(name, args?)`                                                                                | `Promise<Calls[K]['result']>` — invoke a named TD handler       |
-| `notify(name, args?)`                                                                              | `void` — fire-and-forget form of `call`                         |
-| `handle(name, fn)`                                                                                 | `() => void` — register a handler for a named TD-initiated call |
-| `useConnection()`                                                                                  | `TDConnection` — the nearest provider's connection              |
-| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                   |
-| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys         |
-| `Video` `StreamToggle`                                                                             | Bound to a stream id; not schema-typed (ids aren't parameters)  |
+| Member                                                                                             | Type                                                                                     |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Provider`                                                                                         | Context provider owning one connection (see below)                                       |
+| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter                                    |
+| `useConnection()`                                                                                  | `TDConnection<Schema, Calls, Handlers>` — the nearest provider's connection, fully typed |
+| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                                            |
+| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys                                  |
+| `Video` `StreamToggle`                                                                             | Bound to a stream id; not schema-typed (ids aren't parameters)                           |
 
 ### Why a factory rather than plain components
 
@@ -266,19 +262,23 @@ provider without threading an instance through.
 Named-handler invocation, in both directions, riding the `call`/`result`
 messages (see [protocol.md § Calls](protocol.md#calls)).
 
-**Web → TD**, through the bundle or the raw connection:
+**Web → TD**, on the connection:
 
-```ts
-const result = await Mixer.call('print', { text: 'hi' });
-// or, on the raw connection:
-await conn.call('print', { text: 'hi' });
+```tsx
+function Toolbar() {
+  // Captured at setup. Solid resolves context from the current owner, and an
+  // event handler running after paint has none — so reach for the connection
+  // here, not inside the handler.
+  const td = Mixer.useConnection();
+  return <button onClick={() => void td.call('print', { text: 'hi' })}>Print</button>;
+}
 ```
 
-The bundle forms (`Mixer.call`/`.notify`/`.handle`/`.pulse`) resolve the
-connection outside Solid's owner, since they're meant for event handlers — so
-they need exactly one of that factory's `<Provider>`s mounted, and throw
-otherwise. Rendering two providers from one factory is a mistake the bundle
-can't disambiguate; use a second factory, or `useConnection()` during setup.
+`useConnection()` returns the connection typed by this factory's
+`Schema`/`Calls`/`Handlers`, so `call`, `notify`, `handle`, `pulse` and `signal`
+all narrow to the names you declared. It works with any number of providers
+mounted from the factory: each subtree gets the connection of the `<Provider>`
+above it.
 
 `call` rejects with a `TDCallError` (`.code`, `.callName`) on `unknown_handler`,
 `handler_error`, `result_not_serializable` (from TD), `call_timeout` (no reply
@@ -288,7 +288,7 @@ entry, no reply to await.
 
 ```tsx
 try {
-  const result = await Mixer.call('print', { text });
+  const result = await td.call('print', { text });
 } catch (error) {
   if (error instanceof TDCallError) console.error(error.code);
 }
@@ -337,8 +337,9 @@ interface MixerHandlers {
 const Mixer = createTDClient<MixerParams, MixerCalls, MixerHandlers>();
 ```
 
-`Calls` types `Mixer.call`/`Mixer.notify` (what TD exposes); `Handlers` types
-`Mixer.handle` (what the web exposes). Both default to a permissive schema, so
+`Calls` types `call`/`notify` (what TD exposes); `Handlers` types `handle` (what
+the web exposes), both on the connection `Mixer.useConnection()` returns. Both
+default to a permissive schema, so
 `createTDClient<MixerParams>()` — no `Calls`/`Handlers` — keeps compiling
 exactly as before. `CallSchema<Schema>` is written the same way as
 `ParamSchema<Schema>` (a self-referential mapped type), so a plain
@@ -418,8 +419,10 @@ connection and ICE overhead down. `<Video stream="…">` selects among them.
 
 ## Multiple instances
 
-One factory per TD instance — schemas are heterogeneous, so this is per-instance
-by construction.
+One factory per _schema_, not per instance. A factory is purely compile-time —
+its components and `useConnection()` bind to whichever `<Provider>` they render
+inside — so several instances that share a schema share one factory, each under
+its own provider.
 
 ```tsx
 const Mixer  = createTDClient<MixerParams>()

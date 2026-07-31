@@ -12,6 +12,38 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: `pulse`, `call`, `notify` and `handle` are gone from the
+  `createTDClient` bundle. Reach them on the connection instead.**
+
+  ```diff
+  -  <button onClick={() => Mixer.pulse('reset')}>Reset</button>
+  +  const td = Mixer.useConnection()          // during setup
+  +  <button onClick={() => td.pulse('reset')}>Reset</button>
+  ```
+
+  Those four could not use Solid's context — an event handler running after
+  paint has no owner to resolve it from — so they guessed their connection from
+  a module-level registry of mounted providers, and threw outright once a second
+  provider mounted from the same factory. That made "one factory per instance" a
+  runtime invariant enforced by an exception, in an API whose whole selling point
+  is compile-time checking.
+
+  `useConnection()` now returns the connection typed by that factory's
+  `Schema`/`Calls`/`Handlers`, so `call`/`notify`/`handle` keep their
+  autocomplete and typo-checking, and a wrong name is a compile error rather than
+  a runtime throw. Capturing it at setup is the ordinary Solid pattern —
+  `signal()` already worked this way — and it is correct with any number of
+  providers, because each subtree resolves the `<Provider>` above it.
+
+  `TDConnection` gained matching `Calls`/`Handlers` generics
+  (`TDConnection<Schema, Calls, Handlers>`), so a standalone
+  `createTDConnection` can be typed the same way. Both default to their
+  permissive form, so every untyped use is unchanged. `CallSchema` and
+  `CallSignature` moved to the calls module; they are still exported from the
+  package root under the same names.
+
 ### Fixed
 
 - **The generated operators are no longer saved into your `.toe`.** `exit_watch`
