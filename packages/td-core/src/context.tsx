@@ -12,8 +12,8 @@
  * and shares them via those contexts;
  * `createTDSignal(name)` binds to the nearest provider's connection. The
  * per-factory generic typing is a purely compile-time wrapper over this one
- * shared runtime context (see § "Type safety" in the proposal for why the
- * factory is needed to flow the generic into JSX).
+ * shared runtime context — the factory exists only to flow the generic into
+ * JSX, which a bare `useContext` cannot do.
  *
  * `Calls`/`Handlers` are two more optional generics on `createTDClient`, typing
  * `call`/`notify` (what TD exposes) and `handle` (what the web exposes)
@@ -123,9 +123,8 @@ export interface TDProviderProps {
   /** Config `id` for this instance; authoritative over `welcome` metadata. */
   instance?: string;
   /**
-   * Param names to declare read-only — authored beside the
-   * schema, e.g. an expression-driven par. Bound controls render disabled and
-   * warn in dev; never sent over the wire (see § "Parameter modes").
+   * Param names to declare read-only — authored beside the schema, e.g. an
+   * expression-driven par. Bound controls render disabled and warn in dev.
    */
   readonly?: string[];
   /** Per-connection options forwarded to {@link createTDConnection}. */
@@ -212,12 +211,10 @@ export function createTDClient<
     return createTDSignal<Schema[K]>(name);
   }
 
-  /** Fire a momentary parameter on the mounted provider's connection. */
   function pulse(name: AnyKey<Schema>): void {
     requireConnection().pulse(name);
   }
 
-  /** Invoke a named TD handler, awaiting its `result`. */
   function call<K extends keyof Calls & string>(
     name: K,
     args?: Calls[K]['args'],
@@ -227,7 +224,6 @@ export function createTDClient<
     >;
   }
 
-  /** Fire-and-forget form of `call` — no reply expected. */
   function notify<K extends keyof Calls & string>(name: K, args?: Calls[K]['args']): void {
     requireConnection().notify(name, args as JsonValue | undefined);
   }

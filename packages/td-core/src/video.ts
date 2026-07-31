@@ -12,13 +12,11 @@
  * out through `connection.send()` and arrive through `connection.subscribe()`.
  * No second socket, no extra TD component.
  *
- * ## Offer role — resolved: the browser offers
- * The proposal left open whether the browser or TD sends the initial SDP offer.
- * This resolves it as **browser-offers on connect and on rebuild**, because:
+ * ## Offer role — the browser offers
+ * The initial SDP offer comes from the browser, on connect and on rebuild:
  *  - only the browser knows when it wants a peer (first sync, or a rebuild after
  *    a failure), and browser-offers needs no "please offer" message to trigger
- *    TD — the connect and rebuild paths stay identical, which is exactly the
- *    symmetry the open question asked for;
+ *    TD — so the connect and rebuild paths stay identical;
  *  - v1 media is TD → web, so the browser contributes no tracks and expresses
  *    its interest as `recvonly` video transceivers — the standard shape for a
  *    receive-only peer.
@@ -49,7 +47,7 @@ import type { TDConnection } from './connection';
 import { defaultScheduler, type TDScheduler } from './scheduler';
 import type { RTCIceMessage, StreamInfo } from './wire';
 
-/** ~2s of `disconnected` before a peer is treated as dead (see § "WebRTC resilience"). */
+/** ~2s of `disconnected` before a peer is treated as dead. */
 const DEFAULT_DISCONNECTED_GRACE = 2_000;
 
 /**
@@ -160,7 +158,7 @@ export interface TDVideoStreamOptions {
    * side offers; TD can always add more later by offering itself.
    */
   receivers?: number;
-  /** Which side sends the initial offer. Default `'browser'` (see § "Offer role"). */
+  /** Which side sends the initial offer. Default `'browser'` (see § "Offer role" above). */
   offerRole?: 'browser' | 'td';
   /** Grace before a `disconnected` peer is rebuilt (ms). Default 2000. */
   disconnectedGrace?: number;
@@ -301,7 +299,7 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
   /**
    * Close the current peer and release its media. Stopping the tracks (rather
    * than just dropping the reference) is what frees the hardware decoder — a
-   * detached `<video>` alone keeps it (5.8).
+   * detached `<video>` alone keeps it.
    */
   function teardownPeer() {
     peerId++;
@@ -324,15 +322,7 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
       peer = null;
     }
 
-    for (const media of new Set(tracks().values())) {
-      for (const track of media.getTracks()) {
-        try {
-          track.stop();
-        } catch {
-          // ignore — track may already be ended
-        }
-      }
-    }
+    for (const media of new Set(tracks().values())) stopMedia(media);
     setTracks(new Map());
   }
 
@@ -443,7 +433,25 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     }
     const media = wrapTrack(event.track) ?? event.streams?.[0];
     if (!media) return;
-    setTracks((prev) => new Map(prev).set(mid, media));
+    setTracks((prev) => {
+      const previous = prev.get(mid);
+      // TD renegotiates repeatedly while attaching its tracks, so `ontrack`
+      // fires again for a mid we already hold. Dropping the old MediaStream
+      // isn't enough to release its decoder — the track has to be stopped, for
+      // the same reason teardownPeer stops them.
+      if (previous && previous !== media) stopMedia(previous);
+      return new Map(prev).set(mid, media);
+    });
+  }
+
+  function stopMedia(media: MediaStreamLike) {
+    for (const track of media.getTracks()) {
+      try {
+        track.stop();
+      } catch {
+        // ignore — track may already be ended
+      }
+    }
   }
 
   /**
@@ -529,7 +537,7 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     if (!signalingOpen()) {
       // Renegotiation needs the signaling channel. Record it rather than drop
       // it: the WS-reconnect hook flushes pending negotiation, so a track that
-      // appeared during a WS blip still binds (§ "Deferred renegotiation").
+      // appeared during a WS blip still binds.
       negotiationPending = true;
       return;
     }
