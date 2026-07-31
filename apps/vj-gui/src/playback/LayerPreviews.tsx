@@ -108,10 +108,6 @@ function LayerBody(props: {
         </label>
       </figcaption>
       <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
-      <fieldset>
-        <label>CPU Cooktime </label>
-        {/* <LoaderClient.Value name="cpuCookTime" format={(v) => `${Number(v).toFixed(1)}ms`} /> */}
-      </fieldset>
       <table>
         <tbody>
           <tr>
