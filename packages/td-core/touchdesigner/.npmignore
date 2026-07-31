@@ -1,0 +1,6 @@
+# package.json `files` ships this directory wholesale, which otherwise sweeps up
+# locally-compiled bytecode — 14 files, stale against the .py it shadows. A root
+# .npmignore does not apply once `files` is set; one in here does.
+__pycache__/
+*.pyc
+*.pyo
