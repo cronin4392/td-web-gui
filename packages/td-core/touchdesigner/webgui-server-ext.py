@@ -7,15 +7,17 @@ dat-execute.py), plus one more Parameter Execute DAT covering every generated
 encoder's Active par, so a stream switched off in TD reaches the browser too.
 STREAM CHAINS carry TD -> web video: one select/fit/flip/videostreamout chain
 per STREAMS entry (webrtc-callbacks.py). That chain's Active par is the stream's
-on/off state — the config's `enabled` key only seeds it at creation, since a
-Rebuild must not undo a toggle.
+on/off state, and the config's `enabled` key is the state a SESSION STARTS in:
+re-applied by the Rebuild that runs on open, and by no other, since a Rebuild
+mid-session (saving config.py) must not undo a toggle.
 
 Three more operators aren't derived from the config but keep the above derived
 from it: config_watch re-runs Rebuild when config.py changes on disk
 (config-execute.py); exit_watch re-runs Rebuild on Create (covers an External
-.tox reinit, which recreates children but not the extension) and deletes every
-generated op on Exit so none of it saves into the project (exit-execute.py; read
-that file before relying on the Exit half — TD has no pre-save callback); pre_release
+.tox reinit, which recreates children but not the extension), drops every
+generated op before each project save and restores it after — so none of this
+build product is ever written into the .toe — and drops it again on Exit
+(exit-execute.py); pre_release
 is Embody's export hook, dropping the same build product from a staged .tox copy
 so a shipped component doesn't carry another project's watchers (pre-release.py).
 
@@ -164,6 +166,8 @@ class WebGuiServerExt:
 
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
+        # Stream on/off state held across a project save — see SuspendGenerated.
+        self._suspended = {}
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -173,7 +177,10 @@ class WebGuiServerExt:
         # No fixed delay can honestly outwait project open (ReconstructTDNComps
         # runs at frame 60) — correctness comes from Rebuild being idempotent and
         # re-running after the later reinit, not from guessing the right delay.
-        run("args[0].Rebuild()", self, delayFrames=5)
+        #
+        # reset_enabled: this is the session starting, so the config's `enabled`
+        # applies even to encoders that survived into the saved project.
+        run("args[0].Rebuild(reset_enabled=True)", self, delayFrames=5)
 
     def onDestroyTD(self):
         # No-op deliberately: this can't tell an application close from a plain
@@ -183,9 +190,21 @@ class WebGuiServerExt:
 
     # ── public ────────────────────────────────────────────────────────────────
 
-    def Rebuild(self):
+    def Rebuild(self, reset_enabled=False):
         """Make the generated operators match the config. Idempotent, diff-based,
-        safe to call from anywhere at any time; writes nothing when nothing changed."""
+        safe to call from anywhere at any time; writes nothing when nothing changed.
+
+        `reset_enabled` re-applies each STREAMS entry's `enabled` to its encoder,
+        overriding whatever the stream is set to now. Passed only where a session
+        is beginning — onInitTD, and exit-execute's onCreate. Everywhere else it
+        must stay False: a mid-session Rebuild (saving config.py is one) would
+        otherwise yank every live toggle back to its default.
+
+        Without it, `enabled` would reach an encoder only on the frame it is
+        first created, which is silently never for a project whose generated ops
+        survived into the saved .toe — TD has no pre-save callback, so
+        exit-execute's onExit cannot guarantee they were dropped first.
+        """
         # An extension can outlive its component (onInitTD's Rebuild is deferred
         # 5 frames), and the pre_release hook opens that window every export by
         # scheduling a Rebuild against a copy Embody is about to delete.
@@ -205,7 +224,7 @@ class WebGuiServerExt:
         else:
             self._warnIfNoCoreDir()
             self._rebuildWatchers(desired)
-            chains = self._rebuildStreams()
+            chains = self._rebuildStreams(reset_enabled)
 
         self._layout(chains, [exit_watch, config_watch, release_hook])
 
@@ -232,6 +251,47 @@ class WebGuiServerExt:
             return None
         self._setPar(getattr(top.par, _STREAM_ACTIVE_PAR), int(bool(enabled)))
         return bool(enabled)
+
+    def SuspendGenerated(self):
+        """Drop the build product, remembering the part of it a Rebuild cannot
+        recover. Pairs with RestoreGenerated around a project save, so the .toe
+        is written without any of it.
+
+        Only the streams' on/off state needs remembering: everything else the
+        generated operators hold is derived from the config, but a toggle is
+        live state whose only home is the encoder being destroyed here.
+        """
+        self._suspended = {
+            stream_id: self.StreamEnabled(stream_id) for stream_id in self._streams()
+        }
+        self.DestroyGenerated()
+
+    def RestoreGenerated(self):
+        """Rebuild the build product and put back what SuspendGenerated held.
+
+        The rebuild CREATES every encoder fresh, so each one would otherwise
+        come back at its config default — a save would silently undo every live
+        toggle. Reattaching is part of restoring for the same reason: a new
+        encoder has no WebRTC parameters, while the peer and its tracks survived
+        on the WebRTC DAT, so a browser would sit connected and black.
+        """
+        self.Rebuild()
+        for stream_id, enabled in getattr(self, "_suspended", {}).items():
+            if enabled is not None:
+                self.SetStreamEnabled(stream_id, enabled)
+        self._suspended = {}
+        self.ReattachStreams()
+
+    def ReattachStreams(self):
+        """Re-point every live WebRTC peer at the current Video Stream Out TOPs.
+        Needed after a Rebuild that replaced them under a live peer — see
+        webserver-callbacks.reattach_streams, which owns the peer table."""
+        callbacks = self._callbacks()
+        if callbacks is None:
+            return
+        reattach = getattr(callbacks, "reattach_streams", None)
+        if reattach is not None:
+            reattach()
 
     def Call(self, name, args=None, on_result=None, on_error=None, client=None, timeout=10.0):
         """Invoke a named handler the web page registered (via `createTDHandler`
@@ -352,7 +412,8 @@ class WebGuiServerExt:
 
     def _ensureExitWatcher(self):
         """Create or adopt the Execute DAT bookending the build product's
-        lifecycle: Create rebuilds it, Exit drops it.
+        lifecycle: Create rebuilds it, each save drops and restores it, Exit
+        drops it.
 
         Create covers reloading this component from an External .tox while
         live: that reload recreates every child (Create fires again) but does
@@ -374,9 +435,10 @@ class WebGuiServerExt:
             dat.viewer = True
             dat.comment = (
                 "Generated by WebGuiServerExt. Rebuilds on Create (covers an "
-                "External .tox reinit, which reruns Create but not onInitTD), "
-                "and deletes the generated watchers and stream chains on Exit, "
-                "so TouchDesigner closing never saves them. Edits are "
+                "External .tox reinit, which reruns Create but not onInitTD); "
+                "drops the generated watchers and stream chains before every "
+                "project save and restores them after, so they are never "
+                "written into the .toe; drops them again on Exit. Edits are "
                 "overwritten on the next Rebuild."
             )
         dat.tags.add(GENERATED_TAG)
@@ -384,6 +446,10 @@ class WebGuiServerExt:
 
         self._setPar(dat.par.create, 1)
         self._setPar(dat.par.exit, 1)
+        # The pair that keeps the build product out of the .toe: drop it before
+        # the file is written, put it back immediately after.
+        self._setPar(dat.par.projectpresave, 1)
+        self._setPar(dat.par.projectpostsave, 1)
         self._setPar(dat.par.active, 1)
 
         self._setExpr(dat.par.file, _EXIT_WATCH_FILE)
@@ -392,8 +458,9 @@ class WebGuiServerExt:
         self._setNoteText(
             self._getOrCreateNote(dat),
             "on Create: re-runs Rebuild (covers a live External .tox reinit)\n"
-            "on Exit: deletes the generated watchers and streams, so the\n"
-            "next open rebuilds them fresh from the live config",
+            "around each save: drops the generated ops and restores them,\n"
+            "so the .toe never holds this build product\n"
+            "on Exit: drops them, as a backstop",
         )
         return dat
 
@@ -753,11 +820,11 @@ class WebGuiServerExt:
         return value
 
     def _streamEnabled(self, info):
-        """A stream's starting on/off state from its config entry. Only ever read
-        when the encoder is first created — see _applyStream."""
+        """A stream's starting on/off state from its config entry. Read when the
+        encoder is created, and at the start of a session — see _applyStream."""
         return bool(info.get("enabled", _STREAM_ENABLED))
 
-    def _rebuildStreams(self):
+    def _rebuildStreams(self, reset_enabled=False):
         """Make the generated video chains match STREAMS. Returns the live chains
         (each [select, fit, flip, videostreamout]) in config order for _layout.
         Matched by NAME rather than target, unlike the watchers — a chain's
@@ -768,7 +835,7 @@ class WebGuiServerExt:
             source = self._streamSource(stream_id, info)
             if source is None:
                 continue  # _streamSource already explained why
-            chain = self._applyStream(stream_id, info, source)
+            chain = self._applyStream(stream_id, info, source, reset_enabled)
             if chain is None:
                 continue  # _applyStream already explained why
             chains.append(chain)
@@ -815,7 +882,7 @@ class WebGuiServerExt:
             return
         dest.inputConnectors[0].connect(source)
 
-    def _applyStream(self, stream_id, info, source):
+    def _applyStream(self, stream_id, info, source, reset_enabled=False):
         """Build or update one stream's select -> fit -> flip -> videostreamout
         chain. Returns the four operators, or None if any could not be created."""
         select, _ = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
@@ -843,10 +910,11 @@ class WebGuiServerExt:
 
         self._setPar(out.par.mode, "webrtc")
         self._setPar(out.par.fps, fps)
-        if out_created:
-            # Seeded once, never re-asserted: after this the par IS the stream's
-            # live on/off state, and a Rebuild (any config.py save) must not undo
-            # a toggle the web or the parameter dialog just made.
+        if out_created or reset_enabled:
+            # Applied when the encoder is new, and when a session is starting
+            # (see Rebuild). Between those the par IS the stream's live on/off
+            # state, and a Rebuild — any config.py save — must not undo a toggle
+            # the web or the parameter dialog just made.
             self._setPar(getattr(out.par, _STREAM_ACTIVE_PAR), int(self._streamEnabled(info)))
         # webrtc/webrtcconnection/webrtcvideotrack deliberately NOT set here —
         # they're per-peer, set a frame after negotiation by

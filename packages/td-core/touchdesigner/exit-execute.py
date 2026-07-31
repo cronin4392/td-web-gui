@@ -1,8 +1,9 @@
 """
 Execute DAT — bookends the generated watchers' and stream chains' lifecycle:
-Create rebuilds them, Exit drops them. Both families are wholly derived from
-the config, so WebGuiServerExt.Rebuild() can reproduce every one of them at
-any moment.
+Create rebuilds them, each save drops and restores them, Exit drops them. Both
+families are wholly derived from the config, so WebGuiServerExt.Rebuild() can
+reproduce every one of them at any moment — which is what makes it safe to
+delete them whenever having them around would be wrong.
 
 ON CREATE — covers the gap onInitTD's deferred Rebuild does not. Reloading
 this component from an External .tox while it's already live (Component
@@ -14,10 +15,27 @@ independent reason the same reload can leave Rebuild() never having run.
 Routing through this DAT's onCreate sidesteps both — it needs no extension
 access, only a node existing.
 
-ON EXIT — a build product has no business being saved into the project: it
-would ship a stale snapshot that has to be reconciled away on the next open.
-Deleting it on the way out means the saved network holds only the hand-built
-parts.
+ON PROJECT PRE/POST SAVE — the pair that keeps the build product out of the
+.toe, and the only one that catches EVERY save rather than just the last one.
+A build product has no business being saved into the project: it would ship a
+stale snapshot that has to be reconciled away on the next open, and it carries
+dead runtime state with it (an encoder's WebRTC Connection is a peer id that
+stopped existing the moment the session did). Pre-save deletes it, the file is
+written without it, post-save puts it straight back.
+
+Measured on 2025.33070, saving with 26 generated ops live: 666,332 bytes with
+this off, 659,868 with it on.
+
+Post-save must also RE-ATTACH the streams. The rebuild hands every stream a
+brand-new Video Stream Out TOP, and a new one has no WebRTC parameters set —
+the peer and its tracks survive (they belong to the WebRTC DAT, which was never
+touched), so without the re-attach a save leaves a connected browser showing
+black tiles with no error anywhere.
+
+ON EXIT — kept as a backstop, not the primary mechanism. TD does not save on
+exit by itself, and with "Prompt to Save on Exit" the Save & Quit save now goes
+through onProjectPreSave like any other. What onExit still covers is a session
+that ends without a save reaching pre-save at all.
 
 Exit, not the extension's own onDestroyTD: onDestroyTD runs on every reinit,
 including the one that fires every time webgui-server-ext.py is saved, and
@@ -25,13 +43,11 @@ tearing everything down there would delete the bridge on every edit. onExit is
 the only hook that means "the application is going away" rather than "this
 component is being rebuilt" — see WebGuiServerExt.onDestroyTD.
 
-ORDERING CAVEAT — read before relying on the Exit half. TD does not save on
-exit by itself. With "Prompt to Save on Exit" enabled, Save & Quit's save
-resolves BEFORE the quit proceeds, so that save still captures everything and
-onExit runs after it — meaning this callback reliably cleans the project for
-every save FROM that point on, not retroactively for the Save & Quit itself.
-An Execute DAT also exposes onProjectPreSave, untested here — a stronger fix
-may exist.
+Neither hook is a guarantee: a crash writes CrashAutoSave.<project>.toe with no
+callback firing at all, and a .toe saved before this file grew these callbacks
+still holds a build product. That residue is why onCreate passes reset_enabled
+— an encoder that DOES arrive already existing must still start the session in
+its configured state rather than in whatever it was left in.
 
 Everything generated goes except the config and exit watchers themselves —
 those two make the next open able to rebuild everything else, so they survive
@@ -56,12 +72,25 @@ def _webgui():
 
 
 def onCreate():
-    _webgui().Rebuild()
+    # reset_enabled: the component has just come into being, so each stream
+    # starts in the state its STREAMS entry asks for, even if an encoder
+    # survived into the saved project carrying a toggle from last session.
+    _webgui().Rebuild(reset_enabled=True)
     return
 
 
 def onExit():
     _webgui().DestroyGenerated()
+    return
+
+
+def onProjectPreSave():
+    _webgui().SuspendGenerated()
+    return
+
+
+def onProjectPostSave():
+    _webgui().RestoreGenerated()
     return
 
 

@@ -40,7 +40,8 @@ parent.WebGuiServer                ← a Base COMP with a parent shortcut
 ├── config_watch            DAT Execute DAT    ← generated; re-runs Rebuild
 │                                                when config.py is saved
 ├── exit_watch              Execute DAT        ← generated; rebuilds on Create,
-│                                                drops the generated ops on Exit
+│                                                drops the generated ops around
+│                                                every save and on Exit
 ├── pre_release             Text DAT           ← generated; drops the generated
 │                                                ops from a .tox export's copy
 │
@@ -518,10 +519,16 @@ STREAMS = {
 }
 ```
 
-`enabled` is read **only when the encoder is first created**. After that the
-Active par is the live state, so saving `config.py` (which rebuilds) never undoes
-a toggle. The generated operators are dropped when TouchDesigner exits, so each
-session starts from the config's defaults again.
+`enabled` is **the state a session starts in**, applied by the Rebuild that runs
+when the project opens. Between opens the Active par is the live state, so saving
+`config.py` never undoes a toggle — which also means a changed `enabled` takes
+effect on the next open rather than on save.
+
+It is re-applied at open rather than only when the encoder is created, because an
+encoder can arrive already existing: a `.toe` saved before `exit_watch` grew its
+save callbacks still holds a build product, and a crash writes
+`CrashAutoSave.<project>.toe` with no callback firing at all. Re-applying at open
+means `enabled` holds either way.
 
 ### One viewer at a time
 
