@@ -74,8 +74,13 @@ same pass as your own components.
 ### 1. Set up TouchDesigner
 
 The package ships the TouchDesigner half of the bridge in
-[`touchdesigner/`](touchdesigner/) — six project-agnostic Python files you drop
+[`touchdesigner/`](touchdesigner/) — the project-agnostic Python files you drop
 in unchanged, plus a config template you edit.
+
+Quickest path: drag in
+[`touchdesigner/WebGuiServer.tox`](touchdesigner/WebGuiServer.tox), the finished
+component, and set two parameters — **Td Core Dir** (that folder) and **Config
+File** (your config). It generates its own watchers from there.
 
 **→ [Full walkthrough: docs/touchdesigner-setup.md](docs/touchdesigner-setup.md)**
 
@@ -206,7 +211,9 @@ the parameter namespace, so they bind by name like anything else.
 
 **TouchDesigner** — [`touchdesigner/`](touchdesigner/): the DAT callbacks
 implementing the other half of the protocol, an extension that generates every
-watcher DAT from your config, and a commented config template.
+watcher DAT from your config, a commented config template, and
+`WebGuiServer.tox` — all of it pre-assembled, for dropping straight into a
+project.
 
 ## Documentation
 
