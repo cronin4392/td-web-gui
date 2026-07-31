@@ -6,9 +6,9 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { join, relative, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { Connect, Plugin } from 'vite';
-import { SCENES_ROUTE } from '../../domain/catalog/thumbnail';
+import { SCENES_ROUTE, THUMBNAIL_FROM } from '../../domain/catalog/thumbnail';
 import { scenesRoot } from './scenes-db';
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -21,6 +21,10 @@ const CONTENT_TYPES: Record<string, string> = {
 function contentType(path: string): string {
   const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
   return CONTENT_TYPES[ext] ?? 'application/octet-stream';
+}
+
+function samePath(a: string, b: string): boolean {
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
 }
 
 export async function thumbnailsHandler(
@@ -42,12 +46,22 @@ export async function thumbnailsHandler(
   }
 
   // connect has already stripped SCENES_ROUTE off req.url here.
-  const rel = decodeURIComponent((req.url ?? '').split('?')[0]!).replace(/^\/+/, '');
+  const [path = '', query = ''] = (req.url ?? '').split('?');
+  const rel = decodeURIComponent(path).replace(/^\/+/, '');
   const target = resolve(join(root, rel));
   const inside = relative(root, target);
   if (!rel || inside.startsWith('..') || inside.startsWith(`..${sep}`)) {
     res.statusCode = 403;
     res.end('outside the scene library');
+    return;
+  }
+
+  // Only the folder's last segment is in the path, so a caller that knows the
+  // whole folder sends it and we refuse a same-named folder from elsewhere.
+  const from = new URLSearchParams(query).get(THUMBNAIL_FROM);
+  if (from && !samePath(dirname(target), resolve(from))) {
+    res.statusCode = 403;
+    res.end('not the scene library folder');
     return;
   }
 

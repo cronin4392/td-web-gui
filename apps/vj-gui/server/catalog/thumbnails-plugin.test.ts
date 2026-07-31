@@ -80,6 +80,18 @@ describe('thumbnailsHandler', () => {
     expect(res.status).toBe(404);
   });
 
+  it('serves a file whose ?from folder is the library one', async () => {
+    const from = encodeURIComponent(join(root, 'AudioSpectrum').replace(/\\/g, '/'));
+    const res = await call('GET', `/AudioSpectrum/thumb.png?from=${from}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a ?from folder that only shares its last segment', async () => {
+    const from = encodeURIComponent('D:/Elsewhere/AudioSpectrum');
+    const res = await call('GET', `/AudioSpectrum/thumb.png?from=${from}`);
+    expect(res.status).toBe(403);
+  });
+
   it('passes non-GET/HEAD methods to the next middleware', async () => {
     const res = await call('POST', '/AudioSpectrum/thumb.png');
     expect(res.nexted).toBe(true);
