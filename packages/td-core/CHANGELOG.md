@@ -12,6 +12,25 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The generated operators are no longer saved into your `.toe`.** `exit_watch`
+  now drops the whole build product on `onProjectPreSave` and restores it on
+  `onProjectPostSave`, so every save writes a project holding only the
+  hand-built parts. Previously only `onExit` cleaned up, which TouchDesigner
+  reaches after the save has already been written — so a project accumulated
+  generated watchers and stream chains, along with dead runtime state such as an
+  encoder's `webrtcconnection` (a peer id that stopped existing with the
+  session). Measured on 2025.33070 with 26 generated ops live: a save went from
+  666,332 to 659,868 bytes.
+
+  Post-save also re-attaches the streams. The rebuild hands every stream a new
+  Video Stream Out TOP with no WebRTC parameters set, while the peer and its
+  tracks survive untouched on the WebRTC DAT — so without it, saving would leave
+  a connected browser showing black tiles and no error. `WebGuiServerExt` gained
+  `ReattachStreams()` and `webserver-callbacks` gained `reattach_streams()` for
+  this.
+
 ### Added
 
 - **Per-stream on/off** — a stream's encoder can now be started and stopped from
@@ -47,11 +66,19 @@ project. See [docs/protocol.md](docs/protocol.md).
   a stopped encoder leaves the track live and silent and the element would
   otherwise hold its last decoded frame and read as running video.
 
-- **`enabled` key on a `STREAMS` entry** (default `True`) — whether that stream
-  _starts_ encoding. Read **only when the encoder is first created**: after that
-  the `Active` par is the live state, so saving `config.py` (which rebuilds) no
-  longer stomps a toggle. The generated operators are dropped on exit, so each
-  session starts from the config's defaults again.
+- **`enabled` key on a `STREAMS` entry** (default `True`) — **the state that
+  stream starts a session in**, applied by the Rebuild that runs when the project
+  opens. Between opens the `Active` par is the live state, so saving `config.py`
+  (which rebuilds) never stomps a toggle; a changed `enabled` therefore takes
+  effect on the next open rather than on save.
+
+  It is re-applied at open rather than only when the encoder is created, because
+  the generated operators are not guaranteed to have been dropped first:
+  `exit_watch` deletes them on Exit, but TouchDesigner has no pre-save callback,
+  so a save not preceded by a clean exit bakes them into the `.toe` — and an
+  adopted encoder would then carry last session's toggle forever, with `enabled`
+  silently dead. `WebGuiServerExt.Rebuild()` takes a `reset_enabled` argument for
+  this, passed only from `onInitTD` and `exit-execute`'s `onCreate`.
 
 - **Per-stream `width` and `fps`** — a `STREAMS` entry can now cap what it costs
   to encode. `width` (default 480) is applied by a generated `fit_<id>` inserted

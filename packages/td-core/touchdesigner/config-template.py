@@ -144,10 +144,11 @@ WEBRTC = None
 #   width:  Optional pixel cap on the encoded picture, default 480. Aspect is
 #           preserved and a smaller source is left alone, never upscaled.
 #   fps:    Optional encode rate, default 15 — independent of the project rate.
-#   enabled: Optional, default True. Whether this stream STARTS encoding. Only
-#           read when the encoder is first created: after that the generated
+#   enabled: Optional, default True. The state this stream STARTS a session in.
+#           Applied when the project opens; between opens the generated
 #           `videostreamout_<id>` TOP's Active par is the live state, so editing
-#           this file (which rebuilds) never undoes a toggle.
+#           this file (which rebuilds) never undoes a toggle — and a changed
+#           `enabled` therefore takes effect on the next open, not on save.
 #
 # `width` and `fps` are the two knobs on what a *running* stream costs: the
 # Video Stream Out TOP encodes every frame at full resolution, so a wall of them
