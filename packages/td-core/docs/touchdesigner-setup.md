@@ -3,9 +3,15 @@
 Everything you build in TouchDesigner to make a `td-core` web UI talk to your
 project. Budget about fifteen minutes the first time.
 
-The whole TD side is **eight Python files and three operators**. Seven of the
-files are project-agnostic — you drop them in unchanged, forever. The eighth,
-your config, is the only one you edit.
+The whole TD side is **a handful of Python files and three operators**. All but
+one are project-agnostic — you drop them in unchanged, forever. Your config is
+the only file you edit. The table in
+[`touchdesigner/README.md`](../touchdesigner/README.md) lists every one of them.
+
+> **In a hurry?** `touchdesigner/WebGuiServer.tox` is the finished component.
+> Drag it in, set **Td Core Dir** and **Config File**, and skip to
+> [3. Write your config](#3-write-your-config) — it generates the rest itself.
+> Read on if you would rather know what each piece does before you rely on it.
 
 - [What you are building](#what-you-are-building)
 - [1. Create the WebGuiServer component](#1-create-the-webguiserver-component)

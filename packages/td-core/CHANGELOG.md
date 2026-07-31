@@ -65,6 +65,14 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Added
 
+- **`touchdesigner/WebGuiServer.tox`** — the finished component, for dropping
+  straight into a project instead of building it operator by operator. It ships
+  with an empty config, no identity, and none of the generated watchers or
+  stream chains, which are a build product of your own config; set **Td Core
+  Dir** and **Config File** and it generates them itself on create. The
+  walkthrough in `docs/touchdesigner-setup.md` remains the way to understand
+  what it contains.
+
 - **Per-stream on/off** — a stream's encoder can now be started and stopped from
   the web, live, with `<StreamToggle stream="tile1" />` (or
   `useVideo().setEnabled(id, on)` / `.toggle(id)`). Two new wire messages carry
