@@ -6,7 +6,7 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * This app drives **two** TouchDesigner processes at once (Phase 6.6): two
+ * This app drives **two** TouchDesigner processes at once: two
  * `.toe` files on two ports, each with its own schema, its own connection, and
  * its own WebRTC peer. Everything below is therefore paired — one descriptor,
  * one schema, and one read-only set per instance — and `App.tsx` builds one
@@ -49,8 +49,8 @@ export const instances = [
 
 /**
  * How many video tiles each wall is built for — four per instance, eight in
- * total across the page. That is the same encoder load as Phase 6.7's
- * single-instance wall of eight, split over two peers instead of one.
+ * total across the page — the same encoder load as one single-instance wall of
+ * eight, split over two peers instead of one.
  *
  * Kept web-side because it sets `receivers`, the number of recvonly m-lines our
  * SDP offer carries, and that has to be decided *before* TD answers: an answerer

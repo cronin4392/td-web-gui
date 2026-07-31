@@ -47,12 +47,28 @@ audiodevicein_demo CHOP, the nowplaying and cue_table DATs. Leaving them
 unregistered is deliberate: a TD project is usually larger than what it chooses
 to expose, and this is the case where that shows.
 
+Three of these reach the picture, so that a control doing something is visible
+rather than inferred:
+        opacity  → level_master's Brightness inside the wall
+        playing  → /project1/moviefilein_source's Play
+        restart  → /project1/parexec_restart, which cues that movie
+
+opacity is the interesting one to watch here: it is `writable: False`, so only
+TouchDesigner can move it — drag it in TD and the browser's slider follows while
+the wall dims.
+
+The pulse is the one worth reading: pulses get no generated watcher (they raise
+On Pulse, not Value Change, and hold no state to broadcast), so acting on one is
+the project's own job. parexec_restart is that, and its OP par names the COMP
+holding the parameter — From OP is only the context the script runs in.
+
 Video additionally expects:
         webrtc1                       WebRTC DAT inside WebGuiServer, beside the
                                       Web Server DAT's callbacks.
         /project1/videowall           the four-tile wall: in_source → res_cap →
-                                      level_tile1…4. It ends at those Level TOPs;
-                                      the encoders are generated from STREAMS.
+                                      level_master → level_tile1…4. It ends at
+                                      those Level TOPs; the encoders are
+                                      generated from STREAMS.
 
 All four tiles ride the **one** peer this instance opens — a peer carries many
 tracks, and that is why `<Video>` selects on a stream id rather than on a
