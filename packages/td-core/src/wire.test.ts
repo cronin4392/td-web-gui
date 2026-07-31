@@ -43,7 +43,7 @@ describe('parse', () => {
     expect(parse('{"type":"error"}')).toBeNull();
   });
 
-  it('parses the WebRTC signaling messages (5.1)', () => {
+  it('parses the WebRTC signaling messages', () => {
     expect(parse('{"type":"rtc-offer","sdp":"v=0..."}')).toEqual({
       type: 'rtc-offer',
       sdp: 'v=0...',

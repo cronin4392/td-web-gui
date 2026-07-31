@@ -1,6 +1,6 @@
 /**
  * Select behavior: dropdown bound to a TD Menu param, wire value
- * is the menu's string key, bidirectional, read-only disabling (4.10).
+ * is the menu's string key, bidirectional, read-only disabling.
  */
 
 import { render } from 'solid-js/web';
