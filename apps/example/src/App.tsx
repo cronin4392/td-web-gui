@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createEffect, createSignal, For, onCleanup, Show } from 'solid-js';
 import {
   createTDClient,
   createTDHandler,
@@ -7,6 +7,7 @@ import {
   useTDConnection,
   useTDVideoStream,
   Video,
+  type ErrorMessage,
 } from 'td-core';
 import {
   example1Readonly,
@@ -40,6 +41,35 @@ const blendModes = [
   { value: 'multiply', label: 'Multiply' },
 ];
 
+/** How long a non-fatal error stays on screen before the status line clears it. */
+const ERROR_LINGER_MS = 10_000;
+
+/**
+ * Show an inbound error for a while, then drop it.
+ *
+ * `lastError` is deliberately sticky — the connection keeps a record of the most
+ * recent error and never clears it, so late-mounting UI can still find out what
+ * happened. Most of what arrives there is a *moment*, not a state:
+ * `video_single_viewer` reports that this browser has just taken the stream from
+ * another one, and is over by the time it renders. Binding a status line
+ * straight to `lastError` therefore leaves a red string on a healthy connection
+ * for the rest of the session. Deciding how long an error is worth showing is
+ * the app's call, not the library's, which is why this lives here.
+ */
+function useRecentError(lastError: () => ErrorMessage | undefined) {
+  const [recent, setRecent] = createSignal<ErrorMessage>();
+
+  createEffect(() => {
+    const error = lastError();
+    if (!error) return;
+    setRecent(error);
+    const timer = setTimeout(() => setRecent(undefined), ERROR_LINGER_MS);
+    onCleanup(() => clearTimeout(timer));
+  });
+
+  return recent;
+}
+
 /**
  * Connection-state readout. Reads the reactive `status`, `congested`,
  * and `lastError` off the nearest provider's connection — the same surface the
@@ -56,6 +86,7 @@ const blendModes = [
  */
 function StatusBar(props: { id: string; url: string }) {
   const conn = useTDConnection();
+  const recentError = useRecentError(conn.lastError);
 
   const label = () => {
     switch (conn.status()) {
@@ -78,7 +109,7 @@ function StatusBar(props: { id: string; url: string }) {
         {' · '}
         <strong>congested</strong>
       </Show>
-      <Show when={conn.lastError()}>
+      <Show when={recentError()}>
         {(err) => (
           <span class="error">
             {' · error: '}
