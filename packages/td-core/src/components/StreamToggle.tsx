@@ -13,7 +13,7 @@
 
 import { splitProps, type JSX } from 'solid-js';
 import { useTDVideoStream } from '../context';
-import { callHandler } from './TextInput';
+import { callHandler, mergeClass } from './props';
 
 export interface StreamToggleProps extends Omit<
   JSX.InputHTMLAttributes<HTMLInputElement>,
@@ -25,15 +25,15 @@ export interface StreamToggleProps extends Omit<
 
 export function StreamToggle(props: StreamToggleProps): JSX.Element {
   const video = useTDVideoStream();
-  const [, rest] = splitProps(props, ['stream', 'disabled', 'onChange']);
+  const [, rest] = splitProps(props, ['stream', 'class', 'disabled', 'onChange']);
 
   const enabled = () => video.enabled(props.stream);
 
   return (
     <input
       type="checkbox"
-      class="td-stream-toggle"
       {...rest}
+      class={mergeClass('td-stream-toggle', props.class)}
       checked={enabled() ?? false}
       disabled={props.disabled ?? enabled() === undefined}
       onChange={(event) => {

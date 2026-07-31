@@ -8,6 +8,7 @@
 
 import { splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
+import { mergeClass } from './props';
 import type { ParamValue } from '../wire';
 
 export interface ValueProps extends Omit<JSX.HTMLAttributes<HTMLSpanElement>, 'children'> {
@@ -19,7 +20,7 @@ export interface ValueProps extends Omit<JSX.HTMLAttributes<HTMLSpanElement>, 'c
 
 export function Value(props: ValueProps): JSX.Element {
   const binding = createTDSignal(props.name);
-  const [, rest] = splitProps(props, ['name', 'format']);
+  const [, rest] = splitProps(props, ['name', 'class', 'format']);
 
   const display = (): string => {
     const value = binding.value();
@@ -36,7 +37,7 @@ export function Value(props: ValueProps): JSX.Element {
   };
 
   return (
-    <span class="td-value" {...rest}>
+    <span {...rest} class={mergeClass('td-value', props.class)}>
       {display()}
     </span>
   );
