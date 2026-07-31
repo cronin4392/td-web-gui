@@ -17,6 +17,7 @@
 
 import { createEffect, Index, splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
+import { mergeClass } from './props';
 
 export interface VectorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'children'> {
   /** TD parameter name to bind. */
@@ -30,6 +31,8 @@ export interface VectorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'c
   step?: number | string;
   /** rAF-coalesce outbound sends. Default `true`. */
   throttle?: boolean;
+  /** Disable every component input. Defaults to the binding's read-only state. */
+  disabled?: boolean;
 }
 
 export function Vector(props: VectorProps): JSX.Element {
@@ -42,6 +45,8 @@ export function Vector(props: VectorProps): JSX.Element {
     'max',
     'step',
     'throttle',
+    'class',
+    'disabled',
   ]);
 
   const labels = (): string[] =>
@@ -75,7 +80,7 @@ export function Vector(props: VectorProps): JSX.Element {
   }
 
   return (
-    <div class="td-vector" {...rest}>
+    <div {...rest} class={mergeClass('td-vector', props.class)}>
       {/* Fixed positional slots, not identity-keyed items, so <Index> (not
           <For>) is the right list primitive here — it keys by position, which
           also sidesteps any collision if two labels happen to share text. */}
@@ -89,7 +94,7 @@ export function Vector(props: VectorProps): JSX.Element {
             max={props.max}
             step={props.step}
             aria-label={label()}
-            disabled={binding.readonly()}
+            disabled={props.disabled ?? binding.readonly()}
             onInput={(event) => {
               const raw = event.currentTarget.value;
               if (raw.trim() === '') return; // hold last valid, send nothing

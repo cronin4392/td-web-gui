@@ -275,6 +275,7 @@ Renders a `<div>` of numeric inputs. Binds a multi-component `number[]` ParGroup
 | `labels`               | `string[]`         | `['0', '1', …]` | Per-component labels; its length sets the count. |
 | `min` / `max` / `step` | `number \| string` | —               | Applied to every sub-input.                      |
 | `throttle`             | `boolean`          | `true`          | Coalesce sends to one per animation frame.       |
+| `disabled`             | `boolean`          | read-only state | Disable every component input.                   |
 
 ```tsx
 <App.Vector name="position" labels={['x', 'y', 'z']} step={0.01} />
@@ -293,11 +294,12 @@ Renders a native `<input type="color">`, plus a 0–1 range slider when `alpha` 
 set (the color input has no native alpha channel). Binds a `[r,g,b]` or
 `[r,g,b,a]` array of 0–1 floats, matching TD's color pars.
 
-| Prop       | Type      | Default | Description                                              |
-| ---------- | --------- | ------- | -------------------------------------------------------- |
-| `name`     | `string`  | —       | Parameter to bind.                                       |
-| `alpha`    | `boolean` | `false` | Render a fourth channel; wire array becomes `[r,g,b,a]`. |
-| `throttle` | `boolean` | `true`  | Coalesce sends to one per animation frame.               |
+| Prop       | Type      | Default         | Description                                              |
+| ---------- | --------- | --------------- | -------------------------------------------------------- |
+| `name`     | `string`  | —               | Parameter to bind.                                       |
+| `alpha`    | `boolean` | `false`         | Render a fourth channel; wire array becomes `[r,g,b,a]`. |
+| `throttle` | `boolean` | `true`          | Coalesce sends to one per animation frame.               |
+| `disabled` | `boolean` | read-only state | Disable both inputs.                                     |
 
 The native color input is 8-bit per channel, so values round-trip through hex.
 For higher precision use `<Vector name="color" length={4} min={0} max={1} />`.
@@ -463,17 +465,10 @@ class hook and passes through `class`, `style`, and everything else.
 | `<Video>`        | `.td-video`                                                |
 | `<StreamToggle>` | `.td-stream-toggle`                                        |
 
-**A `class` prop replaces the hook rather than adding to it.** Passthrough props
-are spread after the default `class`, so `<App.Toggle name="x" class="mine" />`
-renders `class="mine"` and no `td-toggle`. Include the hook yourself if you want
-both:
-
-```tsx
-<App.Toggle name="enabled" class="td-toggle my-toggle" />
-```
-
-Or leave `class` alone and style through the hooks, which is the intended path —
-`classList` still works for conditional styling on top.
+**A `class` prop adds to the hook rather than replacing it.**
+`<App.Toggle name="x" class="mine" />` renders `class="td-toggle mine"`, so the
+hooks above — and the `:disabled` states below — keep working on a styled
+control. `classList` still works for conditional styling on top.
 
 `<Button mode="hold">` and `mode="toggle"` expose their state through
 `aria-pressed`, so `[aria-pressed='true']` is the right selector for an active

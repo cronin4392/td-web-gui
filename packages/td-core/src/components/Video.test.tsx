@@ -83,7 +83,7 @@ describe('<Video>', () => {
     // actually mute a dynamically created element, and an unmuted <video> can't
     // autoplay.
     expect(el.muted).toBe(true);
-    expect(el.getAttribute('class')).toBe('tile');
+    expect(el.getAttribute('class')).toBe('td-video tile');
     expect(el.getAttribute('data-testid')).toBe('v');
   });
 

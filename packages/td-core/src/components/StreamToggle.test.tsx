@@ -140,7 +140,8 @@ describe('<StreamToggle>', () => {
     await announce(td, { tile1: true, tile2: true });
 
     expect(boxAt().disabled).toBe(true);
-    expect(boxAt().getAttribute('class')).toBe('x');
+    // The consumer's class is added to the styling hook, not swapped for it.
+    expect(boxAt().getAttribute('class')).toBe('td-stream-toggle x');
     expect(boxAt().getAttribute('data-testid')).toBe('t');
   });
 

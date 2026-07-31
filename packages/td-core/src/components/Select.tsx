@@ -6,9 +6,9 @@
  *
  * Options come from one of two places, in this order:
  *
- * 1. **The `options` prop** — web-authored `{ value, label }[]`, the default and
- *    the no-introspection stance (see § "Type safety"). Keeping it in sync with
- *    TD's menu is the app's responsibility, same as the typed schema itself.
+ * 1. **The `options` prop** — web-authored `{ value, label }[]`, and the default.
+ *    Keeping it in sync with TD's menu is the app's responsibility, same as the
+ *    typed schema itself.
  * 2. **TD's announced menu** — used when `options` is omitted. Some
  *    menus genuinely cannot be authored ahead of time: an audio-device list
  *    depends on the machine TD runs on and changes when hardware is plugged in.
@@ -21,7 +21,7 @@
 
 import { createMemo, For, splitProps, type JSX } from 'solid-js';
 import { createTDSignal, useTDConnection } from '../context';
-import { callHandler } from './TextInput';
+import { callHandler, mergeClass } from './props';
 
 export interface SelectOption {
   /** Wire value — the TD menu's string key. */
@@ -50,6 +50,7 @@ export function Select(props: SelectProps): JSX.Element {
   const [, rest] = splitProps(props, [
     'name',
     'options',
+    'class',
     'disabled',
     'onChange',
     'onFocus',
@@ -79,8 +80,8 @@ export function Select(props: SelectProps): JSX.Element {
 
   return (
     <select
-      class="td-select"
       {...rest}
+      class={mergeClass('td-select', props.class)}
       disabled={props.disabled ?? binding.readonly()}
       onChange={(event) => {
         binding.setValue(event.currentTarget.value);

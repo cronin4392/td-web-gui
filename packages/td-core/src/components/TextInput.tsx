@@ -40,6 +40,7 @@
 import { createEffect, createSignal, onCleanup, onMount, splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
 import { escapeNewlines, unescapeNewlines } from '../wire';
+import { callHandler, mergeClass } from './props';
 
 /** Either element this component renders; both carry `.form` and `.value`. */
 type TextFieldElement = HTMLInputElement | HTMLTextAreaElement;
@@ -69,6 +70,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
     'name',
     'commitOn',
     'multiline',
+    'class',
     'disabled',
     'onCommit',
     'onInput',
@@ -119,8 +121,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
     return multiline ? (
       <textarea
         ref={setRef}
-        class="td-text-input"
         {...rest}
+        class={mergeClass('td-text-input', props.class)}
         rows={props.rows}
         value={value()}
         disabled={props.disabled ?? binding.readonly()}
@@ -132,8 +134,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
       <input
         ref={setRef}
         type="text"
-        class="td-text-input"
         {...rest}
+        class={mergeClass('td-text-input', props.class)}
         value={value()}
         disabled={props.disabled ?? binding.readonly()}
         onInput={handleInput}
@@ -204,8 +206,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
   return multiline ? (
     <textarea
       ref={setRef}
-      class="td-text-input"
       {...rest}
+      class={mergeClass('td-text-input', props.class)}
       rows={props.rows}
       value={draft()}
       disabled={props.disabled ?? binding.readonly()}
@@ -218,8 +220,8 @@ export function TextInput(props: TextInputProps): JSX.Element {
     <input
       ref={setRef}
       type="text"
-      class="td-text-input"
       {...rest}
+      class={mergeClass('td-text-input', props.class)}
       value={draft()}
       disabled={props.disabled ?? binding.readonly()}
       onInput={handleInput}
@@ -228,17 +230,4 @@ export function TextInput(props: TextInputProps): JSX.Element {
       onKeyDown={handleKeyDown}
     />
   );
-}
-
-/**
- * Invoke a Solid event handler prop (plain function or `[handler, data]` bound
- * tuple), if the consumer passed one. Loosely typed because Solid's per-element
- * handler unions don't unify across a generic call site.
- */
-export function callHandler(handler: unknown, event: Event): void {
-  if (!handler) return;
-  if (typeof handler === 'function') (handler as (e: Event) => void)(event);
-  else if (Array.isArray(handler)) {
-    (handler[0] as (data: unknown, e: Event) => void)(handler[1], event);
-  }
 }

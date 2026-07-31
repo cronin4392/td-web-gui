@@ -1,14 +1,15 @@
 /**
  * `<Color>` — color-specialized sibling of `<Vector>`, bound to a `[r,g,b]` /
- * `[r,g,b,a]` array parameter of 0–1 floats matching TD's color pars (Phase
- * 4.8). Renders a native `<input type="color">` (hex, 0–255 per channel) for
- * RGB plus, when `alpha` is set, a separate 0–1 range slider — the color
- * input has no native alpha channel. Throttled by default while dragging,
- * like `<Range>`/`<Vector>`.
+ * `[r,g,b,a]` array parameter of 0–1 floats matching TD's color pars. Renders a
+ * native `<input type="color">` (hex, 0–255 per channel) for RGB plus, when
+ * `alpha` is set, a separate 0–1 range slider — the color input has no native
+ * alpha channel. Throttled by default while dragging, like
+ * `<RangeInput>`/`<Vector>`.
  */
 
 import { Show, splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
+import { mergeClass } from './props';
 
 export interface ColorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'children'> {
   /** TD parameter name to bind. */
@@ -17,6 +18,8 @@ export interface ColorProps extends Omit<JSX.HTMLAttributes<HTMLDivElement>, 'ch
   alpha?: boolean;
   /** rAF-coalesce outbound sends. Default `true`. */
   throttle?: boolean;
+  /** Disable both inputs. Defaults to the binding's read-only state. */
+  disabled?: boolean;
 }
 
 function clamp01(n: number): number {
@@ -40,19 +43,19 @@ function fromHex(hex: string): [number, number, number] {
 
 export function Color(props: ColorProps): JSX.Element {
   const binding = createTDSignal<number[]>(props.name);
-  const [, rest] = splitProps(props, ['name', 'alpha', 'throttle']);
+  const [, rest] = splitProps(props, ['name', 'alpha', 'throttle', 'class', 'disabled']);
 
   const alpha = () => props.alpha ?? false;
   const throttleOpt = () => props.throttle !== false;
   const current = (): number[] => binding.value() ?? [0, 0, 0, ...(alpha() ? [1] : [])];
 
   return (
-    <div class="td-color" {...rest}>
+    <div {...rest} class={mergeClass('td-color', props.class)}>
       <input
         type="color"
         class="td-color-rgb"
         value={toHex(current())}
-        disabled={binding.readonly()}
+        disabled={props.disabled ?? binding.readonly()}
         onInput={(event) => {
           const [r, g, b] = fromHex(event.currentTarget.value);
           const next = current().slice();
@@ -72,7 +75,7 @@ export function Color(props: ColorProps): JSX.Element {
           max={1}
           step={0.01}
           value={current()[3] ?? 1}
-          disabled={binding.readonly()}
+          disabled={props.disabled ?? binding.readonly()}
           onInput={(event) => {
             const next = current().slice();
             next[3] = Number(event.currentTarget.value);

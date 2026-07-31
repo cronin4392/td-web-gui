@@ -1,6 +1,5 @@
 /**
- * `<Video>` — renders one WebRTC stream from the nearest provider's peer
- *.
+ * `<Video>` — renders one WebRTC stream from the nearest provider's peer.
  *
  * `stream` selects by the id TD announced; omitting it takes the primary
  * stream, so a single-stream app never has to name one. Several `<Video>`
@@ -10,6 +9,7 @@
 
 import { createEffect, splitProps, type JSX } from 'solid-js';
 import { useTDVideoStream } from '../context';
+import { mergeClass } from './props';
 
 export interface VideoProps extends JSX.VideoHTMLAttributes<HTMLVideoElement> {
   /** Announced stream id to render. Omit for the primary stream. */
@@ -18,7 +18,7 @@ export interface VideoProps extends JSX.VideoHTMLAttributes<HTMLVideoElement> {
 
 export function Video(props: VideoProps): JSX.Element {
   const video = useTDVideoStream();
-  const [, rest] = splitProps(props, ['stream', 'muted']);
+  const [, rest] = splitProps(props, ['stream', 'class', 'muted']);
   let element!: HTMLVideoElement;
 
   createEffect(() => {
@@ -41,5 +41,13 @@ export function Video(props: VideoProps): JSX.Element {
 
   // `playsinline` is belt-and-suspenders for the desktop-only target. Both it
   // and `autoplay` stay overridable through `rest`.
-  return <video ref={element} class="td-video" autoplay playsinline {...rest} />;
+  return (
+    <video
+      ref={element}
+      autoplay
+      playsinline
+      {...rest}
+      class={mergeClass('td-video', props.class)}
+    />
+  );
 }
