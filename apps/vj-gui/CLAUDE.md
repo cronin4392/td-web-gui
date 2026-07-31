@@ -1,0 +1,66 @@
+# vj-gui
+
+The author's real VJ rig: eight scene layers driven from the web, SQLite
+catalogs of scenes and effects, and a wordbank of phrases pushed to a layer's
+text params. Not published — but maintained and tested, not a scratchpad.
+
+## Speak the ubiquitous language
+
+`UBIQUITOUS_LANGUAGE.md` in this directory is canonical. **Read it before naming
+anything.** Scene, Effect, Tox, Group, Layer, Loader, Catalog, Sync, Scan, Tag,
+Rank, Wordbank, Phrase list, Phrase, Recent — each has one meaning here, and the
+"Aliases to avoid" columns are the names that keep creeping back in.
+
+Its **Flagged ambiguities** section lists where the code still disagrees with
+itself, and which of those are deliberate. Notably: `src/playback/wire.ts` is the
+one file where the legacy `scene*` wire vocabulary is allowed, because that
+spelling is TouchDesigner's contract, not this app's to rename. Don't "fix" it
+elsewhere, and don't spread it.
+
+These terms stop at this directory. Never carry them into `packages/td-core`.
+
+## Three tiers, three tsconfigs
+
+| Directory | Runs in                        | Config                 |
+| --------- | ------------------------------ | ---------------------- |
+| `src/`    | Browser                        | `tsconfig.json`        |
+| `server/` | Node (Vite dev/preview server) | `tsconfig.server.json` |
+| `domain/` | Both                           | `tsconfig.domain.json` |
+
+`domain/` is the shared kernel — types, validators, and derivations used on both
+sides so a scan and a DB read can't disagree. It must stay free of Node APIs and
+of DOM APIs alike. `pnpm typecheck` runs all three; a change to `domain/` that
+only typechecks under one of them is broken.
+
+Imports use `@/*` for `src/` and `@domain/*` for `domain/`.
+
+## The server is Vite plugins, not a separate service
+
+`server/*/**-api-plugin.ts` mount as Vite middleware (see `vite.config.ts`), so
+there is no server to start separately — `pnpm --filter vj-gui dev` is the whole
+thing. They read SQLite through `node:sqlite`.
+
+- `data/*.db` is **gitignored** and rebuilt by `pnpm db:scenes` / `pnpm db:effects`.
+- Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
+  `.env.example`. Those paths never reach the browser.
+- Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes
+  would otherwise reload the page on every mutation.
+
+## The TouchDesigner side
+
+`td/gui-config.py` is the GUI project's config (port 8765). `td/scene-config.py`
+is shared by **all eight** scene processes — same file, eight `WebGuiServer`
+components, differing only in their `Identifier` and `Port` parameters. That's
+why no wire name in it is scene-prefixed: a name is scoped to its instance.
+
+Its TypeScript counterpart is `src/playback/wire.ts`. Those two must agree
+spelling-for-spelling; nothing checks it.
+
+Loading a scene bypasses parameters entirely — the web calls each SceneLoader
+process directly rather than going through the GUI project.
+
+## Testing
+
+Tests live beside their subject. Server plugins run against a temp SQLite file;
+stores and pickers against fakes. Don't re-test `td-core` here — that's the
+library's own suite.
