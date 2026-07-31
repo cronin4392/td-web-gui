@@ -19,7 +19,7 @@ and the web keeps them apart by which `<Provider>` reads them — see
 contract. Prefixing would only re-encode, in two places, what the connection
 already says.
 
-The GUI project's config is separate: td/config.py at the repo root.
+The GUI project's config is separate: gui-config.py, beside this file.
 """
 
 CALLBACKS = "webserver1_callbacks"
