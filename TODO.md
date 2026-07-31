@@ -36,3 +36,17 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [ ] Add sqlite database to version tracking
 - [ ] Wire midi controls (from Input.toe) to trigger callbacks in web (like selectedScene)
 - [x] In SceneLoader.toe the WebGuiServer is a global and therefore can't be embedded in each scene loader. Leave as a global or allow for multiple? Right now it references the global inside itself.
+- [ ] DDD refactor of packages/td-core
+  - [ ] Move UBIQUITOUS_LANGUAGE.md into apps/vj-gui
+- [ ] Re-cooking the callbacks DAT (`packages/td-core/touchdesigner/webserver-callbacks.py`) silently
+      loses every live WebRTC peer. `clients` already self-heals — `onWebSocketReceiveText` re-adds
+      the sender on every message, which the heartbeat guarantees within one interval — but
+      `peer_by_client` / `client_by_peer` have no equivalent, and nothing re-registers them. The
+      sockets and the peers both stay up, so there is no error anywhere; what breaks is everything
+      that looks a peer up by client. `reattach_streams()` becomes a silent no-op, so video cannot be
+      restored after a rebuild until the browser renegotiates of its own accord (a page reload, or
+      the peer failing). Hit while editing that file with a browser connected — an ordinary
+      dev-loop action, not an exotic one. Options: re-derive the tables from the WebRTC DAT's
+      connection table on module load, or have the web re-offer when it sees a `snapshot` arrive on
+      a socket whose peer TD no longer claims. The second is probably right, since only the browser
+      knows which peer id is its own.
