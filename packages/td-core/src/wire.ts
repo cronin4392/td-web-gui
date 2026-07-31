@@ -2,7 +2,7 @@
  * Wire format — the typed JSON discriminated-union envelope spoken over the
  * WebSocket between the web UI and TouchDesigner.
  *
- * Five groups of messages ride this one socket:
+ * Several groups of messages ride this one socket:
  *
  *  - **Control data** — `hello`/`welcome`, `snapshot-request`/`snapshot`, and
  *    `update` (symmetric: the web sends edits, TD broadcasts changes).
@@ -88,7 +88,6 @@ export interface HelloMessage {
   protocol: number;
 }
 
-/** Requests the current state of all exposed params (on connect/reconnect). */
 export interface SnapshotRequestMessage {
   type: 'snapshot-request';
 }
@@ -374,16 +373,21 @@ export type ServerMessage =
 /** Every known message in either direction. */
 export type Message = ClientMessage | ServerMessage;
 
-/** The message `type`s `parse` will accept; anything else is dropped. */
-const KNOWN_TYPES = new Set([
+/** Types only ever sent web → TD; receiving one means TD is misbehaving. */
+const CLIENT_ONLY_TYPES = new Set<string>([
   'hello',
-  'welcome',
   'snapshot-request',
-  'snapshot',
   'menus-request',
-  'update',
-  'pulse',
   'ping',
+  'pulse',
+  'stream-enable',
+]);
+
+/** Types TD can send. The single source of truth for {@link isServerMessage}. */
+const SERVER_TYPES = new Set<ServerMessage['type']>([
+  'welcome',
+  'snapshot',
+  'update',
   'pong',
   'error',
   'menus',
@@ -393,9 +397,20 @@ const KNOWN_TYPES = new Set([
   'rtc-answer',
   'rtc-ice',
   'streams',
-  'stream-enable',
   'stream-state',
 ]);
+
+/** The message `type`s `parse` will accept; anything else is dropped. */
+const KNOWN_TYPES = new Set<string>([...CLIENT_ONLY_TYPES, ...SERVER_TYPES]);
+
+/**
+ * Whether a parsed message is one TD can send — i.e. safe to hand to a
+ * `connection.subscribe()` listener. Derived from {@link SERVER_TYPES} so
+ * adding a client-only message type is one edit, not two.
+ */
+export function isServerMessage(message: Message): message is ServerMessage {
+  return SERVER_TYPES.has(message.type as ServerMessage['type']);
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -1,78 +1,45 @@
 /**
- * `createTDConnection(url)` — the single WebSocket connection manager that the
- * factory/provider layer wraps. Usable standalone with zero context (e.g. from
- * non-component code).
+ * `createTDConnection(url)` — the WebSocket connection manager the
+ * factory/provider layer wraps. Usable standalone with zero context.
  *
- * ## Core
- *  - Open the socket, run the handshake (`hello` → `welcome` →
- *    `snapshot-request` → apply `snapshot`), apply inbound `update`s, send local
- *    edits, expose a reactive `status` signal.
- *  - **Lazy signal allocation** — `signal(name)` creates-or-returns one signal
- *    per name; the routing table maps name → signal; an inbound update for an
- *    unbound name is a map miss, dropped with no allocation. Params are a
- *    broadcast bus, so dispatch cost has to scale with what the app *uses*.
- *  - **Focus-based echo suppression** — each signal tracks an active-editor
- *    count; inbound TD updates for a name are suppressed while its count `> 0`,
- *    so a local edit wins for as long as the user is making it.
+ * This module owns the *transport*: the socket lifecycle (handshake, reconnect
+ * backoff, handshake watchdog, ping/pong heartbeat), the send policy (rAF
+ * throttle, backpressure, disconnected-drop), and inbound routing. The two
+ * stateful domains it serves are separate and socket-agnostic:
  *
- * ## Resilience (per-connection options, sane defaults)
- *  - **Reconnect + backoff** — on an unexpected drop, reconnect with
- *    exponential backoff + jitter, re-running the full handshake + snapshot
- *    resync each time.
- *  - **Handshake watchdog** — require `welcome` **and** `snapshot` within a
- *    window of `onopen`; otherwise abandon the attempt into backoff. A socket
- *    opening is not the same as TD being ready to talk.
- *  - **`ping`/`pong` heartbeat** — probe an *established* session; a missing
- *    `pong` forces a reconnect.
- *  - **Teardown** — `close()` cancels every timer, closes the socket, and drops
- *    the routing table; registered on `onCleanup` when owned.
+ *  - **`./params`** — named bindings, echo suppression, read-only marking, and
+ *    TD-announced menus.
+ *  - **`./calls`** — the pending-call table and named-handler registry.
  *
- * ## Send path
- *  - **Outbound throttle** — `setValue(v, { throttle: true })` coalesces update
- *    sends to one rAF-aligned message per frame. The local write stays immediate.
- *  - **Backpressure** — skip `update`s while `bufferedAmount` is over a
- *    high-water mark; flip a `congested` flag; sustained congestion forces a
- *    reconnect.
- *  - **Disconnected sends + errors** — updates written while not open are
- *    dropped (debug-logged), never queued; queuing would only fight the snapshot
- *    resync that follows reconnect. Inbound `error` messages route to `onError` /
- *    the `lastError` signal without tearing down the socket.
- *  - **`pulse(name)`** — fires a momentary TD parameter. Throttle-exempt (always
- *    sent immediately) but still honors the disconnected-drop and backpressure
- *    rules; holds no state, so it bypasses the routing table entirely.
+ * Both take a `send` from here that already applies the guards, and neither can
+ * see a `WebSocket`.
  *
- * ## Parameter modes
- *  - **Read-only params** — a statically-declared `readonly` name set (authored
- *    beside the schema, forwarded from `<Provider readonly>`) plus a runtime
- *    safety net: an inbound `param_not_writable` error marks that name read-only
- *    from then on and re-requests a snapshot to revert whatever optimistic edit
- *    TD just refused. See docs/design-notes.md § "Parameter modes" for why TD
- *    refuses rather than attempts the write.
- *
- * ## Video
- *  - **`subscribe(listener)`** — WebRTC signaling is multiplexed over this same
- *    socket, so `createTDVideoStream` observes inbound messages through this hook
- *    and sends via `send()`. The connection itself stays ignorant of peers: it
- *    forwards the signaling `type`s untouched.
- *
- * ## Calls
- *  - **`call(name, args?, opts?)`** — invoke a named TD handler, awaiting its
- *    `result`. Same disconnected/backpressure guards as `pulse`, plus a
- *    `callTimeout` watchdog; every pending call rejects with `call_disconnected`
- *    on socket close (see ./calls). **`notify(name, args?)`** is the
- *    fire-and-forget form — same guards, no pending entry. **`handle(name, fn)`**
- *    registers a handler for a `call` TD sends this way.
+ * ## Notes that aren't obvious from the code
+ *  - **Lazy signal allocation** — an inbound update for an unbound name is a map
+ *    miss, dropped with no allocation. Params are a broadcast bus, so dispatch
+ *    cost has to scale with what the app *uses*.
+ *  - **Handshake watchdog** — `welcome` **and** `snapshot` must land within a
+ *    window of `onopen`. A socket opening is not the same as TD being ready.
+ *  - **Disconnected sends are dropped, never queued** — queuing would only fight
+ *    the snapshot resync that follows reconnect.
+ *  - **Inbound `error` never tears down the socket**; it routes to `onError` /
+ *    the `lastError` signal.
+ *  - **WebRTC signaling is multiplexed here** — `createTDVideoStream` observes
+ *    it through `subscribe()` and sends via `send()`, so this module stays
+ *    ignorant of peers and forwards those `type`s untouched.
  */
 
-import { batch, createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
+import { createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
 import {
   createCallRegistry,
   type CallHandler,
   type CallOptions,
   type CallSendResult,
 } from './calls';
+import { createParamRegistry, type TDBinding, type TDSendOptions } from './params';
 import { defaultScheduler, type TDScheduler } from './scheduler';
 import {
+  isServerMessage,
   parse,
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -84,6 +51,8 @@ import {
   type ServerMessage,
 } from './wire';
 
+export type { TDBinding, TDSendOptions } from './params';
+
 /**
  * Connection lifecycle as a coarse reactive status. `connecting` → `open`
  * (socket opened, handshake in flight) → `synced` (snapshot applied). An
@@ -91,46 +60,6 @@ import {
  * terminal and only reached via `close()`/teardown.
  */
 export type TDStatus = 'connecting' | 'open' | 'synced' | 'closed';
-
-/** Options for the per-write send path (see {@link TDBinding.setValue}). */
-export interface TDSendOptions {
-  /**
-   * Coalesce this send with any other throttled writes in the same animation
-   * frame into a single `update` message. The optimistic local
-   * write still happens immediately; only the wire send is deferred to the frame
-   * boundary. Defaults to `false` (send immediately).
-   */
-  throttle?: boolean;
-}
-
-/**
- * A live binding to one named TD parameter. Returned by `connection.signal()`
- * and (via context) by `createTDSignal`. Multiple binders of the same name
- * share one underlying signal, so optimistic writes fan out to all of them.
- */
-export interface TDBinding<T extends ParamValue = ParamValue> {
-  /** Reactive accessor for the current value (`undefined` until first synced). */
-  value: Accessor<T | undefined>;
-  /** Optimistic local write: updates the shared signal *and* sends an `update`. */
-  setValue: (value: T, options?: TDSendOptions) => void;
-  /** Mark this binder as actively editing (focus / drag-start). */
-  beginEdit: () => void;
-  /** Release the active-editing mark (blur / drag-end). */
-  endEdit: () => void;
-  /**
-   * Reactive: whether this name is currently read-only — either
-   * statically declared via `<Provider readonly>`, or marked so at runtime by
-   * an inbound `param_not_writable` error. Bound controls disable on this.
-   */
-  readonly: Accessor<boolean>;
-}
-
-/** Per-name routing entry: the shared signal plus its active-editor count. */
-interface SignalEntry {
-  read: Accessor<ParamValue | undefined>;
-  write: (value: ParamValue | undefined) => void;
-  editors: number;
-}
 
 /**
  * The minimal slice of the browser `WebSocket` surface the connection uses.
@@ -204,49 +133,45 @@ export interface TDConnectionOptions {
   onError?: (error: ErrorMessage) => void;
   /** Auto-reconnect on unexpected drop. Default `true`. */
   reconnect?: boolean;
-  /** Reconnect backoff timing. */
   backoff?: BackoffOptions;
   /** Handshake watchdog window in ms. Default 5000. */
   handshakeTimeout?: number;
   /** Heartbeat timing, or `false` to disable the heartbeat. */
   heartbeat?: HeartbeatOptions | false;
-  /** Backpressure thresholds. */
   backpressure?: BackpressureOptions;
   /** Timeout for an outbound `call()` awaiting its `result` (ms). Default 10000. */
   callTimeout?: number;
   /** Jitter source for backoff. Defaults to `Math.random`; injected in tests. */
   random?: () => number;
   /**
-   * Names to statically declare read-only — authored beside the
-   * schema, forwarded from `<Provider readonly>`. Bound controls render
-   * disabled and warn in dev; never sent over the wire.
+   * Names to statically declare read-only — authored beside the schema,
+   * forwarded from `<Provider readonly>`. Bound controls render disabled and
+   * warn in dev.
    */
   readonly?: string[];
 }
 
 /** Schema-bound connection; defaults to an open `name → value` map. */
 export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string, ParamValue>> {
-  /** Reactive connection status. */
   status: Accessor<TDStatus>;
   /**
-   * Reactive backpressure flag: `true` while `update` sends are
-   * being skipped because the socket's send buffer is over the high-water mark.
+   * Reactive backpressure flag: `true` while `update` sends are being skipped
+   * because the socket's send buffer is over the high-water mark.
    */
   congested: Accessor<boolean>;
-  /** The most recent inbound `error` message, if any. */
   lastError: Accessor<ErrorMessage | undefined>;
   /**
    * Create-or-return the shared binding for `name` (lazy allocation). All
-   * callers for the same name share one signal and one editor count.
+   * callers for the same name share one signal and one editor count; a binding
+   * created under a Solid owner releases its own editor marks on cleanup.
    */
   signal: <K extends keyof Schema & string>(name: K) => TDBinding<Schema[K]>;
   /**
-   * Fire a momentary TD parameter. Immediate, throttle-exempt;
-   * still dropped (debug-logged) while disconnected or backpressured. Holds no
-   * state — there is nothing to read back.
+   * Fire a momentary TD parameter. Immediate, throttle-exempt; still dropped
+   * (debug-logged) while disconnected or backpressured. Holds no state — there
+   * is nothing to read back.
    */
   pulse: (name: keyof Schema & string) => void;
-  /** Reactive: whether `name` is currently read-only. */
   isReadonly: (name: string) => boolean;
   /**
    * Reactive: the menu options TD announced for `name`, or `undefined` if it
@@ -259,8 +184,8 @@ export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string
    */
   menuOptions: (name: string) => MenuOption[] | undefined;
   /**
-   * Ask TD to re-read and re-announce its menus — the "reload
-   * devices" action beside a TD-driven `<Select>`.
+   * Ask TD to re-read and re-announce its menus — the "reload devices" action
+   * beside a TD-driven `<Select>`.
    *
    * Refreshes every announced menu, not one name: TD reads them as a set, and a
    * per-name request would cost a wire field to save nothing. Dropped silently
@@ -276,35 +201,31 @@ export interface TDConnection<Schema extends ParamSchema<Schema> = Record<string
    */
   call: (name: string, args?: JsonValue, opts?: CallOptions) => Promise<JsonValue | undefined>;
   /**
-   * Same as `call`, but fire-and-forget: sends a `call` with no `id` and
-   * creates no pending entry. Follows `pulse`'s drop-and-debug-log behaviour
-   * while disconnected or backpressured, since there is no Promise to settle.
+   * Same as `call`, but fire-and-forget: sends a `call` with no `id` and creates
+   * no pending entry. Follows `pulse`'s drop-and-debug-log behaviour while
+   * disconnected or backpressured, since there is no Promise to settle.
    */
   notify: (name: string, args?: JsonValue) => void;
   /**
    * Register a handler for a named `call` TD sends this way. Returns an
-   * unregister fn (mirrors `subscribe`); registering under a name already
-   * bound replaces the previous handler.
+   * unregister fn (mirrors `subscribe`); registering under a name already bound
+   * replaces the previous handler.
    */
   handle: (name: string, fn: CallHandler) => () => void;
   /** Low-level send of a client message (no-op unless the socket is open). */
   send: (message: ClientMessage) => void;
   /**
    * Observe every parsed inbound message, *after* the connection's own handling
-   * of it. WebRTC signaling rides this socket, so a peer observes messages here
-   * without the connection needing to know anything about peers; returns an
-   * unsubscribe fn.
-   * Malformed and unknown-`type` frames never reach listeners — they're dropped
-   * by `parse` first.
+   * of it; returns an unsubscribe fn. Malformed, unknown-`type`, and client-only
+   * frames never reach listeners.
    */
   subscribe: (listener: (message: ServerMessage) => void) => () => void;
   /** Close the socket, cancel all timers, and drop the routing table. */
   close: () => void;
 }
 
-// Timing defaults. All overridable per-connection so a slower/remote
-// deployment can loosen them without a protocol change. See docs/api.md
-// § "options" for the full table.
+// Timing defaults. All overridable per-connection so a slower/remote deployment
+// can loosen them without a protocol change.
 const DEFAULT_BACKOFF_MIN = 500;
 const DEFAULT_BACKOFF_MAX = 10_000;
 const DEFAULT_HANDSHAKE_TIMEOUT = 5_000;
@@ -339,11 +260,6 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   const [status, setStatus] = createSignal<TDStatus>('connecting');
   const [congested, setCongested] = createSignal(false);
   const [lastError, setLastError] = createSignal<ErrorMessage | undefined>(undefined);
-  const [readonlyNames, setReadonlyNames] = createSignal<ReadonlySet<string>>(
-    new Set(options.readonly ?? []),
-  );
-  const [menus, setMenus] = createSignal<Record<string, MenuOption[]>>({});
-  const entries = new Map<string, SignalEntry>();
   const listeners = new Set<(message: ServerMessage) => void>();
 
   let socket: WebSocketLike | null = null;
@@ -363,7 +279,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   let frameHandle: number | null = null;
   let awaitingPong = false;
 
-  // Throttle buffer (3.4): name → latest value pending this frame.
+  /** name → latest value pending this frame (throttled writes). */
   const pendingUpdates = new Map<string, ParamValue>();
 
   // ── timer bookkeeping ──────────────────────────────────────────────────────
@@ -424,12 +340,10 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   }
 
   /**
-   * The one guarded send path: disconnected-drop (3.6) and backpressure (3.5)
-   * for every message that isn't raw control traffic. Reports the outcome so
-   * `calls.ts` can reject a pending `call()` with the matching code, where
-   * `update`/`pulse` just drop — the next frame's coalesced value supersedes a
-   * dropped update, and a stale value replayed after reconnect would only fight
-   * the snapshot resync.
+   * The one guarded send path. Reports the outcome so `calls.ts` can reject a
+   * pending `call()` with the matching code, where `update`/`pulse` just drop —
+   * the next frame's coalesced value supersedes a dropped update, and a stale
+   * value replayed after reconnect would only fight the snapshot resync.
    */
   function guardedSend(message: ClientMessage, label: string): CallSendResult {
     if (!socket || socket.readyState !== socket.OPEN) {
@@ -444,10 +358,6 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     socket.send(JSON.stringify(message));
     clearCongested();
     return 'sent';
-  }
-
-  function sendUpdate(params: ParamMap) {
-    guardedSend({ type: 'update', params }, 'update');
   }
 
   function markCongested() {
@@ -468,55 +378,27 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   }
 
   /** Queue a throttled update; flush the whole buffer as one message on rAF. */
-  function enqueueThrottled(name: string, value: ParamValue) {
-    pendingUpdates.set(name, value);
-    if (frameHandle === null) {
-      frameHandle = scheduler.requestFrame(() => {
-        frameHandle = null;
-        if (pendingUpdates.size === 0) return;
-        const params = Object.fromEntries(pendingUpdates);
-        pendingUpdates.clear();
-        sendUpdate(params);
-      });
-    }
-  }
-
-  // ── read-only params (4.10) ────────────────────────────────────────────────
-
-  function isReadonly(name: string): boolean {
-    return readonlyNames().has(name);
-  }
-
-  /** The menu options TD announced for `name`, if any. */
-  function menuOptions(name: string): MenuOption[] | undefined {
-    return menus()[name];
-  }
-
-  /** Ask TD to re-read and re-announce its menus. */
-  function requestMenus() {
-    rawSend({ type: 'menus-request' });
-  }
-
-  /** Mark `name` read-only from now on (runtime safety net for `param_not_writable`). */
-  function markReadonly(name: string) {
-    setReadonlyNames((prev) => {
-      if (prev.has(name)) return prev;
-      const next = new Set(prev);
-      next.add(name);
-      return next;
+  function enqueueThrottled(params: ParamMap) {
+    for (const [name, value] of Object.entries(params)) pendingUpdates.set(name, value);
+    if (frameHandle !== null) return;
+    frameHandle = scheduler.requestFrame(() => {
+      frameHandle = null;
+      if (pendingUpdates.size === 0) return;
+      const batched = Object.fromEntries(pendingUpdates);
+      pendingUpdates.clear();
+      guardedSend({ type: 'update', params: batched }, 'update');
     });
   }
 
-  /**
-   * Never throttled, unlike `sendUpdate` — a pulse is a discrete event, not a
-   * sampled value, so buffering it a frame would add latency and risk
-   * coalescing or dropping distinct presses.
-   */
-  function sendPulse(name: string) {
-    guardedSend({ type: 'pulse', name }, 'pulse');
-  }
+  // ── domain registries ──────────────────────────────────────────────────────
 
-  // ── calls (both directions) ────────────────────────────────────────────────
+  const params = createParamRegistry({
+    readonly: options.readonly,
+    send: (edits, sendOptions) => {
+      if (sendOptions?.throttle) enqueueThrottled(edits);
+      else guardedSend({ type: 'update', params: edits }, 'update');
+    },
+  });
 
   const calls = createCallRegistry({
     send: (message) => guardedSend(message, 'call'),
@@ -524,25 +406,20 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     timeout: callTimeout,
   });
 
-  // ── inbound ──────────────────────────────────────────────────────────────
-
-  /** Apply a `params` map to bound signals, respecting echo suppression. */
-  function applyParams(params: ParamMap) {
-    // One reactive flush per message regardless of how many params it carries.
-    batch(() => {
-      for (const name of Object.keys(params)) {
-        const entry = entries.get(name);
-        if (!entry) continue; // unbound name → map miss, dropped (no allocation)
-        if (entry.editors > 0) continue; // local edit wins while focused/dragging
-        entry.write(params[name]);
-      }
-    });
+  /**
+   * Never throttled, unlike an update — a pulse is a discrete event, not a
+   * sampled value, so buffering it a frame would add latency and risk
+   * coalescing or dropping distinct presses.
+   */
+  function sendPulse(name: string) {
+    guardedSend({ type: 'pulse', name }, 'pulse');
   }
+
+  // ── inbound ────────────────────────────────────────────────────────────────
 
   function handleMessage(raw: string) {
     const message = parse(raw);
     if (!message) {
-      // Malformed JSON or unknown type → dropped, socket stays up (3.6).
       console.debug('[td-core] dropping unparseable/unknown message');
       return;
     }
@@ -556,11 +433,11 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
         rawSend({ type: 'snapshot-request' });
         break;
       case 'snapshot':
-        applyParams(message.params);
+        params.apply(message.params);
         onSynced();
         break;
       case 'update':
-        applyParams(message.params);
+        params.apply(message.params);
         break;
       case 'pong':
         awaitingPong = false;
@@ -576,47 +453,23 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
         // Replaces the announced set wholesale rather than merging: a device
         // that has been unplugged has to *disappear* from the dropdown, and a
         // merge would leave it selectable forever.
-        setMenus(message.menus);
+        params.setMenus(message.menus);
         break;
       case 'call':
-        // TD invoking a web-registered handler. Async handlers are awaited
-        // internally; a throw or an unregistered name replies `result` with an
-        // error rather than propagating here.
-        calls.onMessage(message);
-        break;
       case 'result':
-        // Reply to a `call` this connection sent; settles the matching pending
-        // entry (resolve/reject), a no-op if the id is unknown (already timed
-        // out, or from a stale connection attempt).
         calls.onMessage(message);
         break;
-      // WebRTC signaling (`rtc-offer`/`rtc-answer`/`rtc-ice`/`streams`) is not
-      // handled here — it's dispatched to subscribers below, so the connection
-      // stays ignorant of peers.
-      // Client-only types (hello / snapshot-request / menus-request / ping /
-      // pulse / stream-enable) are never expected inbound; ignored if they
-      // somehow arrive.
+      // WebRTC signaling is not handled here — it reaches the peer through the
+      // subscriber dispatch below, so this module stays ignorant of peers.
     }
 
-    // Narrowed to the TD → web half of the union: the client-only types above
-    // aren't `ServerMessage`s, and a subscriber should never have to consider
-    // them.
-
-    if (
-      message.type !== 'hello' &&
-      message.type !== 'snapshot-request' &&
-      message.type !== 'menus-request' &&
-      message.type !== 'ping' &&
-      message.type !== 'pulse' &&
-      message.type !== 'stream-enable'
-    ) {
-      for (const listener of listeners) {
-        try {
-          listener(message);
-        } catch (error) {
-          // A throwing subscriber must not wedge the socket's read loop.
-          console.error('[td-core] message subscriber threw', error);
-        }
+    if (!isServerMessage(message)) return;
+    for (const listener of listeners) {
+      try {
+        listener(message);
+      } catch (error) {
+        // A throwing subscriber must not wedge the socket's read loop.
+        console.error('[td-core] message subscriber threw', error);
       }
     }
   }
@@ -631,14 +484,12 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   function handleError(error: ErrorMessage) {
     setLastError(error);
     if (error.code === 'param_not_writable' && error.ref) {
-      // Runtime safety net: TD refused the write because the backing par isn't
-      // in CONSTANT mode (it guards rather than applying — on 2025.33070 an
-      // unguarded write would flip the par to CONSTANT and detach its
-      // expression for good). Mark it read-only from here on (disables the
-      // control) and re-request a snapshot so the optimistic edit that never
-      // landed snaps back to TD's real value rather than "sticking" until an
-      // unrelated resync.
-      markReadonly(error.ref);
+      // TD refused the write because the backing par isn't in CONSTANT mode (it
+      // guards rather than applying — on 2025.33070 an unguarded write would
+      // flip the par to CONSTANT and detach its expression for good). Mark it
+      // read-only from here on and re-request a snapshot so the optimistic edit
+      // that never landed snaps back rather than "sticking" until a later resync.
+      params.markReadonly(error.ref);
       rawSend({ type: 'snapshot-request' });
     }
     if (options.onError) {
@@ -652,7 +503,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     }
   }
 
-  // ── heartbeat (3.3) ────────────────────────────────────────────────────────
+  // ── heartbeat ──────────────────────────────────────────────────────────────
 
   function startHeartbeat() {
     if (!heartbeat) return;
@@ -663,6 +514,11 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
   function scheduleNextPing() {
     pingTimer = scheduler.setTimeout(() => {
       pingTimer = null;
+      // Rescheduled unconditionally, so the loop's only stop condition is an
+      // explicit `clearHeartbeat()` — which every teardown path already calls.
+      // Bailing out here instead would leave the loop dead until something else
+      // happened to restart it.
+      scheduleNextPing();
       if (!socket || socket.readyState !== socket.OPEN) return;
       rawSend({ type: 'ping' });
       // Arm the pong deadline only on the *first* unanswered ping. When the ping
@@ -670,18 +526,16 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
       // deadline out — otherwise a half-open socket that never answers would
       // never trip. A `pong` clears `awaitingPong` (and the deadline), so the
       // next ping re-arms it.
-      if (!awaitingPong) {
-        awaitingPong = true;
-        pongTimer = scheduler.setTimeout(() => {
-          pongTimer = null;
-          if (awaitingPong) reconnectNow('pong-timeout');
-        }, pongTimeout);
-      }
-      scheduleNextPing();
+      if (awaitingPong) return;
+      awaitingPong = true;
+      pongTimer = scheduler.setTimeout(() => {
+        pongTimer = null;
+        if (awaitingPong) reconnectNow('pong-timeout');
+      }, pongTimeout);
     }, pingInterval);
   }
 
-  // ── connect / reconnect (3.1, 3.2) ─────────────────────────────────────────
+  // ── connect / reconnect ────────────────────────────────────────────────────
 
   function connect() {
     if (disposed) return;
@@ -695,13 +549,10 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     s.addEventListener('open', () => {
       if (!isCurrent()) return;
       setStatus('open');
-      // Arm the handshake watchdog *before* sending `hello`: welcome+snapshot
-      // must land within the window, else abandon into backoff. It's cleared the
-      // moment `snapshot` applies (onSynced). Arming first matters because a TD
-      // that replies synchronously (e.g. the in-memory mock, or a same-tick
-      // send) can complete the whole handshake inside `rawSend` — arming after
-      // would leave a watchdog that onSynced already ran past, and it would fire
-      // a spurious reconnect on an already-synced socket.
+      // Armed *before* `hello`: a TD that replies synchronously (the in-memory
+      // mock, or a same-tick send) can complete the whole handshake inside
+      // `rawSend`, and arming afterwards would leave a watchdog that `onSynced`
+      // already ran past — firing a spurious reconnect on a synced socket.
       watchdogTimer = scheduler.setTimeout(() => {
         watchdogTimer = null;
         reconnectNow('handshake-timeout');
@@ -713,20 +564,18 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
       if (typeof event.data === 'string') handleMessage(event.data);
     });
     s.addEventListener('close', () => {
-      if (!isCurrent()) return;
-      reconnectNow('close');
+      if (isCurrent()) reconnectNow('close');
     });
     s.addEventListener('error', () => {
-      if (!isCurrent()) return;
-      reconnectNow('error');
+      if (isCurrent()) reconnectNow('error');
     });
   }
 
   /**
-   * Tear down the current socket and schedule a reconnect. Used for both
-   * unexpected drops (close/error) and the forced cases (watchdog, pong
-   * timeout, sustained congestion). Bumping `attemptId` invalidates the old
-   * socket's listeners so its own close event can't re-enter here.
+   * Tear down the current socket and schedule a reconnect — for unexpected drops
+   * (close/error) and the forced cases (watchdog, pong timeout, sustained
+   * congestion) alike. Bumping `attemptId` invalidates the old socket's
+   * listeners so its own close event can't re-enter here.
    */
   function reconnectNow(reason: string) {
     if (disposed) return;
@@ -759,43 +608,6 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     }, delay);
   }
 
-  // ── bindings ───────────────────────────────────────────────────────────────
-
-  function signal<K extends keyof Schema & string>(name: K): TDBinding<Schema[K]> {
-    let entry = entries.get(name);
-    if (!entry) {
-      const [read, setRaw] = createSignal<ParamValue | undefined>(undefined);
-      entry = {
-        read,
-        // Wrap in a thunk so array values are never mistaken for Solid updaters.
-        write: (value) => setRaw(() => value),
-        editors: 0,
-      };
-      entries.set(name, entry);
-    }
-
-    if (isReadonly(name)) {
-      console.warn(`[td-core] "${name}" is bound to a read-only param — control disabled`);
-    }
-
-    const bound = entry;
-    return {
-      value: bound.read as Accessor<Schema[K] | undefined>,
-      setValue: (value, sendOptions) => {
-        bound.write(value); // optimistic: UI updates before any TD echo
-        if (sendOptions?.throttle) enqueueThrottled(name, value);
-        else sendUpdate({ [name]: value });
-      },
-      beginEdit: () => {
-        bound.editors++;
-      },
-      endEdit: () => {
-        if (bound.editors > 0) bound.editors--;
-      },
-      readonly: () => isReadonly(name),
-    };
-  }
-
   function close() {
     disposed = true;
     clearReconnect();
@@ -808,7 +620,7 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
       // ignore
     }
     socket = null;
-    entries.clear(); // drop routing table + per-param signals
+    params.clear();
     listeners.clear();
     setStatus('closed');
   }
@@ -829,11 +641,11 @@ export function createTDConnection<Schema extends ParamSchema<Schema> = Record<s
     status,
     congested,
     lastError,
-    signal,
+    signal: params.signal as TDConnection<Schema>['signal'],
     pulse: sendPulse,
-    isReadonly,
-    menuOptions,
-    requestMenus,
+    isReadonly: params.isReadonly,
+    menuOptions: params.menuOptions,
+    requestMenus: () => rawSend({ type: 'menus-request' }),
     call: calls.call,
     notify: calls.notify,
     handle: calls.handle,

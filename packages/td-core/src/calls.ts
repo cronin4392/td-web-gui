@@ -99,20 +99,26 @@ export function createCallRegistry(options: CallRegistryOptions): CallRegistry {
         name,
         ...(args !== undefined ? { args } : {}),
       };
-      const result = send(message);
-      if (result === 'disconnected') {
-        reject(new TDCallError('call_disconnected', name));
-        return;
-      }
-      if (result === 'congested') {
-        reject(new TDCallError('call_congested', name));
-        return;
-      }
+
+      // Registered BEFORE the send: a transport that dispatches synchronously
+      // (the in-memory mock TD, a same-tick loopback) delivers the `result`
+      // inside `send`, and an entry added afterwards would never be settled by
+      // it — the call would hang to `call_timeout` with the reply already in
+      // hand. Rolled back below if the frame never went out.
       const timer = scheduler.setTimeout(() => {
         pending.delete(id);
         reject(new TDCallError('call_timeout', name));
       }, opts?.timeout ?? defaultTimeout);
       pending.set(id, { resolve, reject, name, timer });
+
+      const result = send(message);
+      if (result === 'sent') return;
+      if (pending.delete(id)) {
+        scheduler.clearTimeout(timer);
+        reject(
+          new TDCallError(result === 'congested' ? 'call_congested' : 'call_disconnected', name),
+        );
+      }
     });
   }
 
@@ -143,45 +149,40 @@ export function createCallRegistry(options: CallRegistryOptions): CallRegistry {
     }
   }
 
+  function errorResult(id: string, code: string, message?: string): CallResultMessage {
+    return { type: 'result', id, error: { code, ...(message !== undefined ? { message } : {}) } };
+  }
+
   async function handleInboundCall(message: CallMessage): Promise<void> {
-    const fn = handlers.get(message.name);
+    const { id, name } = message;
+    const fn = handlers.get(name);
     if (!fn) {
-      if (message.id) send({ type: 'result', id: message.id, error: { code: 'unknown_handler' } });
+      if (id) send(errorResult(id, 'unknown_handler'));
       return;
     }
-    if (!message.id) {
-      try {
-        await fn(message.args);
-      } catch (error) {
-        console.error(`[td-core] handler "${message.name}" threw`, error);
-      }
-      return;
-    }
-    const id = message.id;
+
     let value: JsonValue | undefined;
     try {
       value = (await fn(message.args)) as JsonValue | undefined;
     } catch (error) {
-      console.error(`[td-core] handler "${message.name}" threw`, error);
-      send({
-        type: 'result',
-        id,
-        error: {
-          code: 'handler_error',
-          message: error instanceof Error ? error.message : String(error),
-        },
-      });
+      console.error(`[td-core] handler "${name}" threw`, error);
+      if (id) {
+        send(
+          errorResult(id, 'handler_error', error instanceof Error ? error.message : String(error)),
+        );
+      }
       return;
     }
-    if (value !== undefined) {
-      try {
-        JSON.stringify(value);
-      } catch {
-        send({ type: 'result', id, error: { code: 'result_not_serializable' } });
-        return;
-      }
+
+    if (!id) return; // fire-and-forget — the caller wants no reply
+
+    try {
+      send({ type: 'result', id, ...(value !== undefined ? { value } : {}) });
+    } catch {
+      // `send` stringifies the envelope, so a cyclic (or BigInt) result throws
+      // here — which is the serializability check, with no separate probe pass.
+      send(errorResult(id, 'result_not_serializable'));
     }
-    send({ type: 'result', id, ...(value !== undefined ? { value } : {}) });
   }
 
   function onMessage(message: CallMessage | CallResultMessage): void {
