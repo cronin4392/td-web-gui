@@ -6,7 +6,7 @@
 import { createSignal } from 'solid-js';
 import { render } from 'solid-js/web';
 import { describe, expect, it } from 'vitest';
-import { createTDConnection, type TDConnection } from './connection';
+import { createTDConnection } from './connection';
 import { createTDClient } from './context';
 import { createMockTD, flush, MockTDSocket } from './testing/mockTD';
 import { createManualScheduler } from './testing/scheduler';
@@ -22,7 +22,7 @@ describe('regressions', () => {
     const TD = createTDClient<Params>();
     const host = document.createElement('div');
     document.body.appendChild(host);
-    let connection!: TDConnection;
+    let connection!: ReturnType<typeof TD.useConnection>;
     const [show, setShow] = createSignal(true);
     render(
       () => (

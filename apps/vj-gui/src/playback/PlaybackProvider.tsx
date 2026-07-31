@@ -1,13 +1,12 @@
 import { createContext, createSignal, useContext, type Accessor, type JSX } from 'solid-js';
-import type { TDConnection } from 'td-core';
 import { defaultLayer, type LayerId } from './layers';
-import { loadOnLayer, type LayerConnections } from './clients';
+import { loadOnLayer, type LayerConnections, type LoaderConnection } from './clients';
 
 export interface PlaybackContextValue {
   selectedLayer: Accessor<LayerId>;
   selectLayer: (layer: LayerId) => void;
   connections: Accessor<LayerConnections>;
-  registerConnection: (layer: LayerId, connection: TDConnection | undefined) => void;
+  registerConnection: (layer: LayerId, connection: LoaderConnection | undefined) => void;
   loadTox: (path: string) => Promise<void>;
 }
 
@@ -22,7 +21,7 @@ export function PlaybackProvider(props: { children: JSX.Element }): JSX.Element 
   const [selectedLayer, selectLayer] = createSignal<LayerId>(defaultLayer);
   const [connections, setConnections] = createSignal<LayerConnections>({});
 
-  function registerConnection(layer: LayerId, connection: TDConnection | undefined): void {
+  function registerConnection(layer: LayerId, connection: LoaderConnection | undefined): void {
     setConnections((prev) => ({ ...prev, [layer]: connection }));
   }
 

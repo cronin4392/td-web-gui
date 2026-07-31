@@ -1,5 +1,4 @@
 import { host, type LayerId, type TDInstanceConfig } from './layers';
-import type { TDConnection } from 'td-core';
 
 /**
  * One port per instance. Separate variables rather than a base + offset: the
@@ -101,18 +100,4 @@ export function layerTextParam<N extends 1 | 2>(
   slot: N,
 ): `scene${LayerId}Text${N}` {
   return `scene${layer}Text${slot}`;
-}
-
-/**
- * `LoaderClient.call` is unavailable here: eight providers are mounted from the
- * one factory, so it refuses to guess which. Components outside a scene provider —
- * the scene picker — reach a specific instance through {@link LayerConnections}
- * and this wrapper, which is the only place the untyped `call` is narrowed back
- * to {@link LoaderCalls}.
- */
-export function loadToxOn(
-  connection: TDConnection,
-  path: string,
-): Promise<LoaderCalls['loadScene']['result']> {
-  return connection.call('loadScene', { path }) as Promise<LoaderCalls['loadScene']['result']>;
 }

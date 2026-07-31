@@ -22,6 +22,27 @@ export type CallHandler = (
   args: JsonValue | undefined,
 ) => JsonValue | undefined | void | Promise<JsonValue | undefined | void>;
 
+/** One entry of a {@link CallSchema}: the argument and result shape of a named call. */
+export interface CallSignature {
+  args?: JsonValue;
+  result?: JsonValue;
+}
+
+/**
+ * A schema of named calls — what one side exposes for the other to invoke.
+ * Written as a self-referential mapped type (see `ParamSchema`) rather than
+ * `Record<string, CallSignature>`, so a plain `interface { print: {…} }`
+ * declaration (which lacks an index signature) satisfies it.
+ */
+export type CallSchema<Schema> = { [K in keyof Schema]: CallSignature };
+
+/**
+ * The permissive default for the `Calls`/`Handlers` generics: every name is
+ * legal and payloads are plain JSON, which is exactly the untyped surface a
+ * connection created without those generics exposes.
+ */
+export type AnyCalls = Record<string, CallSignature>;
+
 export interface CallRegistryOptions {
   /** Guarded send of a `call`/`result` frame; reports whether it went out. */
   send: (message: CallMessage | CallResultMessage) => CallSendResult;

@@ -373,7 +373,7 @@ def _echo(args):
 HANDLERS = {"print": _print, "echo": _echo}
 ```
 
-**Web → TD**: `await Mixer.call('print', { text: 'hi' })` looks up `'print'` in
+**Web → TD**: `await Mixer.useConnection().call('print', { text: 'hi' })` looks up `'print'` in
 `HANDLERS`, calls it, and resolves with whatever it returned. A handler that
 raises never crashes the socket — the traceback prints to the Textport and the
 web's `call()` rejects `handler_error` instead. A return value that isn't

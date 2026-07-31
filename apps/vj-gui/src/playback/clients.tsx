@@ -10,13 +10,12 @@
  */
 
 import type { JSX } from 'solid-js';
-import { createTDClient, type TDConnection } from 'td-core';
+import { createTDClient } from 'td-core';
 import { guiInstance, type LayerId } from './layers';
 import {
   guiReadonly,
   loaderInstances,
   loaderReadonly,
-  loadToxOn,
   type GuiParams,
   type LoaderCalls,
   type LoaderId,
@@ -30,9 +29,12 @@ export const GuiClient = createTDClient<GuiParams>();
  * `loadScene` call. */
 export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
+/** One scene instance's connection, typed by its params and its calls. */
+export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;
+
 /** The live connection for each layer, filled in by the mounted scene providers.
  * A layer with no running process is simply absent. */
-export type LayerConnections = Partial<Record<LayerId, TDConnection>>;
+export type LayerConnections = Partial<Record<LayerId, LoaderConnection>>;
 
 export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
@@ -50,7 +52,7 @@ export async function loadOnLayer(
 ): Promise<void> {
   const connection = connections[layer];
   if (!connection) throw new Error(`Layer ${layer} has no connected scene process`);
-  await loadToxOn(connection, path);
+  await connection.call('loadScene', { path });
 }
 
 /** `GuiClient.Provider` bound to the app's one GUI instance. */

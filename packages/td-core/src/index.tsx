@@ -87,7 +87,14 @@ export { type TDBinding, type TDSendOptions } from './params';
 export { defaultScheduler, type TDScheduler } from './scheduler';
 
 // Calls (named-handler invocation, both directions)
-export { TDCallError, type CallHandler, type CallOptions } from './calls';
+export {
+  TDCallError,
+  type AnyCalls,
+  type CallHandler,
+  type CallOptions,
+  type CallSchema,
+  type CallSignature,
+} from './calls';
 
 // WebRTC peer
 export {
@@ -110,8 +117,6 @@ export {
   createTDSignal,
   useTDConnection,
   useTDVideoStream,
-  type CallSchema,
-  type CallSignature,
   type TDProviderProps,
 } from './context';
 
