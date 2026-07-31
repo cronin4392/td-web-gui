@@ -1,8 +1,14 @@
 # td-core example
 
-A working Solid app exercising every `td-core` control against **two**
-TouchDesigner projects at once — one column per instance, each with its own
-connection, its own WebRTC peer, and its own parameter schema.
+Two pages against real TouchDesigner projects:
+
+| Page            |                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/minimal.html` | **Start here.** One instance, five controls, one video tile — one file, [`src/Minimal.tsx`](src/Minimal.tsx), that you can copy into your own app.                                               |
+| `/` (index)     | The full tour: every `td-core` control against **two** TouchDesigner projects at once, one column per instance, each with its own connection, its own WebRTC peer, and its own parameter schema. |
+
+Nothing in the full tour changes what the minimal page does — it only adds more
+of it. Read them in that order.
 
 ## Run it
 
@@ -12,11 +18,17 @@ pnpm --filter td-core build     # the example imports td-core from its built dis
 pnpm --filter example dev
 ```
 
+Vite prints the URL (`http://localhost:5173` unless the port is taken). The
+minimal page is at `/minimal.html`.
+
 Then open both `td/Example1/Example.toe` and `td/Example2/Example2.toe` in
-TouchDesigner. On first open, set each project's `WebGuiServer` **TD Core Dir**
-parameter to the absolute path of `packages/td-core/touchdesigner` on your
-machine — the callback DATs sync against files there, and that path isn't derived
-from where the `.toe` lives.
+TouchDesigner. There is nothing to configure: each project's `WebGuiServer`
+**TD Core Dir** parameter is an expression off `project.folder`, so a fresh clone
+finds `packages/td-core/touchdesigner` wherever you put the repo. (In your own
+project that parameter is a plain path you set once — see
+[touchdesigner-setup.md](../../packages/td-core/docs/touchdesigner-setup.md). It
+is an expression here only because these two `.toe` files live at a fixed depth
+inside this repo.)
 
 The app connects to `ws://localhost:9980` (instance 1) and `ws://localhost:9981`
 (instance 2) by default; override with `VITE_TD_HOST` / `VITE_TD_PORT_1` /
@@ -32,9 +44,15 @@ NVIDIA GPU on Windows — see
 
 | File                                   |                                                                                                                               |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [`src/Minimal.tsx`](src/Minimal.tsx)   | The whole minimal page, mount included. The one file to copy.                                                                 |
 | [`src/td.config.ts`](src/td.config.ts) | Both instance descriptors and both typed parameter schemas. This is the file that must agree with TouchDesigner's `REGISTRY`. |
 | [`src/App.tsx`](src/App.tsx)           | The two panels, the shared status/video components, and every control.                                                        |
 | [`src/index.css`](src/index.css)       | Plain CSS against `td-core`'s class hooks — the library ships none.                                                           |
+
+The TouchDesigner side is two projects under [`td/`](td). Open either `.toe` and
+the top-level network is annotated by group — the bridge, the parameters the web
+drives, the readouts it displays, and the video it receives — with the config
+that maps them beside it in `config.py`.
 
 Worth reading in `App.tsx`:
 

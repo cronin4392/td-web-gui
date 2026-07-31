@@ -120,6 +120,11 @@ button {
   object-fit: contain;
 }
 
+/* minimal.html has a single tile and no grid to size it. */
+.minimal-tile {
+  max-width: 32rem;
+}
+
 /* The per-tile encoder switch. Sits in the caption beside the label so the
    thing it controls and the thing it names read as one control. */
 .video-switch {
