@@ -24,10 +24,28 @@ The GUI project's config is separate: gui-config.py, beside this file.
 
 CALLBACKS = "webserver1_callbacks"
 
-# Nothing on a scene is web-writable as a *parameter* — the writable params still
-# live on the GUI project. Loading a scene is behaviour, not state, so it goes
-# through HANDLERS at the bottom of this file instead.
-REGISTRY = {}
+LOADER = "/Scene1/Loader"
+
+# Nothing here is web-*writable* — the writable params still live on the GUI
+# project, and loading a scene is behaviour, not state, so it goes through
+# HANDLERS at the bottom of this file instead.
+#
+# `activeScene` is a REGISTRY entry rather than a READOUT on purpose. It rides
+# the Parameter Execute path, whose onValueChange fires when the par changes "in
+# any way" — an event. A READOUT pointed at the Loader's touchout2 rode the DAT
+# Execute path instead, which only reports a change *between cooks* of the DAT
+# it watches; touchout2 is derived from an Evaluate DAT reading dependable
+# extension properties, and TD is pull-based, so with nothing demanding it the
+# table never cooked and the change was never seen. Watching the par directly
+# removes the demand question entirely.
+REGISTRY = {
+    "activeScene": {
+        "op": LOADER,
+        "par": "Scene",
+        "type": "string",
+        "writable": False,
+    },
+}
 
 WEBRTC = "webrtc1"
 
@@ -55,13 +73,7 @@ READOUTS = {
         "op": "/Scene1/Inputs/null_params",
         "chan": "level",
     },
-    "activeScene": {
-        "op": "/Scene1/Loader/touchout2",
-        "type": "string[][]",
-    },
 }
-
-LOADER = "/Scene1/Loader"
 
 
 # Layout/color are absent on purpose: the GUI still owns them and pushes them in

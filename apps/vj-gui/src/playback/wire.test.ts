@@ -2,42 +2,33 @@ import { describe, expect, it } from 'vitest';
 import { activeSceneFolder } from './wire';
 
 describe('activeSceneFolder', () => {
-  it('reads the Folder row', () => {
-    expect(
-      activeSceneFolder([
-        ['Scene', 'C:/Scenes/AudioSpectrum/AudioSpectrum.tox'],
-        ['SceneName', 'AudioSpectrum'],
-        ['Folder', 'C:/Scenes/AudioSpectrum'],
-      ]),
-    ).toBe('C:/Scenes/AudioSpectrum');
+  it('drops the .tox filename', () => {
+    expect(activeSceneFolder('C:/Scenes/AudioSpectrum/AudioSpectrum.tox')).toBe(
+      'C:/Scenes/AudioSpectrum',
+    );
   });
 
-  it('is undefined before TD has synced a table', () => {
+  it('accepts backslashes, which a par can hold even though loadScene cannot send them', () => {
+    expect(activeSceneFolder('C:\\Scenes\\A\\A.tox')).toBe('C:\\Scenes\\A');
+  });
+
+  it('takes the last separator when both kinds appear', () => {
+    expect(activeSceneFolder('C:\\Scenes/A/A.tox')).toBe('C:\\Scenes/A');
+  });
+
+  it('is undefined before TD has synced a path', () => {
     expect(activeSceneFolder(undefined)).toBeUndefined();
   });
 
-  it('is undefined for an empty table', () => {
-    expect(activeSceneFolder([])).toBeUndefined();
+  it('is undefined for the empty par a layer starts on', () => {
+    expect(activeSceneFolder('')).toBeUndefined();
   });
 
-  it('is undefined when no row is Folder', () => {
-    expect(activeSceneFolder([['Scene', 'C:/Scenes/A/A.tox']])).toBeUndefined();
+  it('is undefined for a bare filename with no folder', () => {
+    expect(activeSceneFolder('A.tox')).toBeUndefined();
   });
 
-  it('is undefined when the Folder row is empty', () => {
-    expect(activeSceneFolder([['Folder', '']])).toBeUndefined();
-  });
-
-  it('is undefined when the Folder row has no value cell', () => {
-    expect(activeSceneFolder([['Folder']])).toBeUndefined();
-  });
-
-  it('ignores a header row that only names the columns', () => {
-    expect(
-      activeSceneFolder([
-        ['name', 'value'],
-        ['Folder', 'C:/Scenes/A'],
-      ]),
-    ).toBe('C:/Scenes/A');
+  it('is undefined at the filesystem root, which is no scene library', () => {
+    expect(activeSceneFolder('/A.tox')).toBeUndefined();
   });
 });

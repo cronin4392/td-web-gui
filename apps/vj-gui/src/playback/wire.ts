@@ -83,10 +83,10 @@ export interface LoaderParams {
   gpuCookTime: number;
   level: number;
   performance: string[][];
-  /** `[['Scene', toxPath], ['SceneName', name], ['Folder', folder]]` — the
-   * loader's own record of what it last loaded, straight from TD. Read via
+  /** Absolute `.tox` path the loader last loaded, straight from its `Scene`
+   * par. Folder and name are derived here rather than sent — see
    * {@link activeSceneFolder}. */
-  activeScene: string[][];
+  activeScene: string;
 }
 
 /** Scene readout names, declared read-only so their controls render disabled. */
@@ -98,12 +98,14 @@ export const loaderReadonly = [
   'activeScene',
 ] as const satisfies readonly (keyof LoaderParams)[];
 
-/** Pulls the scene folder out of an `activeScene` readout table — `Folder`,
- * not `Scene`, so the caller needs no `.tox` parsing of its own (see
- * `sceneThumbnailUrl`). `undefined` before TD has synced one / while a layer
- * has never loaded anything. */
-export function activeSceneFolder(table: string[][] | undefined): string | undefined {
-  return table?.find(([key]) => key === 'Folder')?.[1] || undefined;
+/** The folder holding a loader's active `.tox` — everything before the last
+ * separator. `undefined` before TD has synced one / while a layer has never
+ * loaded anything. Both separators are accepted because TD reports whatever
+ * the par holds, and only `loadScene` on the way in is forward-slash-only. */
+export function activeSceneFolder(path: string | undefined): string | undefined {
+  if (!path) return undefined;
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return cut > 0 ? path.slice(0, cut) : undefined;
 }
 
 /** Wire name of the video stream each loader publishes over WebRTC. */

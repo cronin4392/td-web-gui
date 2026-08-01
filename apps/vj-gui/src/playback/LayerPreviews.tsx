@@ -124,8 +124,6 @@ function LayerBody(props: {
           </tr>
         </tbody>
       </table>
-      {/* TODO: Table not getting data after load */}
-      {/* <LoaderClient.Table name="performance" header /> */}
     </figure>
   );
 }
