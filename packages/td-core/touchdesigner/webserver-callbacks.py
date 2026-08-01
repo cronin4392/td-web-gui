@@ -112,6 +112,12 @@ _warned = set()
 _dirty_readouts = set()
 _readout_flush_scheduled = False
 
+# Consecutive failed reads per dirty readout. A readout whose operator vanishes
+# mid-.tox-load is back a frame later, but a config error never resolves, so the
+# retry in flush_readouts is bounded rather than a silent per-frame busy loop.
+_readout_failures = {}
+_READOUT_READ_RETRIES = 3
+
 
 def _webgui():
     """The WebGuiServer component, via its parent shortcut."""
@@ -471,24 +477,39 @@ def readout_watches():
     return watches
 
 
-def _mark_readout_dirty(name):
-    """Queue a readout for this frame's flush, booking the flush if needed."""
+def _schedule_flush():
+    """Book the end-of-frame flush unless one is already booked. Returns False
+    when there is no callbacks DAT to address the deferred call to, which is the
+    caller's cue to flush inline."""
     global _readout_flush_scheduled
-    if name in _registry():
-        return  # shadowed by a param; _readout_names has already warned
-    _dirty_readouts.add(name)
     if _readout_flush_scheduled:
-        return
+        return True
     dat = _webgui().op(_config().CALLBACKS)
     if dat is None:
-        # Nothing to address the deferred call to; send inline instead of
-        # dropping it.
-        flush_readouts()
-        return
+        return False
     _readout_flush_scheduled = True
     # endFrame, not delayFrames=1: still reaches the browser in the frame it
     # changed, and every callback fired during this frame's cook coalesces.
     run("op(%r).module.flush_readouts()" % dat.path, endFrame=True)
+    return True
+
+
+def _forget_readout(name):
+    """Drop a name from the flush queue once it is settled — sent, or given up
+    on. The only place `_dirty_readouts` shrinks."""
+    _dirty_readouts.discard(name)
+    _readout_failures.pop(name, None)
+
+
+def _mark_readout_dirty(name):
+    """Queue a readout for this frame's flush, booking the flush if needed."""
+    if name in _registry():
+        return  # shadowed by a param; _readout_names has already warned
+    _dirty_readouts.add(name)
+    if not _schedule_flush():
+        # Nothing to address the deferred call to; send inline instead of
+        # dropping it.
+        flush_readouts()
 
 
 def broadcast_channel_change(channel):
@@ -532,26 +553,45 @@ def flush_readouts():
     message per frame. Re-reading at flush time (rather than carrying each
     callback's `val`) is what makes that correct — the value sent is the one
     that survived the frame.
+
+    A name stays queued until it has actually been read AND sent. Clearing the
+    queue up front is what used to lose a change outright: with momentarily no
+    client (re-cooking this DAT empties `clients` while the sockets stay open),
+    or a read that raised while a .tox load churned the operators, the name was
+    already gone. A readout that only moves on a user action — a loaded scene,
+    a selected preset — then stayed stale in the browser until the next change
+    or a reconnect, with `_warn_once` keeping it quiet.
     """
     global _readout_flush_scheduled
     _readout_flush_scheduled = False
-    names = sorted(_dirty_readouts)
-    _dirty_readouts.clear()
-    if not names or not clients:
+    if not _dirty_readouts:
+        return
+    if not _live_clients():
+        _schedule_flush()  # keep the names; try again once someone is listening
         return
     # Re-checked against the config rather than trusted from the mark, since
     # the config DAT syncs to file and can change between mark and flush.
     serveable = set(_readout_names())
     params = {}
-    for name in names:
+    for name in sorted(_dirty_readouts):
         if name not in serveable:
+            _forget_readout(name)
             continue
         try:
             params[name] = _read_readout(name)
         except _WireTypeError as e:
-            _warn_once(("readout", name), str(e))
+            attempts = _readout_failures.get(name, 0) + 1
+            if attempts >= _READOUT_READ_RETRIES:
+                _warn_once(("readout", name), str(e))
+                _forget_readout(name)
+            else:
+                _readout_failures[name] = attempts
+            continue
+        _forget_readout(name)
     if params:
         _broadcast({"type": "update", "params": params})
+    if _dirty_readouts:
+        _schedule_flush()
 
 
 def _snapshot():
@@ -648,6 +688,38 @@ def broadcast_menus_if_changed():
     return True
 
 
+def _forget_client(client):
+    """Drop a socket and everything keyed on it."""
+    clients.discard(client)
+    _abandon_calls(client)
+    _close_peer(client)
+
+
+def _live_clients():
+    """`clients`, reconciled against the sockets the Web Server DAT itself
+    reports open.
+
+    Maintaining the set from the callbacks alone is not enough in either
+    direction. `onWebSocketClose` does not fire for every teardown, so dead ids
+    accumulate — measured at four for a single browser tab, which silently
+    disables `call()`, since that refuses to fire unless exactly one client is
+    connected. And re-cooking this DAT empties the set while the sockets stay
+    open, so live clients go missing until the heartbeat re-adds them.
+    `webSocketConnections` is authoritative for both.
+    """
+    # getattr, matching _readouts()/_streams(): a build without the member
+    # leaves the callback-maintained set as the only source, which is the old
+    # behaviour rather than an AttributeError out of a broadcast.
+    reported = getattr(_server, "webSocketConnections", None) if _server else None
+    if reported is None:
+        return clients
+    live = set(reported)
+    for gone in clients - live:
+        _forget_client(gone)
+    clients.update(live)
+    return clients
+
+
 def _send(client, message):
     if _server is not None:
         _server.webSocketSendText(client, json.dumps(message))
@@ -657,7 +729,7 @@ def _broadcast(message):
     if _server is None:
         return
     text = json.dumps(message)
-    for client in list(clients):
+    for client in list(_live_clients()):
         _server.webSocketSendText(client, text)
 
 
@@ -797,14 +869,18 @@ def call(name, args=None, on_result=None, on_error=None, client=None, timeout=10
     """
     target = client
     if target is None:
-        if len(clients) != 1:
+        # Reconciled first: a stale id left behind by a teardown that never
+        # reported itself is enough to make this refuse on a page that IS the
+        # only one connected.
+        live = _live_clients()
+        if len(live) != 1:
             if on_error:
                 on_error(
                     "call_disconnected",
-                    "%d client(s) connected; call() needs exactly one" % len(clients),
+                    "%d client(s) connected; call() needs exactly one" % len(live),
                 )
             return
-        target = next(iter(clients))
+        target = next(iter(live))
     call_id = _next_call_id()
     message = {"type": "call", "id": call_id, "name": name}
     if args is not None:
@@ -1282,9 +1358,7 @@ def onWebSocketOpen(dat: webserverDAT, client: str, uri: str):
 
 
 def onWebSocketClose(dat: webserverDAT, client: str):
-    clients.discard(client)
-    _abandon_calls(client)
-    _close_peer(client)
+    _forget_client(client)
     return
 
 
