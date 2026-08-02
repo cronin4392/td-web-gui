@@ -25,13 +25,13 @@ export function App(props: AppProps): JSX.Element {
 
   return (
     <PlaybackProvider>
-      <main class="grid grid-rows-[1_2] h-screen gap-6 px-2 pt-2">
+      <main class="grid grid-rows-[auto_1fr] h-screen gap-2 px-2 pt-2 overflow-hidden">
         <LayerPreviews />
         {/* The GUI project is a separate process from the scenes, so its params
             live behind their own provider — the text selector is the only thing
             bound to it. */}
         <GuiProvider>
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-3 grid-rows-1 gap-4 overflow-hidden">
             <SceneSelector />
             <EffectSelector />
             <TextSelector store={store} />

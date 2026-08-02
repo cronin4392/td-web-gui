@@ -34,7 +34,7 @@ export function SceneSelector(): JSX.Element {
   });
 
   return (
-    <section class="flex min-h-0 gap-3">
+    <section class="flex gap-3">
       <Show when={tags().length > 0}>
         <fieldset class="flex shrink-0 flex-col gap-1 overflow-y-auto">
           <legend class="sr-only">Scene tag</legend>

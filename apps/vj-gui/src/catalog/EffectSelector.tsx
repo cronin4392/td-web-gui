@@ -15,7 +15,7 @@ export function EffectSelector(): JSX.Element {
   });
 
   return (
-    <section class="flex min-h-0 min-w-0 flex-col gap-1 overflow-y-auto">
+    <section class="flex flex-col gap-1 overflow-y-auto">
       <PickerToolbar
         refreshing={picker.refreshing()}
         error={picker.error()}

@@ -40,7 +40,7 @@ export function TextSelector(props: {
   );
 
   return (
-    <div>
+    <div class="flex min-h-0 flex-col">
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
       <Show when={selectedLayer()} keyed>
