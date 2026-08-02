@@ -112,12 +112,6 @@ _warned = set()
 _dirty_readouts = set()
 _readout_flush_scheduled = False
 
-# Consecutive failed reads per dirty readout. A readout whose operator vanishes
-# mid-.tox-load is back a frame later, but a config error never resolves, so the
-# retry in flush_readouts is bounded rather than a silent per-frame busy loop.
-_readout_failures = {}
-_READOUT_READ_RETRIES = 3
-
 
 def _webgui():
     """The WebGuiServer component, via its parent shortcut."""
@@ -498,7 +492,6 @@ def _forget_readout(name):
     """Drop a name from the flush queue once it is settled — sent, or given up
     on. The only place `_dirty_readouts` shrinks."""
     _dirty_readouts.discard(name)
-    _readout_failures.pop(name, None)
 
 
 def _mark_readout_dirty(name):
@@ -554,20 +547,25 @@ def flush_readouts():
     callback's `val`) is what makes that correct — the value sent is the one
     that survived the frame.
 
-    A name stays queued until it has actually been read AND sent. Clearing the
-    queue up front is what used to lose a change outright: with momentarily no
-    client (re-cooking this DAT empties `clients` while the sockets stay open),
-    or a read that raised while a .tox load churned the operators, the name was
-    already gone. A readout that only moves on a user action — a loaded scene,
-    a selected preset — then stayed stale in the browser until the next change
-    or a reconnect, with `_warn_once` keeping it quiet.
+    A name stays queued until it has actually been sent. Clearing the queue up
+    front is what used to lose a change outright: a readout that only moves on
+    a user action then stayed stale in the browser until the next change or a
+    reconnect. A read that RAISES is still dropped — a readout's operator is a
+    fixture of the project, not something a scene load replaces, so a failing
+    read is a config error that retrying cannot fix.
+
+    With nobody connected the queue is dropped rather than held: a browser that
+    connects later opens with a snapshot, which reads every readout fresh, so
+    there is nothing to preserve — and requeueing would book a flush every
+    frame for as long as the page stays closed.
     """
     global _readout_flush_scheduled
     _readout_flush_scheduled = False
     if not _dirty_readouts:
         return
     if not _live_clients():
-        _schedule_flush()  # keep the names; try again once someone is listening
+        for name in list(_dirty_readouts):
+            _forget_readout(name)
         return
     # Re-checked against the config rather than trusted from the mark, since
     # the config DAT syncs to file and can change between mark and flush.
@@ -580,16 +578,14 @@ def flush_readouts():
         try:
             params[name] = _read_readout(name)
         except _WireTypeError as e:
-            attempts = _readout_failures.get(name, 0) + 1
-            if attempts >= _READOUT_READ_RETRIES:
-                _warn_once(("readout", name), str(e))
-                _forget_readout(name)
-            else:
-                _readout_failures[name] = attempts
-            continue
-        _forget_readout(name)
+            _warn_once(("readout", name), str(e))
+            _forget_readout(name)
     if params:
+        # Forgotten only once the send has returned, so the queue can never be
+        # emptied by something that didn't reach the socket.
         _broadcast({"type": "update", "params": params})
+        for name in params:
+            _forget_readout(name)
     if _dirty_readouts:
         _schedule_flush()
 
@@ -706,6 +702,12 @@ def _live_clients():
     connected. And re-cooking this DAT empties the set while the sockets stay
     open, so live clients go missing until the heartbeat re-adds them.
     `webSocketConnections` is authoritative for both.
+
+    Membership only — no teardown. This runs on every broadcast, up to once a
+    frame, and TD documents the member as no more than "a string list of all
+    the Web Socket connections": nothing about when it updates relative to the
+    callbacks. So a socket it omits for a moment must cost that browser only a
+    skipped send, never its WebRTC peer. `_sweep_clients` does the closing.
     """
     # getattr, matching _readouts()/_streams(): a build without the member
     # leaves the callback-maintained set as the only source, which is the old
@@ -713,11 +715,24 @@ def _live_clients():
     reported = getattr(_server, "webSocketConnections", None) if _server else None
     if reported is None:
         return clients
-    live = set(reported)
-    for gone in clients - live:
-        _forget_client(gone)
-    clients.update(live)
+    clients.clear()
+    clients.update(reported)
     return clients
+
+
+def _sweep_clients():
+    """Close what `_live_clients` deliberately leaves behind — the peers and
+    pending calls of a socket the Web Server DAT no longer reports.
+
+    Separate from the reconcile because this half is destructive and the
+    reconcile is per-frame. Driven by the heartbeat ping (~5s), so an id has to
+    be absent while a client is demonstrably talking to us, rather than absent
+    for the one frame of a broadcast."""
+    live = _live_clients()
+    for gone in [c for c in list(peer_by_client) if c not in live]:
+        _close_peer(gone)
+    for gone in {p.get("client") for p in _pending_calls.values()} - live - {None}:
+        _abandon_calls(gone)
 
 
 def _send(client, message):
@@ -1415,6 +1430,9 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
             _send(client, {"type": "menus", "menus": _menus()})
 
     elif mtype == "ping":
+        # The only periodic beat in the protocol, so where the destructive half
+        # of client reconciliation lives — see _sweep_clients.
+        _sweep_clients()
         _send(client, {"type": "pong"})
 
     elif mtype == "rtc-offer":
