@@ -31,4 +31,9 @@ describe('activeSceneFolder', () => {
   it('is undefined at the filesystem root, which is no scene library', () => {
     expect(activeSceneFolder('/A.tox')).toBeUndefined();
   });
+
+  it('is undefined at a drive root, the form the root actually takes here', () => {
+    expect(activeSceneFolder('C:/A.tox')).toBeUndefined();
+    expect(activeSceneFolder('C:\\A.tox')).toBeUndefined();
+  });
 });

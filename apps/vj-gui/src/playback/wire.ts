@@ -105,7 +105,11 @@ export const loaderReadonly = [
 export function activeSceneFolder(path: string | undefined): string | undefined {
   if (!path) return undefined;
   const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return cut > 0 ? path.slice(0, cut) : undefined;
+  if (cut <= 0) return undefined;
+  const folder = path.slice(0, cut);
+  // `C:` is a root the way `/` is, and naming a scene folder after it would
+  // send the thumbnail plugin a request it can only refuse.
+  return /^[A-Za-z]:$/.test(folder) ? undefined : folder;
 }
 
 /** Wire name of the video stream each loader publishes over WebRTC. */
