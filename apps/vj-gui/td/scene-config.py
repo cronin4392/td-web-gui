@@ -13,7 +13,7 @@ What differs between them lives on WebGuiServer's own parameters, not in
 here: `Identifier` (sceneA … sceneH — the id the web app matches) and `Port`.
 
 That is also why no name below is scene-prefixed. A wire name is scoped to its
-instance, so every process publishes a plain `level` and a plain `cpuCookTime`,
+instance, so every process publishes a plain `level` and a plain `performance`,
 and the web keeps them apart by which `<Provider>` reads them — see
 `LoaderParams` in apps/vj-gui/src/playback/wire.ts, the TypeScript half of this
 contract. Prefixing would only re-encode, in two places, what the connection
@@ -57,14 +57,6 @@ STREAMS = {
 }
 
 READOUTS = {
-    "cpuCookTime": {
-        "op": "/Scene1/Tools/Performance/CookTimes/out1",
-        "chan": "cpuCookTime",
-    },
-    "gpuCookTime": {
-        "op": "/Scene1/Tools/Performance/CookTimes/out1",
-        "chan": "gpuCookTime",
-    },
     "performance": {
         "op": "/Scene1/Tools/Performance/CookTimes/cook_times_dat",
         "type": "string[][]",

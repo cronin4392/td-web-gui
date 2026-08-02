@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSceneFolder } from './wire';
+import { activeSceneFolder, performanceStat } from './wire';
 
 describe('activeSceneFolder', () => {
   it('drops the .tox filename', () => {
@@ -35,5 +35,34 @@ describe('activeSceneFolder', () => {
   it('is undefined at a drive root, the form the root actually takes here', () => {
     expect(activeSceneFolder('C:/A.tox')).toBeUndefined();
     expect(activeSceneFolder('C:\\A.tox')).toBeUndefined();
+  });
+});
+
+describe('performanceStat', () => {
+  const table = [
+    ['cpuCookTime', '0.7'],
+    ['gpuCookTime', '4.8'],
+    ['gpu_mem_used', '129'],
+    ['fps', '30.6'],
+    ['cookTime', '9.400001'],
+  ];
+
+  it('reads a row by its TD name', () => {
+    expect(performanceStat(table, 'fps')).toBe(30.6);
+    expect(performanceStat(table, 'gpu_mem_used')).toBe(129);
+    expect(performanceStat(table, 'cookTime')).toBe(9.400001);
+  });
+
+  it('is undefined before TD has synced the table', () => {
+    expect(performanceStat(undefined, 'fps')).toBeUndefined();
+  });
+
+  it('is undefined for a row the table does not have', () => {
+    expect(performanceStat(table, 'gpuMemory')).toBeUndefined();
+  });
+
+  it('is undefined for a row that does not hold a number', () => {
+    expect(performanceStat([['fps', '']], 'fps')).toBeUndefined();
+    expect(performanceStat([['fps', 'n/a']], 'fps')).toBeUndefined();
   });
 });

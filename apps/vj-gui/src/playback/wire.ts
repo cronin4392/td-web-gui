@@ -79,9 +79,9 @@ export interface LoaderCalls {
  * web-writable yet.
  */
 export interface LoaderParams {
-  cpuCookTime: number;
-  gpuCookTime: number;
   level: number;
+  /** The whole performance table, one `[name, value]` row per stat — read a
+   * single one with {@link performanceStat}. */
   performance: string[][];
   /** Absolute `.tox` path the loader last loaded, straight from its `Scene`
    * par. Folder and name are derived here rather than sent — see
@@ -91,8 +91,6 @@ export interface LoaderParams {
 
 /** Scene readout names, declared read-only so their controls render disabled. */
 export const loaderReadonly = [
-  'cpuCookTime',
-  'gpuCookTime',
   'level',
   'performance',
   'activeScene',
@@ -110,6 +108,17 @@ export function activeSceneFolder(path: string | undefined): string | undefined 
   // `C:` is a root the way `/` is, and naming a scene folder after it would
   // send the thumbnail plugin a request it can only refuse.
   return /^[A-Za-z]:$/.test(folder) ? undefined : folder;
+}
+
+/** One stat out of the `performance` table by its TD row name (`fps`,
+ * `cookTime`, `gpu_mem_used`, …). `undefined` before TD has synced the table,
+ * and for a row that isn't in it or doesn't hold a number. */
+export function performanceStat(table: string[][] | undefined, stat: string): number | undefined {
+  const cell = table?.find(([name]) => name === stat)?.[1]?.trim();
+  // An empty cell is a stat TD hasn't filled in, not the zero `Number('')` reads.
+  if (!cell) return undefined;
+  const value = Number(cell);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 /** Wire name of the video stream each loader publishes over WebRTC. */
