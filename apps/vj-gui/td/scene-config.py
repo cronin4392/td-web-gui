@@ -45,6 +45,20 @@ REGISTRY = {
         "type": "string",
         "writable": False,
     },
+    # Also here rather than in READOUTS, which reads CHOP channels and DAT
+    # cells only and ignores 'par' entirely.
+    "layout": {
+        "op": "/Scene1/Post/Layout",
+        "par": "Layout",
+        "type": "string",
+        "writable": False,
+    },
+    "color": {
+        "op": "/Scene1/Post/Color",
+        "par": "Color",
+        "type": "string",
+        "writable": False,
+    },
 }
 
 WEBRTC = "webrtc1"
@@ -68,8 +82,8 @@ READOUTS = {
 }
 
 
-# Layout/color are absent on purpose: the GUI still owns them and pushes them in
-# over Touch In/Out, so there is no par here to set. See TODO.md #3.
+# No layout/color handler on purpose: the GUI still owns them and pushes them in
+# over Touch In/Out, so this path only reads them back. See TODO.md #3.
 def _load_scene(args):
     path = str((args or {}).get("path", ""))
     if not path:
