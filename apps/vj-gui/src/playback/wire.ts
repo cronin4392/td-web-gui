@@ -42,14 +42,38 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
 export type LayerTextParamName = `scene${LayerId}Text${1 | 2}`;
 
 /**
- * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
- * scene loader.
+ * The GUI's color ramp, as five separate names rather than one — a Ramp TOP
+ * *is* a DAT of keyframes plus a handful of parameters, and `td-core` already
+ * carries both kinds, so nothing about it needs a wire type of its own.
+ * `rampGradient` in `@/ui/gradient` puts them back together.
+ *
+ * `rampKeys` is one row per keyframe, columns `pos, r, g, b, a`, all 0–1;
+ * `rampType` and `rampInterp` carry TD's own menu keys (`horizontal`, `step`,
+ * …). All five are TD → web only — see {@link guiReadonly}.
  */
-export type GuiParams = Record<LayerTextParamName, string>;
+export interface RampParams {
+  rampKeys: string[][];
+  rampType: string;
+  rampInterp: string;
+  rampPhase: number;
+  rampPeriod: number;
+}
 
-/** GUI readout names, declared read-only so bound controls render disabled.
- * Empty since the scene catalog moved to `/api/scenes`. */
-export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
+/**
+ * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
+ * scene loader, plus the color ramp.
+ */
+export type GuiParams = Record<LayerTextParamName, string> & RampParams;
+
+/** GUI readout names, declared read-only so bound controls render disabled —
+ * `td/gui-config.py`'s `READOUTS` plus its non-writable `REGISTRY` entries. */
+export const guiReadonly = [
+  'rampKeys',
+  'rampType',
+  'rampInterp',
+  'rampPhase',
+  'rampPeriod',
+] as const satisfies readonly (keyof GuiParams)[];
 
 /**
  * Calls each scene instance exposes — the TS half of `HANDLERS` in

@@ -1,0 +1,11 @@
+@layer components {
+  .ramp {
+    width: 100%;
+    height: var(--spacing-l);
+    flex-shrink: 0;
+    border: 1px solid var(--color-border);
+    /* Shows through wherever a key's alpha is under 1, so a transparent ramp
+       reads as transparent rather than as whatever sits behind the panel. */
+    background-color: var(--color-surface);
+  }
+}

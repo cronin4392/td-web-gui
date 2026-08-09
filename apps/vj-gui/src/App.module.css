@@ -16,6 +16,15 @@
     overflow: hidden;
   }
 
+  /* The column the wordbank sits in, with the color ramp pinned above it. The
+     ramp keeps its height while the phrase lists take the rest and scroll. */
+  .wordbankColumn {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--spacing-m);
+  }
+
   .binding {
     margin-top: var(--spacing-l);
     font-size: var(--text-m);
