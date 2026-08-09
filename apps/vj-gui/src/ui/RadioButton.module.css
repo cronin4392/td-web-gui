@@ -1,5 +1,8 @@
 @layer components {
   .button {
+    /* Containing block for the `u-sr-only` input, which would otherwise resolve
+       against the viewport and stop scrolling with the list it sits in. */
+    position: relative;
     cursor: pointer;
     user-select: none;
     text-align: center;
