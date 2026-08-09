@@ -26,12 +26,11 @@ CALLBACKS = "webserver1_callbacks"
 
 LOADER = "/Scene1/Loader"
 
-# Nothing here is web-*writable* — the writable params still live on the GUI
-# project, and loading a scene is behaviour, not state, so it goes through
-# HANDLERS at the bottom of this file instead.
+# `activeScene` is read-only because loading a scene is behaviour, not state, so
+# it goes through HANDLERS at the bottom of this file instead.
 #
-# `activeScene` is a REGISTRY entry rather than a READOUT on purpose. It rides
-# the Parameter Execute path, whose onValueChange fires when the par changes "in
+# It is still a REGISTRY entry rather than a READOUT, on purpose. It rides the
+# Parameter Execute path, whose onValueChange fires when the par changes "in
 # any way" — an event. A READOUT pointed at the Loader's touchout2 rode the DAT
 # Execute path instead, which only reports a change *between cooks* of the DAT
 # it watches; touchout2 is derived from an Evaluate DAT reading dependable
@@ -45,19 +44,22 @@ REGISTRY = {
         "type": "string",
         "writable": False,
     },
-    # Also here rather than in READOUTS, which reads CHOP channels and DAT
-    # cells only and ignores 'par' entirely.
+    # Here rather than in READOUTS, which reads CHOP channels and DAT cells
+    # only and ignores 'par' entirely. Both are Menu pars, so 'string' carries
+    # the menu *key*.
+    #
+    # Both must stay in CONSTANT mode to be web-writable — a write to an
+    # expression- or export-driven par is refused (param_not_writable), so
+    # re-attaching an expression here silently turns the web control read-only.
     "layout": {
         "op": "/Scene1/Post/Layout",
         "par": "Layout",
         "type": "string",
-        "writable": False,
     },
     "color": {
         "op": "/Scene1/Post/Color",
         "par": "Color",
         "type": "string",
-        "writable": False,
     },
 }
 
@@ -82,8 +84,8 @@ READOUTS = {
 }
 
 
-# No layout/color handler on purpose: the GUI still owns them and pushes them in
-# over Touch In/Out, so this path only reads them back. See TODO.md #3.
+# No layout/color handler on purpose: they are state, so they ride the REGISTRY
+# above as ordinary params. Only the load itself is behaviour.
 def _load_scene(args):
     path = str((args or {}).get("path", ""))
     if not path:

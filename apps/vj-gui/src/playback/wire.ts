@@ -1,3 +1,4 @@
+import type { SelectOption } from 'td-core';
 import { host, type LayerId, type TDInstanceConfig } from './layers';
 
 /**
@@ -61,9 +62,8 @@ export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
  * `path` is the scene's absolute `.tox`, forward slashes only — TD's
  * `Loader.LoadScene` splits it on `/` into folder + name.
  *
- * A scene's layout and color are deliberately not here: the GUI project owns
- * them and pushes them to the scene over Touch In/Out, so this path can read
- * them back ({@link LoaderParams}) but not set them. Inverting that is TODO.md #3.
+ * A scene's layout and color are deliberately not here: they are state, not
+ * behaviour, so they ride {@link LoaderParams} as ordinary params.
  */
 export interface LoaderCalls {
   loadScene: { args: { path: string }; result: { ok: boolean } };
@@ -74,9 +74,8 @@ export interface LoaderCalls {
  * Param schema shared by **every** scene instance — the TS half of the contract
  * with `td/scene-config.py`, which is likewise one file for all eight processes.
  *
- * Read-only today — every name here is in {@link loaderReadonly}, whether it
- * comes from that file's `READOUTS` or from a non-writable `REGISTRY` entry, so
- * nothing on a scene is web-writable yet.
+ * The names in {@link loaderReadonly} are read-only — that file's `READOUTS`
+ * plus its non-writable `REGISTRY` entries. The rest the web can drive.
  */
 export interface LoaderParams {
   level: number;
@@ -87,8 +86,8 @@ export interface LoaderParams {
    * par. Folder and name are derived here rather than sent — see
    * {@link activeSceneFolder}. */
   activeScene: string;
-  /** Layout and color the GUI last pushed into the scene, read back off the
-   * scene's own pars — the GUI still owns them, see {@link LoaderCalls}. */
+  /** Menu *keys* on the scene's own Post ops — {@link LAYOUT_OPTIONS} and
+   * {@link COLOR_OPTIONS} are the web-side copy of those menus. */
   layout: string;
   color: string;
 }
@@ -98,9 +97,26 @@ export const loaderReadonly = [
   'level',
   'performance',
   'activeScene',
-  'layout',
-  'color',
 ] as const satisfies readonly (keyof LoaderParams)[];
+
+/**
+ * The `Layout` / `Color` menus, mirroring the pars named by `REGISTRY` in
+ * `td/scene-config.py`. Authored here rather than left to TD's announcement so
+ * the dropdowns read as words and are populated before a scene connects. Keys
+ * must still match TD's menu, which refuses a write naming one it doesn't have.
+ */
+export const LAYOUT_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'splitX', label: 'Split X' },
+  { value: 'splitY', label: 'Split Y' },
+] as const satisfies readonly SelectOption[];
+
+export const COLOR_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'flipped', label: 'Flipped' },
+  { value: 'edge', label: 'Edge' },
+  { value: 'edgeOver', label: 'Edge Over' },
+] as const satisfies readonly SelectOption[];
 
 /** The folder holding a loader's active `.tox` — everything before the last
  * separator. `undefined` before TD has synced one / while a layer has never

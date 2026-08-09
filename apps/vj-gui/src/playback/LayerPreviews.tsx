@@ -3,6 +3,8 @@ import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import type { LayerId } from './layers';
 import {
   activeSceneFolder,
+  COLOR_OPTIONS,
+  LAYOUT_OPTIONS,
   LOADER_STREAM,
   layerIdForLoader,
   loaderInstances,
@@ -59,8 +61,6 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   const { registerConnection } = usePlayback();
   const video = LoaderClient.useVideo();
   const activeScene = LoaderClient.signal('activeScene');
-  const layout = LoaderClient.signal('layout');
-  const color = LoaderClient.signal('color');
   // Published to PlaybackProvider because the scene picker sits outside every
   // scene provider and still has to call this instance. Only reachable from
   // in here.
@@ -114,9 +114,15 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           class="absolute bottom-0 left-0 w-4 h-4"
         />
       </div>
-      <div class="flex gap-2 font-mono text-xs text-neutral-400">
-        <span class="truncate">Layout: {layout.value() ?? ''}</span>
-        <span class="truncate">Color: {color.value() ?? ''}</span>
+      <div class="font-mono text-xs text-neutral-400">
+        <label class="flex items-center gap-1">
+          Layout:
+          <LoaderClient.Select name="layout" options={[...LAYOUT_OPTIONS]} class="min-w-0 flex-1" />
+        </label>
+        <label class="flex items-center gap-1">
+          Color:
+          <LoaderClient.Select name="color" options={[...COLOR_OPTIONS]} class="min-w-0 flex-1" />
+        </label>
       </div>
       <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
     </figure>
