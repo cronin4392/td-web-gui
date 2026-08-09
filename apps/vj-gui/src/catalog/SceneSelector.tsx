@@ -38,8 +38,7 @@ export function SceneSelector(): JSX.Element {
   return (
     <section class={styles.selector}>
       <Show when={tags().length > 0}>
-        <fieldset class={styles.tags}>
-          <legend class="u-sr-only">Scene tag</legend>
+        <fieldset class={styles.tags} aria-label="Scene tag">
           {/* For, not Index: a radio holds DOM state, so a reordered list must
               move the node rather than rewrite its label. */}
           <For each={tagOptions()}>
