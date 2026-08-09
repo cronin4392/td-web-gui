@@ -1,5 +1,7 @@
 import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
+import type { SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
+import { RadioButton } from '@/ui/RadioButton';
 import type { LayerId } from './layers';
 import {
   activeSceneFolder,
@@ -114,18 +116,58 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           class="absolute bottom-0 left-0 w-4 h-4"
         />
       </div>
-      <div class="font-mono text-xs text-neutral-400">
-        <label class="flex items-center gap-1">
-          Layout:
-          <LoaderClient.Select name="layout" options={[...LAYOUT_OPTIONS]} class="min-w-0 flex-1" />
-        </label>
-        <label class="flex items-center gap-1">
-          Color:
-          <LoaderClient.Select name="color" options={[...COLOR_OPTIONS]} class="min-w-0 flex-1" />
-        </label>
+      <div class="flex gap-2 justify-between">
+        <ParamRadios
+          layer={props.layer}
+          name="layout"
+          legend="Layout"
+          prefix="L"
+          options={LAYOUT_OPTIONS}
+        />
+        <ParamRadios
+          layer={props.layer}
+          name="color"
+          legend="Color"
+          prefix="C"
+          options={COLOR_OPTIONS}
+        />
       </div>
       <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
     </figure>
+  );
+}
+
+/**
+ * A menu param as a row of position codes — `L1`/`L2`/`L3`, `C1`–`C4` — because
+ * eight tiles across leave no room for "Split X". The number is the option's
+ * place in {@link LAYOUT_OPTIONS} / {@link COLOR_OPTIONS}, so reordering either
+ * list renumbers codes the operator plays from memory.
+ */
+function ParamRadios(props: {
+  layer: LayerId;
+  name: 'layout' | 'color';
+  legend: string;
+  prefix: string;
+  options: readonly SelectOption[];
+}): JSX.Element {
+  const binding = LoaderClient.signal(props.name);
+  return (
+    <fieldset class="flex gap-1">
+      <legend class="sr-only">{`Layer ${props.layer} ${props.legend}`}</legend>
+      <For each={props.options}>
+        {(option, index) => (
+          // Grouped per layer as well as per param: one shared name would make
+          // all eight tiles a single radio group.
+          <RadioButton
+            name={`layer-${props.layer}-${props.name}`}
+            checked={binding.value() === option.value}
+            onSelect={() => binding.setValue(option.value)}
+          >
+            {`${props.prefix}${index() + 1}`}
+          </RadioButton>
+        )}
+      </For>
+    </fieldset>
   );
 }
 
