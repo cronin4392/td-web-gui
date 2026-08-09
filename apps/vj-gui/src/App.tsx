@@ -36,9 +36,9 @@ export function App(props: AppProps): JSX.Element {
           <div class={styles.columns}>
             <SceneSelector />
             <EffectSelector />
-            <div class={styles.wordbankColumn}>
+            <TextSelector store={store} />
+            <div>
               <ColorRamp />
-              <TextSelector store={store} />
             </div>
           </div>
         </GuiProvider>

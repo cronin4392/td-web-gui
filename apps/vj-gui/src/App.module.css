@@ -13,19 +13,10 @@
 
   .columns {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-l);
     overflow: hidden;
-  }
-
-  /* The column the wordbank sits in, with the color ramp pinned above it. The
-     ramp keeps its height while the phrase lists take the rest and scroll. */
-  .wordbankColumn {
-    display: flex;
-    min-height: 0;
-    flex-direction: column;
-    gap: var(--spacing-m);
   }
 
   .binding {
