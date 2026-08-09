@@ -1,26 +1,23 @@
 @layer components {
   .selector {
-    display: flex;
+    display: grid;
+    grid-template-columns: 7rem 1fr;
     gap: var(--spacing-m);
   }
 
   .tags {
     display: flex;
-    flex-shrink: 0;
     flex-direction: column;
     gap: var(--spacing-s);
-    /* `scroll`, not `auto`: this column has no width of its own and sizes to
-       max-content, which is computed as if no scrollbar existed. A conditional
-       scrollbar then appears and steals that width back from labels that are
-       single words with nowhere to wrap — overflowing until a resize forces the
-       intrinsic size to be recomputed with the scrollbar in place. */
+    /* `scroll`, not `auto`: the track is a fixed width, so a conditional
+       scrollbar would take its width out of labels that are single words with
+       nowhere to wrap. */
     overflow-y: scroll;
   }
 
   .scenes {
     display: flex;
     min-width: 0;
-    flex: 1;
     flex-direction: column;
     gap: var(--spacing-s);
     overflow-y: auto;
