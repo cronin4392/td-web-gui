@@ -4,6 +4,7 @@ import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
+import { RadioButton } from '@/ui/RadioButton';
 
 export function SceneSelector(): JSX.Element {
   const { loadTox } = usePlayback();
@@ -42,16 +43,13 @@ export function SceneSelector(): JSX.Element {
               move the node rather than rewrite its label. */}
           <For each={tagOptions()}>
             {(tag) => (
-              <label class="flex items-center gap-2 text-sm text-neutral-300">
-                <input
-                  type="radio"
-                  name="scene-tag"
-                  value={tag ?? ''}
-                  checked={selectedTag() === tag}
-                  onChange={() => setPickedTag(tag)}
-                />
+              <RadioButton
+                name="scene-tag"
+                checked={selectedTag() === tag}
+                onSelect={() => setPickedTag(tag)}
+              >
                 {tag ?? 'All'}
-              </label>
+              </RadioButton>
             )}
           </For>
         </fieldset>
