@@ -23,10 +23,11 @@ import {
   GPU_MEMORY_LIMITS,
   type Health,
 } from './health';
+import styles from './LayerPreviews.module.css';
 
 export function LayerPreviews(): JSX.Element {
   return (
-    <div class="grid grid-cols-8 gap-2">
+    <div class={styles.grid}>
       <For each={loaderInstances}>{(loader) => <LayerPanel loader={loader.id} />}</For>
     </div>
   );
@@ -80,12 +81,11 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   };
 
   return (
-    <figure class="m-0">
-      <div class="group relative">
+    <figure>
+      <div class={styles.frame}>
         <button
           type="button"
-          class="video-tile block w-full cursor-pointer border-2 p-0 aspect-video bg-black relative"
-          classList={{ 'border-blue-500': props.active, 'border-transparent': !props.active }}
+          class={`${styles.tile} ${props.active ? styles.tileActive : ''}`}
           onClick={props.onSelect}
         >
           <Show when={video.stream(LOADER_STREAM)} keyed>
@@ -94,18 +94,13 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
             <Show when={thumbnail()}>
               {(url) => (
-                <img
-                  src={url()}
-                  alt=""
-                  class="absolute inset-0 h-full w-full object-cover"
-                  onError={() => setBroken(url())}
-                />
+                <img src={url()} alt="" class={styles.thumbnail} onError={() => setBroken(url())} />
               )}
             </Show>
             {/* 'off' is the toggle below doing what it was asked; the checkbox
               already says so, and an "off…" scrim would just hide the tile. */}
             <Show when={video.streamStatus(LOADER_STREAM) !== 'off'}>
-              <div class="video-overlay">{video.streamStatus(LOADER_STREAM)}…</div>
+              <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
         </button>
@@ -113,10 +108,10 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
         <LoaderClient.StreamToggle
           stream={LOADER_STREAM}
           aria-label={`Layer ${props.layer} video`}
-          class="absolute bottom-0 left-0 w-4 h-4"
+          class={styles.streamToggle}
         />
       </div>
-      <div class="flex gap-2 justify-between">
+      <div class={styles.params}>
         <ParamRadios
           layer={props.layer}
           name="layout"
@@ -152,8 +147,8 @@ function ParamRadios(props: {
 }): JSX.Element {
   const binding = LoaderClient.signal(props.name);
   return (
-    <fieldset class="flex gap-1">
-      <legend class="sr-only">{`Layer ${props.layer} ${props.legend}`}</legend>
+    <fieldset class={styles.paramGroup}>
+      <legend class="u-sr-only">{`Layer ${props.layer} ${props.legend}`}</legend>
       <For each={props.options}>
         {(option, index) => (
           // Grouped per layer as well as per param: one shared name would make
@@ -177,7 +172,7 @@ function PerformanceReadouts(): JSX.Element {
   // `pointer-events-none` so the overlay never swallows the click that selects
   // the layer — the button underneath still triggers the `group` hover.
   return (
-    <table class="pointer-events-none absolute left-1 top-1 font-mono text-xs text-left text-white">
+    <table class={styles.stats}>
       <tbody>
         <StatRow
           label="FPS"
@@ -202,13 +197,11 @@ function PerformanceReadouts(): JSX.Element {
   );
 }
 
-const healthColor: Record<Health, string> = {
-  good: 'bg-green-400',
-  warn: 'bg-amber-400',
-  bad: 'bg-red-400',
+const healthColor: Record<Health, string | undefined> = {
+  good: styles.good,
+  warn: styles.warn,
+  bad: styles.bad,
 };
-
-const hoverReveal = 'bg-black/60 opacity-0 transition-opacity group-hover:opacity-100';
 
 function StatRow(props: {
   label: string;
@@ -217,20 +210,14 @@ function StatRow(props: {
   health: (value: number) => Health;
 }): JSX.Element {
   const color = () =>
-    props.value === undefined ? 'bg-neutral-700' : healthColor[props.health(props.value)];
+    props.value === undefined ? styles.unknown : healthColor[props.health(props.value)];
   return (
     <tr>
-      <td class="pr-1">
-        {/* The ring keeps a dot legible over a bright frame. */}
-        <span
-          aria-hidden="true"
-          class={`block h-2 w-2 rounded-full ring-1 ring-black/50 ${color()}`}
-        />
+      <td class={styles.dotCell}>
+        <span aria-hidden="true" class={`${styles.dot} ${color()}`} />
       </td>
-      <th class={`px-1 ${hoverReveal}`}>{props.label}</th>
-      <td class={`pr-1 ${hoverReveal}`}>
-        {props.value === undefined ? '' : props.format(props.value)}
-      </td>
+      <th class={styles.statLabel}>{props.label}</th>
+      <td class={styles.statValue}>{props.value === undefined ? '' : props.format(props.value)}</td>
     </tr>
   );
 }

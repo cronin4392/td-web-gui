@@ -1,7 +1,10 @@
+// First import on purpose: a cascade layer's position is fixed by where it is
+// first named, so the `@layer` statement in index.css has to reach the document
+// ahead of any component's `@layer components` module.
+import './index.css';
 import { render } from 'solid-js/web';
 import { App } from './App';
 import { fetchWordbank } from './wordbank/wordbank-api';
-import './index.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element #root not found');

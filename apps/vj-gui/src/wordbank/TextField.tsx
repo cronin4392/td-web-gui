@@ -11,6 +11,7 @@
 import type { JSX } from 'solid-js';
 import { hasPhraseDragData, readPhraseDragData } from './dnd';
 import { GuiClient, type LayerTextParamName } from '@/playback/clients';
+import styles from './TextField.module.css';
 
 export interface TextFieldProps {
   /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
@@ -27,12 +28,12 @@ export function TextField(props: TextFieldProps): JSX.Element {
   return (
     // No onSubmit here: <TextInput commitOn="enter"> already attaches its own
     // submit listener directly to this ancestor form (preventDefault + commit).
-    <form class="relative">
+    <form class={styles.field}>
       <button
         type="button"
         tabIndex={-1}
         onClick={() => props.onClear(props.name)}
-        class="absolute right-1 top-1 z-10 rounded border border-neutral-600 bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400 hover:text-red-400"
+        class={styles.clear}
         title={`Clear ${props.label}`}
       >
         Clear
@@ -46,7 +47,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
         onCommit={props.commitRecent}
         placeholder={props.label}
         aria-label={props.label}
-        class="block w-full resize-y border border-neutral-600 bg-neutral-800 px-2 py-1 pr-16 text-sm text-neutral-100 placeholder:text-neutral-500"
+        class={styles.input}
         onDragOver={(event) => {
           if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault();
         }}

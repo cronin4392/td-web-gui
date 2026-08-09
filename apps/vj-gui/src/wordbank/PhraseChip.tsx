@@ -8,6 +8,7 @@
 
 import type { JSX } from 'solid-js';
 import { setPhraseDragData, type PhraseDragPayload } from './dnd';
+import styles from './PhraseChip.module.css';
 
 export interface PhraseChipProps {
   phrase: string;
@@ -20,7 +21,7 @@ export interface PhraseChipProps {
 
 export function PhraseChip(props: PhraseChipProps): JSX.Element {
   return (
-    <div class="group flex w-full items-center rounded-md border border-neutral-700 bg-neutral-800">
+    <div class={styles.chip}>
       <button
         type="button"
         draggable="true"
@@ -35,7 +36,7 @@ export function PhraseChip(props: PhraseChipProps): JSX.Element {
           event.dataTransfer.effectAllowed = 'copyMove';
         }}
         onClick={() => props.onApply(props.phrase)}
-        class="min-w-0 flex-1 cursor-grab truncate px-2 py-1 text-left text-sm active:cursor-grabbing"
+        class={styles.phrase}
         title={`Send "${props.phrase}" to Text 1`}
       >
         {props.phrase}
@@ -46,7 +47,7 @@ export function PhraseChip(props: PhraseChipProps): JSX.Element {
           tabIndex={-1}
           aria-label={`Delete "${props.phrase}"`}
           onClick={props.onDelete}
-          class="shrink-0 px-2 py-1 text-xs text-neutral-500 hover:text-red-400"
+          class={styles.delete}
         >
           ×
         </button>

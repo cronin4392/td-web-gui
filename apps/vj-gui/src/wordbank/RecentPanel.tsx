@@ -8,6 +8,7 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { PhraseChip } from './PhraseChip';
+import styles from './RecentPanel.module.css';
 
 export interface RecentPanelProps {
   store: WordbankStore;
@@ -28,7 +29,7 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
       role="tabpanel"
       id={`tabpanel-${RECENT_LIST_ID}`}
       aria-labelledby={`tab-${RECENT_LIST_ID}`}
-      class="flex h-full flex-col"
+      class={styles.panel}
     >
       <input
         type="search"
@@ -36,10 +37,10 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
         onInput={(event) => setFilter(event.currentTarget.value)}
         placeholder="filter…"
         aria-label="Filter recent phrases"
-        class="w-full shrink-0 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
+        class={styles.filter}
       />
 
-      <ul class="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+      <ul class={styles.rows}>
         <For each={rows()}>
           {(phrase) => (
             <li>
@@ -55,7 +56,7 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class="px-1 py-2 text-sm text-neutral-500">
+          <li class={styles.empty}>
             {filter().trim() ? 'No phrases match.' : 'Nothing recent yet.'}
           </li>
         </Show>

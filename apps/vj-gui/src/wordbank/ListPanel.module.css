@@ -1,0 +1,89 @@
+@layer components {
+  .panel {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--spacing-m);
+  }
+
+  .filter {
+    min-width: 0;
+    flex: 1;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &::placeholder {
+      color: var(--color-text-faint);
+    }
+  }
+
+  .action {
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: var(--text-m);
+  }
+
+  .actionBold {
+    font-weight: var(--font-weight-bold);
+  }
+
+  .addForm {
+    margin-top: var(--spacing-m);
+    flex-shrink: 0;
+  }
+
+  .addInput {
+    width: 100%;
+    resize: vertical;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &::placeholder {
+      color: var(--color-text-faint);
+    }
+  }
+
+  .rows {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    margin-top: var(--spacing-m);
+    overflow-y: auto;
+  }
+
+  .row {
+    position: relative;
+  }
+
+  .dropIndicator {
+    position: absolute;
+    top: calc(var(--spacing-s) * -1);
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--color-accent);
+  }
+
+  .empty {
+    padding: var(--spacing-m) var(--spacing-s);
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
+  }
+}

@@ -1,0 +1,24 @@
+@layer components {
+  .app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100%;
+    gap: var(--spacing-m);
+    padding: var(--spacing-m) var(--spacing-m) 0;
+    overflow: hidden;
+  }
+
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+    gap: var(--spacing-l);
+    overflow: hidden;
+  }
+
+  .binding {
+    margin-top: var(--spacing-l);
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
+  }
+}

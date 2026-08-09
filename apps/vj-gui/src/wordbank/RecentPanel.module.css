@@ -1,0 +1,38 @@
+@layer components {
+  .panel {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .filter {
+    width: 100%;
+    flex-shrink: 0;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &::placeholder {
+      color: var(--color-text-faint);
+    }
+  }
+
+  .rows {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    margin-top: var(--spacing-m);
+    overflow-y: auto;
+  }
+
+  .empty {
+    padding: var(--spacing-m) var(--spacing-s);
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
+  }
+}

@@ -8,6 +8,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { PhraseList, WordbankStore } from './store';
 import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from './dnd';
 import { PhraseChip } from './PhraseChip';
+import styles from './ListPanel.module.css';
 
 export interface ListPanelProps {
   store: WordbankStore;
@@ -46,21 +47,21 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
       role="tabpanel"
       id={`tabpanel-${props.list.id}`}
       aria-labelledby={`tab-${props.list.id}`}
-      class="flex h-full flex-col"
+      class={styles.panel}
     >
-      <div class="flex shrink-0 items-center gap-2">
+      <div class={styles.toolbar}>
         <input
           type="search"
           value={filter()}
           onInput={(event) => setFilter(event.currentTarget.value)}
           placeholder="filter…"
           aria-label="Filter phrases in this list"
-          class="min-w-0 flex-1 rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
+          class={styles.filter}
         />
         <button
           type="button"
           onClick={() => props.store.sortPhrases(props.list.id)}
-          class="rounded border border-neutral-600 px-2 py-1 text-sm"
+          class={styles.action}
           title="Sort A→Z (one-time, persists as the new order)"
         >
           A→Z
@@ -70,7 +71,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
           aria-label={adding() ? 'Close add phrase' : 'Add a phrase'}
           aria-expanded={adding()}
           onClick={toggleAdd}
-          class="rounded border border-neutral-600 px-2 py-1 text-sm font-semibold"
+          class={`${styles.action} ${styles.actionBold}`}
         >
           +
         </button>
@@ -78,7 +79,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
 
       <Show when={adding()}>
         <form
-          class="mt-2 shrink-0"
+          class={styles.addForm}
           onSubmit={(event) => {
             event.preventDefault();
             const value = addInputRef?.value ?? '';
@@ -92,7 +93,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
             rows={2}
             placeholder="new phrase…"
             aria-label="New phrase"
-            class="w-full resize-y rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 placeholder:text-neutral-500"
+            class={styles.addInput}
             onKeyDown={(event) => {
               if (event.key === 'Escape') {
                 setAdding(false);
@@ -110,11 +111,11 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
         </form>
       </Show>
 
-      <ul class="mt-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+      <ul class={styles.rows}>
         <For each={rows()}>
           {(row) => (
             <li
-              class="relative"
+              class={styles.row}
               onDragOver={(event) => {
                 if (isFiltered() || !hasPhraseDragData(event.dataTransfer!)) return;
                 event.preventDefault();
@@ -143,7 +144,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
               }}
             >
               <Show when={dropIndex() === row.index}>
-                <div class="absolute -top-1 left-0 right-0 h-0.5 bg-blue-400" />
+                <div class={styles.dropIndicator} />
               </Show>
               <PhraseChip
                 phrase={row.phrase}
@@ -157,7 +158,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class="px-1 py-2 text-sm text-neutral-500">
+          <li class={styles.empty}>
             {isFiltered() ? 'No phrases match.' : 'No phrases yet — add one above.'}
           </li>
         </Show>

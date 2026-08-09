@@ -1,0 +1,23 @@
+@layer components {
+  .button {
+    cursor: pointer;
+    user-select: none;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-s);
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-text);
+    background: var(--color-canvas);
+    color: var(--color-text);
+
+    &:has(:focus-visible) {
+      outline: 2px solid var(--color-text);
+      outline-offset: 2px;
+    }
+  }
+
+  .checked {
+    background: var(--color-text);
+    color: var(--color-canvas);
+  }
+}

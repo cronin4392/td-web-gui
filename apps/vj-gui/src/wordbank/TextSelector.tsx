@@ -8,6 +8,7 @@ import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { TabStrip } from './TabStrip';
 import { ListPanel } from './ListPanel';
+import styles from './TextSelector.module.css';
 
 export function TextSelector(props: {
   store: ReturnType<typeof createWordbankStore>;
@@ -40,12 +41,12 @@ export function TextSelector(props: {
   );
 
   return (
-    <div class="flex min-h-0 flex-col">
+    <div class={styles.selector}>
       {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
           param name once at setup, so a changed `name` prop would not rebind. */}
       <Show when={selectedLayer()} keyed>
         {(layer) => (
-          <section class="flex shrink-0 flex-col gap-1">
+          <section class={styles.fields}>
             <TextField
               name={layerTextParam(layer, 1)}
               label="Artist name"
@@ -64,9 +65,9 @@ export function TextSelector(props: {
         )}
       </Show>
 
-      <section class="flex min-h-0 flex-1 flex-col pt-1">
+      <section class={styles.lists}>
         <TabStrip store={props.store} />
-        <div class="min-h-0 flex-1 pt-2">
+        <div class={styles.body}>
           <Show
             when={props.store.state.selectedListId !== RECENT_LIST_ID}
             fallback={<RecentPanel store={props.store} onApply={applyToText1} />}

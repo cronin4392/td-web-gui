@@ -5,6 +5,7 @@ import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 import { RadioButton } from '@/ui/RadioButton';
+import styles from './SceneSelector.module.css';
 
 export function SceneSelector(): JSX.Element {
   const { loadTox } = usePlayback();
@@ -35,10 +36,10 @@ export function SceneSelector(): JSX.Element {
   });
 
   return (
-    <section class="flex gap-3">
+    <section class={styles.selector}>
       <Show when={tags().length > 0}>
-        <fieldset class="flex shrink-0 flex-col gap-1 overflow-y-auto">
-          <legend class="sr-only">Scene tag</legend>
+        <fieldset class={styles.tags}>
+          <legend class="u-sr-only">Scene tag</legend>
           {/* For, not Index: a radio holds DOM state, so a reordered list must
               move the node rather than rewrite its label. */}
           <For each={tagOptions()}>
@@ -55,22 +56,19 @@ export function SceneSelector(): JSX.Element {
         </fieldset>
       </Show>
 
-      <div class="flex min-w-0 flex-1 flex-col gap-1 overflow-y-auto">
+      <div class={styles.scenes}>
         <PickerToolbar
           refreshing={picker.refreshing()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
         />
 
-        <div class="grid grid-cols-4 content-start gap-1">
-          <For
-            each={visibleScenes()}
-            fallback={<p class="col-span-4 text-sm text-neutral-500">No scenes yet.</p>}
-          >
+        <div class={styles.grid}>
+          <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
             {(scene) => (
               <button
                 type="button"
-                class="relative flex aspect-video items-end overflow-hidden rounded border border-neutral-700 bg-neutral-800 bg-cover bg-center text-left hover:border-neutral-500 disabled:opacity-40 disabled:hover:border-neutral-700"
+                class={styles.tile}
                 style={
                   scene.thumbnail ? { 'background-image': `url("${scene.thumbnail}")` } : undefined
                 }
@@ -79,9 +77,7 @@ export function SceneSelector(): JSX.Element {
                 onClick={() => void picker.loadTox(scene.path)}
               >
                 {/* Scrim — the label sits over arbitrary artwork. */}
-                <span class="w-full truncate bg-black/60 px-1 py-0.5 text-xs text-neutral-100">
-                  {scene.name}
-                </span>
+                <span class={styles.caption}>{scene.name}</span>
               </button>
             )}
           </For>

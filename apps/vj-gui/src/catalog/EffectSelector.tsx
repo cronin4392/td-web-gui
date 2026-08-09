@@ -4,6 +4,7 @@ import type { EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
+import styles from './EffectSelector.module.css';
 
 export function EffectSelector(): JSX.Element {
   const { loadTox } = usePlayback();
@@ -15,22 +16,19 @@ export function EffectSelector(): JSX.Element {
   });
 
   return (
-    <section class="flex flex-col gap-1 overflow-y-auto">
+    <section class={styles.selector}>
       <PickerToolbar
         refreshing={picker.refreshing()}
         error={picker.error()}
         onRefresh={() => void picker.refresh()}
       />
 
-      <div class="flex flex-col content-start gap-1">
-        <For
-          each={picker.catalog()}
-          fallback={<p class="text-sm text-neutral-500">No effects yet.</p>}
-        >
+      <div class={styles.list}>
+        <For each={picker.catalog()} fallback={<p class={styles.empty}>No effects yet.</p>}>
           {(effect) => (
             <button
               type="button"
-              class="rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-left text-neutral-100 hover:border-neutral-500 disabled:opacity-40 disabled:hover:border-neutral-700"
+              class={styles.effect}
               title={effect.name}
               disabled={!effect.path}
               onClick={() => void picker.loadTox(effect.path)}

@@ -1,0 +1,28 @@
+@layer components {
+  .selector {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .fields {
+    display: flex;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: var(--spacing-s);
+  }
+
+  .lists {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    padding-top: var(--spacing-s);
+  }
+
+  .body {
+    min-height: 0;
+    flex: 1;
+    padding-top: var(--spacing-m);
+  }
+}

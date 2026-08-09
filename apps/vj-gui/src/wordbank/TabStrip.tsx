@@ -15,6 +15,7 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { TAB_MIME, adjustReorderTarget, hasDragMime } from './dnd';
+import styles from './TabStrip.module.css';
 
 export interface TabStripProps {
   store: WordbankStore;
@@ -46,12 +47,11 @@ export function TabStrip(props: TabStripProps): JSX.Element {
     tabRefs.get(next)?.focus();
   }
 
+  const tabClass = (id: string) =>
+    `${styles.tab} ${state.selectedListId === id ? styles.tabSelected : ''}`;
+
   return (
-    <div
-      role="tablist"
-      aria-label="Phrase lists"
-      class="flex shrink-0 flex-wrap items-center gap-1 border-b border-neutral-700 pb-1"
-    >
+    <div role="tablist" aria-label="Phrase lists" class={styles.strip}>
       <button
         ref={(el) => tabRefs.set(RECENT_LIST_ID, el)}
         type="button"
@@ -62,11 +62,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         tabIndex={state.selectedListId === RECENT_LIST_ID ? 0 : -1}
         onClick={() => props.store.selectList(RECENT_LIST_ID)}
         onKeyDown={(event) => onTabKeyDown(event, RECENT_LIST_ID)}
-        classList={{
-          'font-semibold text-white': state.selectedListId === RECENT_LIST_ID,
-          'text-neutral-400': state.selectedListId !== RECENT_LIST_ID,
-        }}
-        class="px-2 py-1 text-sm"
+        class={tabClass(RECENT_LIST_ID)}
       >
         Recent
       </button>
@@ -74,8 +70,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
       <For each={state.lists}>
         {(tab, i) => (
           <div
-            class="flex items-center rounded-t border border-b-0 border-transparent"
-            classList={{ 'border-neutral-600 bg-neutral-800': dragIndex() === i() }}
+            class={`${styles.tabSlot} ${dragIndex() === i() ? styles.tabSlotDragging : ''}`}
             draggable={renamingId() !== tab.id}
             onDragStart={(event) => {
               event.dataTransfer?.setData(TAB_MIME, String(i()));
@@ -109,11 +104,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   onClick={() => props.store.selectList(tab.id)}
                   onDblClick={() => setRenamingId(tab.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab.id)}
-                  classList={{
-                    'font-semibold text-white': state.selectedListId === tab.id,
-                    'text-neutral-400': state.selectedListId !== tab.id,
-                  }}
-                  class="px-2 py-1 text-sm"
+                  class={tabClass(tab.id)}
                 >
                   {tab.name}
                 </button>
@@ -137,7 +128,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                     });
                   }}
                   value={tab.name}
-                  class="w-24 border border-neutral-600 bg-neutral-800 px-1 py-0.5 text-sm text-neutral-100"
+                  class={styles.rename}
                   onBlur={(event) => commitRename(tab.id, event.currentTarget.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Escape') setRenamingId(null);
@@ -155,19 +146,19 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   aria-label={`Delete list "${tab.name}"`}
                   disabled={state.lists.length <= 1}
                   onClick={() => setConfirmDeleteId(tab.id)}
-                  // Hidden for now — re-enable when tab deletion comes back.
-                  class="hidden px-1 text-xs text-neutral-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-30"
+                  // Hidden for now — re-enable by dropping `u-hidden`.
+                  class={`${styles.delete} u-hidden`}
                 >
                   ×
                 </button>
               }
             >
-              <span class="flex items-center gap-1 pl-1 text-xs">
+              <span class={styles.confirm}>
                 Delete?
                 <button
                   type="button"
                   tabIndex={-1}
-                  class="text-red-400"
+                  class={styles.confirmYes}
                   onClick={() => {
                     props.store.deleteList(tab.id);
                     setConfirmDeleteId(null);
@@ -187,7 +178,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         type="button"
         aria-label="Add a new list"
         onClick={() => props.store.addList()}
-        class="px-2 py-1 text-sm font-semibold text-neutral-400 hover:text-white"
+        class={styles.add}
       >
         +
       </button>

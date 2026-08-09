@@ -10,6 +10,7 @@ import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
 import { TextSelector } from './wordbank/TextSelector';
+import styles from './App.module.css';
 
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchWordbank()`). */
@@ -25,20 +26,20 @@ export function App(props: AppProps): JSX.Element {
 
   return (
     <PlaybackProvider>
-      <main class="grid grid-rows-[auto_1fr] h-screen gap-2 px-2 pt-2 overflow-hidden">
+      <main class={styles.app}>
         <LayerPreviews />
         {/* The GUI project is a separate process from the scenes, so its params
             live behind their own provider — the text selector is the only thing
             bound to it. */}
         <GuiProvider>
-          <div class="grid grid-cols-3 grid-rows-1 gap-4 overflow-hidden">
+          <div class={styles.columns}>
             <SceneSelector />
             <EffectSelector />
             <TextSelector store={store} />
           </div>
         </GuiProvider>
-        {/* Hidden for now — re-enable by dropping the `hidden` class. */}
-        <p class="mt-6 hidden shrink-0 text-sm text-neutral-500">
+        {/* Hidden for now — re-enable by dropping `u-hidden`. */}
+        <p class={`${styles.binding} u-hidden`}>
           Bound to{' '}
           {[guiInstance, ...loaderInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
         </p>

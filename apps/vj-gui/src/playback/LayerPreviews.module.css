@@ -1,0 +1,128 @@
+@layer components {
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: var(--spacing-m);
+  }
+
+  .frame {
+    position: relative;
+  }
+
+  .tile {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 1px solid transparent;
+    background: var(--color-canvas);
+    cursor: pointer;
+
+    & :global(.td-video) {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  .tileActive {
+    border-color: var(--color-accent);
+  }
+
+  .thumbnail {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--color-overlay);
+    font-size: var(--text-m);
+    color: var(--color-text);
+  }
+
+  .streamToggle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: var(--spacing-l);
+    height: var(--spacing-l);
+  }
+
+  .params {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-m);
+  }
+
+  .paramGroup {
+    display: flex;
+    gap: var(--spacing-s);
+  }
+
+  .stats {
+    position: absolute;
+    left: var(--spacing-s);
+    top: var(--spacing-s);
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-s);
+    text-align: left;
+    color: var(--color-text);
+  }
+
+  .dotCell {
+    padding-right: var(--spacing-s);
+  }
+
+  .dot {
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    /* A ring, so the dot stays legible over a bright frame. */
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 50%);
+  }
+
+  .good {
+    background: #4ade80;
+  }
+
+  .warn {
+    background: #fbbf24;
+  }
+
+  .bad {
+    background: var(--color-danger);
+  }
+
+  .unknown {
+    background: var(--color-border);
+  }
+
+  .statLabel,
+  .statValue {
+    background: var(--color-overlay);
+    opacity: 0;
+    transition: opacity 150ms;
+
+    .frame:hover & {
+      opacity: 1;
+    }
+  }
+
+  .statLabel {
+    padding-inline: var(--spacing-s);
+  }
+
+  .statValue {
+    padding-right: var(--spacing-s);
+  }
+}

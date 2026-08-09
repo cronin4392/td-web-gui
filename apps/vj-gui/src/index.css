@@ -1,18 +1,6 @@
-@import 'tailwindcss';
+@layer tokens, reset, base, components, utilities;
 
-.video-tile .td-video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.video-overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgb(17 17 17 / 60%);
-  color: #ddd;
-  font-size: 0.9rem;
-}
+@import './styles/tokens.css';
+@import './styles/reset.css';
+@import './styles/base.css';
+@import './styles/utilities.css';
