@@ -1,4 +1,4 @@
-import type { SelectOption } from 'td-core';
+import type { JsonValue, SelectOption } from 'td-core';
 import { host, type LayerId, type TDInstanceConfig } from './layers';
 
 /**
@@ -42,38 +42,38 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
 export type LayerTextParamName = `scene${LayerId}Text${1 | 2}`;
 
 /**
- * The GUI's color ramp, as five separate names rather than one — a Ramp TOP
- * *is* a DAT of keyframes plus a handful of parameters, and `td-core` already
- * carries both kinds, so nothing about it needs a wire type of its own.
- * `rampGradient` in `@/ui/gradient` puts them back together.
- *
- * `rampKeys` is one row per keyframe, columns `pos, r, g, b, a`, all 0–1;
- * `rampType` and `rampInterp` carry TD's own menu keys (`horizontal`, `step`,
- * …). All five are TD → web only — see {@link guiReadonly}.
+ * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
+ * scene loader, plus the selected Color scheme.
  */
-export interface RampParams {
-  rampKeys: string[][];
-  rampType: string;
-  rampInterp: string;
-  rampPhase: number;
-  rampPeriod: number;
-}
+export type GuiParams = Record<LayerTextParamName, string> & {
+  /**
+   * Path of the Color scheme driving the GUI — TD's `Activecolorpath`, and the
+   * `path` of one entry in the {@link GuiCalls} catalog.
+   *
+   * Writing it *is* selecting a scheme; everything TouchDesigner derives from a
+   * color hangs off this one parameter. It reads back too, so a scheme picked
+   * in TD's own panel moves the web's selection with it.
+   */
+  activeColorScheme: string;
+};
 
 /**
- * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
- * scene loader, plus the color ramp.
+ * Calls the GUI instance exposes — the TS half of `HANDLERS` in
+ * `td/gui-config.py`.
+ *
+ * The Color scheme catalog is a call rather than a readout because it is a
+ * question asked once, not a value that streams: TD walks its own two
+ * enumeration DATs and samples each scheme's ramp on demand, so nothing has to
+ * be materialised in the network to watch. Re-ask it after a reconnect.
  */
-export type GuiParams = Record<LayerTextParamName, string> & RampParams;
+export interface GuiCalls {
+  colorSchemes: { args?: undefined; result: JsonValue };
+}
 
 /** GUI readout names, declared read-only so bound controls render disabled —
- * `td/gui-config.py`'s `READOUTS` plus its non-writable `REGISTRY` entries. */
-export const guiReadonly = [
-  'rampKeys',
-  'rampType',
-  'rampInterp',
-  'rampPhase',
-  'rampPeriod',
-] as const satisfies readonly (keyof GuiParams)[];
+ * `td/gui-config.py`'s `READOUTS` plus its non-writable `REGISTRY` entries.
+ * Empty today: everything the GUI publishes, the web also drives. */
+export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
 
 /**
  * Calls each scene instance exposes — the TS half of `HANDLERS` in

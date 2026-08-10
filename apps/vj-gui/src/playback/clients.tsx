@@ -16,14 +16,16 @@ import {
   guiReadonly,
   loaderInstances,
   loaderReadonly,
+  type GuiCalls,
   type GuiParams,
   type LoaderCalls,
   type LoaderId,
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the eight loaders' text params and the scene library. */
-export const GuiClient = createTDClient<GuiParams>();
+/** The GUI project: the eight loaders' text params, the color ramp, and the
+ * Color scheme catalog. */
+export const GuiClient = createTDClient<GuiParams, GuiCalls>();
 
 /** Every scene project: performance readouts, the video stream, and the
  * `loadScene` call. */

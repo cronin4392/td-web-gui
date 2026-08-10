@@ -36,6 +36,19 @@ relative to `apps/vj-gui`.
 | **Selected layer** | The Layer that a pick in the GUI acts on                                                | Active deck, current output |
 | **Load**           | Telling a Layer's Loader to play a given Tox path                                       | Play, fire, trigger, cue    |
 
+## Color
+
+| Term              | Definition                                                                                            | Aliases to avoid                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Color scheme**  | One selectable set of colors, a COMP in the GUI project; its path is its identity on the wire         | Palette, swatch, color, gradient    |
+| **Color group**   | The COMP a Color scheme is filed under, and one tab in the picker — Colors, Spectrum, Ramp, RampWhite | Category, color tag, palette folder |
+| **Active scheme** | The Color scheme currently driving the GUI, held in TD's `Activecolorpath`                            | Current color, selected palette     |
+| **Ramp**          | The gradient a Color scheme paints, sampled by TD into stops the web draws as CSS                     | Gradient, colormap, LUT             |
+
+- A **Color scheme** sits inside exactly one **Color group**; scheme names repeat across groups (`BlueGreen` is in both Colors and Spectrum), so a name alone never identifies one.
+- Selecting a **Color scheme** writes its path and nothing else — the **Active scheme** is the only state, and every color TouchDesigner derives hangs off it.
+- A **Ramp** belongs to a **Color scheme** and never stands alone; it is what a scheme's swatch draws, and the only reason a scheme is recognisable at a glance.
+
 ## Wordbank
 
 | Term            | Definition                                                                                      | Aliases to avoid                    |
@@ -53,6 +66,7 @@ relative to `apps/vj-gui`.
 - A **Sync** rebuilds one catalog from one root folder — the **Scene catalog** and the **Effect catalog** never mix.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
+- A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
 - Applying a **Phrase** writes it to the **Selected layer**'s text param and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
 
 ## Example dialogue

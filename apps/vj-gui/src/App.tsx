@@ -6,7 +6,7 @@ import { PlaybackProvider } from './playback/PlaybackProvider';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
-import { ColorRamp } from './playback/ColorRamp';
+import { ColorSelector } from './playback/ColorSelector';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
@@ -31,15 +31,13 @@ export function App(props: AppProps): JSX.Element {
         <LayerPreviews />
         {/* The GUI project is a separate process from the scenes, so its params
             live behind their own provider — the text selector and the color
-            ramp are what's bound to it. */}
+            selector are what's bound to it. */}
         <GuiProvider>
           <div class={styles.columns}>
             <SceneSelector />
             <EffectSelector />
             <TextSelector store={store} />
-            <div>
-              <ColorRamp />
-            </div>
+            <ColorSelector />
           </div>
         </GuiProvider>
         {/* Hidden for now — re-enable by dropping `u-hidden`. */}

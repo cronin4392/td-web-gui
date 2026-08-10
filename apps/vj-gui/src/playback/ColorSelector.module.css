@@ -1,0 +1,89 @@
+@layer components {
+  .schemes {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--spacing-m);
+    min-height: 0;
+  }
+
+  .tabs {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: var(--spacing-s);
+    padding-bottom: var(--spacing-s);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .tab {
+    font-family: var(--font-mono);
+    padding: var(--spacing-s) var(--spacing-m);
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+  }
+
+  .tabSelected {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+  }
+
+  .grid {
+    display: grid;
+    /* One per row in a narrow column, wrapping if the column ever gets wide —
+       the swatch is a gradient bar, so it reads at any width. */
+    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    align-content: start;
+    overflow-y: auto;
+  }
+
+  .scheme {
+    display: grid;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s);
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      border-color: var(--color-border-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-text);
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+  }
+
+  .schemeActive {
+    border-color: var(--color-text);
+    background: var(--color-surface);
+  }
+
+  .swatch {
+    height: var(--spacing-l);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    /* Shows through wherever a stop's alpha is under 1, so a transparent ramp
+       reads as transparent rather than as whatever sits behind the panel. */
+    background-color: var(--color-surface);
+  }
+
+  .name {
+    overflow: hidden;
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .empty {
+    font-size: var(--text-s);
+    color: var(--color-text-faint);
+  }
+}
