@@ -52,9 +52,15 @@ thing. They read SQLite through `node:sqlite`.
 is shared by **all eight** scene processes — same file, eight `WebGuiServer`
 components, differing only in their `Identifier` and `Port` parameters. That's
 why no wire name in it is scene-prefixed: a name is scoped to its instance.
+`td/input-config.py` is the Input project's config (port 8766) — the rig's MIDI
+and audio front end.
 
-Its TypeScript counterpart is `src/playback/wire.ts`. Those two must agree
-spelling-for-spelling; nothing checks it.
+No port is chosen on this side: the web-side defaults are copies of the
+`ExternalPorts` tool in the TouchDesigner project, which every `.toe` reads its
+own ports from, so a port moves there first.
+
+The TypeScript counterpart of all three is `src/playback/wire.ts`. Each pair
+must agree spelling-for-spelling; nothing checks it.
 
 Loading a scene bypasses parameters entirely — the web calls each SceneLoader
 process directly rather than going through the GUI project.

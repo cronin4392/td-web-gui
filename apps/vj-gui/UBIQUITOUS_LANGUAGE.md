@@ -29,12 +29,14 @@ relative to `apps/vj-gui`.
 
 ## Playback
 
-| Term               | Definition                                                                              | Aliases to avoid            |
-| ------------------ | --------------------------------------------------------------------------------------- | --------------------------- |
-| **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process | Channel, deck, slot, output |
-| **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing         | Player, host, container     |
-| **Selected layer** | The Layer that a pick in the GUI acts on                                                | Active deck, current output |
-| **Load**           | Telling a Layer's Loader to play a given Tox path                                       | Play, fire, trigger, cue    |
+| Term               | Definition                                                                               | Aliases to avoid            |
+| ------------------ | ---------------------------------------------------------------------------------------- | --------------------------- |
+| **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process  | Channel, deck, slot, output |
+| **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing          | Player, host, container     |
+| **Selected layer** | The Layer that a pick in the GUI acts on                                                 | Active deck, current output |
+| **Load**           | Telling a Layer's Loader to play a given Tox path                                        | Play, fire, trigger, cue    |
+| **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project     | MIDI project, controllers   |
+| **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web | Tempo, beat, rate, speed    |
 
 ## Color
 

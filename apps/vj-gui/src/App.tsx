@@ -1,8 +1,9 @@
 import { onCleanup, type JSX } from 'solid-js';
 import { guiInstance } from './playback/layers';
 import { loaderInstances } from './playback/wire';
-import { GuiProvider } from './playback/clients';
+import { GuiProvider, InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
+import { BpmReadout } from './playback/BpmReadout';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
@@ -29,9 +30,6 @@ export function App(props: AppProps): JSX.Element {
     <PlaybackProvider>
       <main class={styles.app}>
         <LayerPreviews />
-        {/* The GUI project is a separate process from the scenes, so its params
-            live behind their own provider — the text selector and the color
-            selector are what's bound to it. */}
         <GuiProvider>
           <div class={styles.columns}>
             <SceneSelector />
@@ -40,6 +38,9 @@ export function App(props: AppProps): JSX.Element {
             <ColorSelector />
           </div>
         </GuiProvider>
+        <InputProvider>
+          <BpmReadout />
+        </InputProvider>
         {/* Hidden for now — re-enable by dropping `u-hidden`. */}
         <p class={`${styles.binding} u-hidden`}>
           Bound to{' '}

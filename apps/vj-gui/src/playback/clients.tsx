@@ -2,7 +2,7 @@
  * The `createTDClient` factories, shared across the app's components — a
  * factory must be created once per *schema*, not per-component.
  *
- * Two factories for nine instances, because a factory is purely compile-time:
+ * Three factories for ten instances, because a factory is purely compile-time:
  * its components bind to whichever `<Provider>` they render inside, so the eight
  * scene instances — same project, same wire names — share one. `LoaderClient`
  * rendered under sceneA's provider reads sceneA; the identical markup under
@@ -11,13 +11,15 @@
 
 import type { JSX } from 'solid-js';
 import { createTDClient } from 'td-core';
-import { guiInstance, type LayerId } from './layers';
+import { guiInstance, inputInstance, type LayerId } from './layers';
 import {
   guiReadonly,
+  inputReadonly,
   loaderInstances,
   loaderReadonly,
   type GuiCalls,
   type GuiParams,
+  type InputParams,
   type LoaderCalls,
   type LoaderId,
   type LoaderParams,
@@ -30,6 +32,8 @@ export const GuiClient = createTDClient<GuiParams, GuiCalls>();
 /** Every scene project: performance readouts, the video stream, and the
  * `loadScene` call. */
 export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
+
+export const InputClient = createTDClient<InputParams>();
 
 /** One scene instance's connection, typed by its params and its calls. */
 export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;
@@ -63,6 +67,18 @@ export function GuiProvider(props: { children: JSX.Element }): JSX.Element {
     <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id} readonly={[...guiReadonly]}>
       {props.children}
     </GuiClient.Provider>
+  );
+}
+
+export function InputProvider(props: { children: JSX.Element }): JSX.Element {
+  return (
+    <InputClient.Provider
+      url={inputInstance.url}
+      instance={inputInstance.id}
+      readonly={[...inputReadonly]}
+    >
+      {props.children}
+    </InputClient.Provider>
   );
 }
 

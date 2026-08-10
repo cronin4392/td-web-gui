@@ -76,6 +76,17 @@ export interface GuiCalls {
 export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
 
 /**
+ * Param schema for the `input` instance — the TS half of `READOUTS` in
+ * `td/input-config.py`.
+ */
+export interface InputParams {
+  bpm: number;
+}
+
+/** Input readout names, declared read-only so their controls render disabled. */
+export const inputReadonly = ['bpm'] as const satisfies readonly (keyof InputParams)[];
+
+/**
  * Calls each scene instance exposes — the TS half of `HANDLERS` in
  * `td/scene-config.py`.
  *

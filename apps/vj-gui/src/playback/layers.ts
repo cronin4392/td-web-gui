@@ -6,12 +6,14 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The page drives **nine** TouchDesigner processes, of **two** kinds:
+ * The page drives **ten** TouchDesigner processes, of **three** kinds:
  *
  *   - the GUI project (`td/gui-config.py`), which owns the eight loaders'
  *     text params — one of a kind, one schema; which loader is active is
  *     local UI state (`selectedLayer` in `App.tsx`), not a TD-driven value;
- *   - the scene projects (`td/scene-config.py`), one process per live scene.
+ *   - the scene projects (`td/scene-config.py`), one process per live scene;
+ *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
+ *     end — one of a kind, one schema.
  *
  * The eight scene processes run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
@@ -38,6 +40,7 @@ export const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
  * makes them contiguous.
  */
 const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '8765';
+const inputPort = import.meta.env.VITE_TD_PORT_INPUT ?? '8766';
 
 /**
  * The GUI project. `id` matches its WebGuiServer `Identifier` par — the
@@ -47,6 +50,12 @@ const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '8765';
 export const guiInstance = {
   id: 'gui',
   url: `ws://${host}:${guiPort}`,
+} as const satisfies TDInstanceConfig;
+
+/** The Input project — the rig's MIDI and audio front end. */
+export const inputInstance = {
+  id: 'input',
+  url: `ws://${host}:${inputPort}`,
 } as const satisfies TDInstanceConfig;
 
 /** The eight external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`. */

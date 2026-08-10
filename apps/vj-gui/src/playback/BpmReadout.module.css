@@ -1,0 +1,20 @@
+@layer components {
+  .bpm {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-s);
+    font-family: var(--font-mono);
+    color: var(--color-text);
+  }
+
+  .value {
+    /* Tabular figures so a changing tempo doesn't shuffle the label beside it. */
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-bold);
+  }
+
+  .unit {
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+  }
+}
