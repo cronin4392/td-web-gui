@@ -118,7 +118,7 @@ export interface MixerParams {
   cues: string[][]; // a readout
 }
 
-export const readonly = ['fps', 'cues'];
+export const readonly = ['fps', 'cues'] as const satisfies readonly (keyof MixerParams)[];
 ```
 
 Readouts sit in the same interface as parameters — they ride the same wire
@@ -193,7 +193,13 @@ props, and carries a stable `td-*` class hook.
 | `<StreamToggle>`               | Starts and stops that stream's TouchDesigner-side encoder.           |
 
 **Connection** — `createTDClient<Schema>()` for typed UI;
-`createTDConnection(url)` standalone, with no context or component tree.
+`createTDConnection(url)` standalone, with no context or component tree. Each
+factory is scoped to its own providers, so several instances can live on one
+page — nested or side by side — and a control still reads the instance its
+schema says it does. Bare exports (`useTDConnection`, `createTDSignal`, the
+unbound components) take the nearest provider of any factory instead, which is
+what makes an instance-agnostic custom control possible. See
+[api.md § Scoping](docs/api.md#scoping).
 Reconnect with backoff, handshake watchdog, heartbeat, rAF throttle,
 backpressure, and read-only parameter handling — all per-connection options with
 sane defaults.

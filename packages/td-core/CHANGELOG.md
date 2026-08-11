@@ -44,6 +44,91 @@ project. See [docs/protocol.md](docs/protocol.md).
   `CallSignature` moved to the calls module; they are still exported from the
   package root under the same names.
 
+- **Each `createTDClient()` factory now owns its own contexts, so a bundle member
+  binds a provider _from that factory_.** Previously every factory shared one
+  module-level connection context and one video context, and the generics were
+  purely compile-time — so nesting providers from two different factories made
+  the innermost win for everything:
+
+  ```tsx
+  <Mixer.Provider url="ws://localhost:9980">
+    <Render.Provider url="ws://localhost:9981">
+      {/* was: bound to render, typed as mixer. Now: bound to mixer. */}
+      <Mixer.Value name="intensity" />
+    </Render.Provider>
+  </Mixer.Provider>
+  ```
+
+  The old binding was a silent bug wherever it occurred: the `name` typechecks
+  against the factory's schema while the value is fetched from another instance,
+  so a readout reads `undefined` forever and a write comes back `unknown_param`
+  — or, if both instances share the name, quietly drives the wrong TouchDesigner
+  project. It also made "a control for instance A inside instance B's subtree"
+  impossible to write correctly.
+
+  The rule, in full: **anything reached through a factory bundle
+  (`Provider`, `signal`, `useConnection`, `useVideo`, and every typed component)
+  resolves to the nearest provider of that same factory, skipping any other
+  factory's providers in between. Anything imported bare from `td-core`
+  (`createTDSignal`, `useTDConnection`, `useTDVideoStream`, `createTDHandler`,
+  and the unbound components) still binds the nearest provider of any factory** —
+  unchanged, and deliberately so: that is what makes one status bar or one custom
+  knob serve every instance. `Factory.useConnection().handle(name, fn)` is the
+  typed, factory-scoped counterpart to `createTDHandler`; no
+  `Factory.createHandler` was added.
+
+  **Watch for one new throw when you upgrade.** A bundle member with **no**
+  provider of its own factory anywhere up-tree now fails loudly instead of
+  binding to a neighbour:
+
+  ```
+  [td-core] no TD connection in context — wrap this component in a <Provider>
+  ```
+
+  Previously that case bound silently to whatever provider was nearest. Failing
+  loud is the intended improvement, but it does surface anyone who was relying on
+  the old accident — `FactoryA.Value` under only a `<FactoryB.Provider>`, working
+  because both schemas declare the same name. Two fixes, depending on what was
+  meant: add a `<FactoryA.Provider>` above it (anywhere up-tree, other factories'
+  providers in between are fine), or, if nearest-provider binding is genuinely
+  what you wanted, switch to the bare `<Value>` / `createTDSignal` — unchanged in
+  behavior, at the cost of the schema typing on `name`. See
+  [docs/troubleshooting.md](docs/troubleshooting.md#connects-but-no-parameters).
+
+  **Minor, not breaking.** The public export surface, `TDProviderProps`, the wire
+  protocol, `PROTOCOL_VERSION`, and everything in `touchdesigner/` are all
+  untouched. The only bindings that change are ones that had no correct use
+  before: a nested cross-factory bind (silently wrong) and a missing-provider
+  bind (silently wrong, now a throw). Single-factory apps, and multi-factory apps
+  whose providers are siblings, resolve identically. Several providers from the
+  **same** factory still nest nearest-wins, which is how one factory serves N
+  instances of one schema. See [docs/api.md § Scoping](docs/api.md#scoping) and
+  [docs/design-notes.md § Factories are runtime-scoped](docs/design-notes.md#factories-are-runtime-scoped-bare-exports-are-not).
+
+- `ParamValue` gains `string[][]`, for whole-table readouts. Additive, and
+  `PROTOCOL_VERSION` stays `1` — every other wire type is untouched, so a
+  project that declares no whole-table readouts is unaffected.
+- **`parse` now validates `params` per entry rather than all-or-nothing.** An
+  entry carrying an unrecognised value type is dropped and the rest of the map
+  is kept; only a `params` that isn't an object at all nulls the message.
+  Previously one bad value discarded the whole message, which for a `snapshot`
+  meant the client never synced anything and the symptom pointed nowhere near
+  the cause. This is also what keeps future wire-type additions from being
+  breaking changes.
+- An `update` or `pulse` aimed at a readout name is refused with
+  `param_not_writable` rather than `unknown_param` — the name is real, it just
+  has no writable side, and that code is what triggers the web's existing
+  runtime read-only safety net.
+- Generated DATs get their `File` as an expression resolved inside
+  `op.WebGuiServer.par.Tdcoredir`, matching how the hand-placed callbacks DATs
+  resolve their own sources. No new parameter is needed to locate the callback
+  code, and repointing `Tdcoredir` moves every DAT at once rather than waiting
+  for the next `Rebuild()`.
+- `WebGuiServerExt.Rebuild()` reconciles on `(watcher kind, operator path)`
+  rather than path alone, so one operator can carry watchers of different kinds.
+  Existing generated DATs are matched by which parameter names their target
+  (`op` / `chop` / `dat`), read off the operator rather than remembered in a tag.
+
 ### Fixed
 
 - **The generated operators are no longer saved into your `.toe`.** `exit_watch`
@@ -178,32 +263,6 @@ project. See [docs/protocol.md](docs/protocol.md).
 - `webserver-callbacks.par_names(entry)` — public accessor for the parameter
   names backing a registry entry, so the generated watchers and the broadcast
   path share one implementation of `number[]` ParGroup expansion.
-
-### Changed
-
-- `ParamValue` gains `string[][]`, for whole-table readouts. Additive, and
-  `PROTOCOL_VERSION` stays `1` — every other wire type is untouched, so a
-  project that declares no whole-table readouts is unaffected.
-- **`parse` now validates `params` per entry rather than all-or-nothing.** An
-  entry carrying an unrecognised value type is dropped and the rest of the map
-  is kept; only a `params` that isn't an object at all nulls the message.
-  Previously one bad value discarded the whole message, which for a `snapshot`
-  meant the client never synced anything and the symptom pointed nowhere near
-  the cause. This is also what keeps future wire-type additions from being
-  breaking changes.
-- An `update` or `pulse` aimed at a readout name is refused with
-  `param_not_writable` rather than `unknown_param` — the name is real, it just
-  has no writable side, and that code is what triggers the web's existing
-  runtime read-only safety net.
-- Generated DATs get their `File` as an expression resolved inside
-  `op.WebGuiServer.par.Tdcoredir`, matching how the hand-placed callbacks DATs
-  resolve their own sources. No new parameter is needed to locate the callback
-  code, and repointing `Tdcoredir` moves every DAT at once rather than waiting
-  for the next `Rebuild()`.
-- `WebGuiServerExt.Rebuild()` reconciles on `(watcher kind, operator path)`
-  rather than path alone, so one operator can carry watchers of different kinds.
-  Existing generated DATs are matched by which parameter names their target
-  (`op` / `chop` / `dat`), read off the operator rather than remembered in a tag.
 
 ### Compatibility
 

@@ -5,6 +5,7 @@ else: the factory, the provider, the connection, video, and the primitives.
 
 - [`createTDClient`](#createtdclient)
 - [`<Provider>`](#provider)
+- [Scoping](#scoping)
 - [Connection](#connection)
 - [Bindings](#bindings)
 - [Calls](#calls)
@@ -18,7 +19,7 @@ else: the factory, the provider, the connection, video, and the primitives.
 
 ```ts
 function createTDClient<
-  Schema extends Record<string, ParamValue>,
+  Schema extends ParamSchema<Schema>,
   Calls extends CallSchema<Calls> = Record<string, CallSignature>,
   Handlers extends CallSchema<Handlers> = Record<string, CallSignature>,
 >(): TDClient<Schema, Calls, Handlers>;
@@ -48,14 +49,14 @@ const Mixer = createTDClient<MixerParams>();
 
 The bundle:
 
-| Member                                                                                             | Type                                                                                     |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `Provider`                                                                                         | Context provider owning one connection (see below)                                       |
-| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter                                    |
-| `useConnection()`                                                                                  | `TDConnection<Schema, Calls, Handlers>` — the nearest provider's connection, fully typed |
-| `useVideo()`                                                                                       | `TDVideoStream` — the nearest provider's peer                                            |
-| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys                                  |
-| `Video` `StreamToggle`                                                                             | Bound to a stream id; not schema-typed (ids aren't parameters)                           |
+| Member                                                                                             | Type                                                                                   |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `Provider`                                                                                         | Context provider owning one connection (see below)                                     |
+| `signal(name)`                                                                                     | `TDBinding<Schema[K]>` — bind a signal to a parameter                                  |
+| `useConnection()`                                                                                  | `TDConnection<Schema, Calls, Handlers>` — this factory's nearest provider, fully typed |
+| `useVideo()`                                                                                       | `TDVideoStream` — this factory's nearest provider's peer                               |
+| `TextInput` `NumberInput` `RangeInput` `Toggle` `Button` `Select` `Vector` `Color` `Value` `Table` | Bound controls, `name` narrowed to matching schema keys                                |
+| `Video` `StreamToggle`                                                                             | Bound to a stream id; not schema-typed (ids aren't parameters)                         |
 
 ### Why a factory rather than plain components
 
@@ -84,8 +85,10 @@ interface MixerParams {
 }
 ```
 
-The generics are purely compile-time. At runtime there is one shared context and
-one connection implementation.
+The generics are compile-time, but the **bundle is not**. Each factory owns its
+own contexts, so everything reached through the bundle — `Provider`, `signal`,
+`useConnection`, `useVideo`, and every typed component — resolves to a provider
+of that same factory. See [Scoping](#scoping).
 
 ## `<Provider>`
 
@@ -166,9 +169,57 @@ them without a protocol change.
 | `scheduler`                       | platform timers     | Timer/rAF override. For tests.                                                                         |
 | `random`                          | `Math.random`       | Backoff jitter source. For tests.                                                                      |
 
+## Scoping
+
+One rule covers every way of reaching a connection:
+
+> **Anything reached through a factory bundle is factory-scoped. Anything
+> imported bare from `td-core` binds to the nearest provider of any factory.**
+
+| Reached as                                                                    | Binds to                                    |
+| ----------------------------------------------------------------------------- | ------------------------------------------- |
+| `Factory.signal` · `Factory.useConnection` · `Factory.useVideo`               | the nearest `<Factory.Provider>`            |
+| `Factory.TextInput` · `Factory.Value` · `Factory.Video` · every typed control | the nearest `<Factory.Provider>`            |
+| `createTDSignal` · `useTDConnection` · `useTDVideoStream` · `createTDHandler` | the nearest `<Provider>` of **any** factory |
+| `<Value>` · `<Toggle>` · `<Video>` · any component imported from `td-core`    | the nearest `<Provider>` of **any** factory |
+
+"Nearest `<Factory.Provider>`" means exactly that: other factories' providers in
+between are skipped, however deeply they nest.
+
+That is what lets one subtree read two instances. A `<Mixer.Value>` rendered
+inside a `<Render.Provider>` still reads the mixer, as long as a
+`<Mixer.Provider>` is somewhere above it:
+
+```tsx
+<Mixer.Provider url="ws://localhost:9980" instance="mixer">
+  <Render.Provider url="ws://localhost:9981" instance="render">
+    <Render.RangeInput name="opacity" min={0} max={1} step={0.01} />
+
+    {/* reaches past the render provider to the mixer's */}
+    <Mixer.Value name="intensity" />
+
+    {/* bare import: the nearest provider of any factory — render's */}
+    <Value name="opacity" />
+  </Render.Provider>
+</Mixer.Provider>
+```
+
+Nesting is **not** a substitute for a provider of your own factory: a bundle
+member with none above it throws `no TD connection in context`, exactly as it
+does outside every provider.
+
+**Providers from the same factory still nest nearest-wins**, which is how one
+factory serves several instances of a shared schema — each subtree gets the
+closest `<Factory.Provider>` above it.
+
+Sibling (non-nested) providers are unaffected by any of this: a subtree with
+exactly one provider above it resolves the same either way, which is why most
+apps never have to think about scoping at all.
+
 ## Connection
 
-`useConnection()` returns the nearest provider's connection.
+`Mixer.useConnection()` returns the nearest `<Mixer.Provider>`'s connection,
+whatever other factories' providers sit in between (see [Scoping](#scoping)).
 
 ```tsx
 function StatusBar() {
@@ -253,9 +304,12 @@ function Knob(props: { name: string }) {
 }
 ```
 
-`createTDSignal(name)` is the free-standing form of the same thing — it binds to
-the nearest provider's connection, so a custom component works inside any
-provider without threading an instance through.
+`createTDSignal(name)` is the free-standing form of the same thing. It is a bare
+export, so it binds to the nearest provider of **any** factory — which is what
+makes a custom component reusable across instances with no schema and no
+instance prop threaded through. Use `Factory.signal(name)` when you want the
+schema typing and the guarantee that it reads _that_ factory's instance. See
+[Scoping](#scoping).
 
 ## Calls
 
@@ -277,8 +331,9 @@ function Toolbar() {
 `useConnection()` returns the connection typed by this factory's
 `Schema`/`Calls`/`Handlers`, so `call`, `notify`, `handle`, `pulse` and `signal`
 all narrow to the names you declared. It works with any number of providers
-mounted from the factory: each subtree gets the connection of the `<Provider>`
-above it.
+mounted from the factory — each subtree gets the connection of the nearest
+`<Provider>` from **this** factory, skipping any other factory's providers in
+between. See [Scoping](#scoping).
 
 `call` rejects with a `TDCallError` (`.code`, `.callName`) on `unknown_handler`,
 `handler_error`, `result_not_serializable` (from TD), `call_timeout` (no reply
@@ -308,6 +363,27 @@ function AlertHandler() {
   return null;
 }
 ```
+
+**`createTDHandler` is a bare export, so it registers on the nearest provider of
+_any_ factory** — the same rule as `createTDSignal` and `useTDConnection` (see
+[Scoping](#scoping)). That is deliberate: it makes one handler component
+reusable across instances, and it is the only thing `createTDHandler` adds over
+`handle()` — an `onCleanup` that unregisters on unmount.
+
+There is no `Factory.createHandler`. When you want the handler on a _named_
+instance, and its `name`/args type-checked against that factory's `Handlers`,
+register it on the connection during setup and unregister yourself:
+
+```tsx
+function AlertHandler() {
+  const td = Mixer.useConnection(); // this factory's nearest provider
+  onCleanup(td.handle('alert', (args) => alert(args.text)));
+  return null;
+}
+```
+
+`handle()` returns its unregister function, so that is the same lifetime
+`createTDHandler` gives you, one line longer and factory-scoped.
 
 TD fires it with `parent.WebGuiServer.Notify('alert', { text: 'hi' })` (no
 reply) or `parent.WebGuiServer.Call('alert', { text: 'hi' }, on_result=fn)`
@@ -347,8 +423,10 @@ exactly as before. `CallSchema<Schema>` is written the same way as
 
 ## Video
 
-`useVideo()` returns the nearest provider's peer. Throws if the provider didn't
-opt into `video`.
+`Mixer.useVideo()` returns the nearest `<Mixer.Provider>`'s peer — factory-scoped
+like the rest of the bundle. Throws if that provider didn't opt into `video`. The
+bare `useTDVideoStream()` takes the nearest provider of any factory instead; see
+[Scoping](#scoping).
 
 | Member               | Type                                                        | Description                                                    |
 | -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------- |
@@ -419,17 +497,16 @@ connection and ICE overhead down. `<Video stream="…">` selects among them.
 
 ## Multiple instances
 
-One factory per _schema_, not per instance. A factory is purely compile-time —
-its components and `useConnection()` bind to whichever `<Provider>` they render
-inside — so several instances that share a schema share one factory, each under
-its own provider.
+One factory per _schema_, not per instance. A factory's components and
+`useConnection()` bind to the nearest provider **from that factory**, so several
+instances that share a schema share one factory, each under its own provider.
 
 ```tsx
 const Mixer  = createTDClient<MixerParams>()
 const Render = createTDClient<RenderParams>()
 
 <Mixer.Provider url="ws://localhost:9980" instance="mixer">
-  <Mixer.RangeInput name="speed" min={0} max={10} />
+  <Mixer.RangeInput name="intensity" min={0} max={1} step={0.01} />
 </Mixer.Provider>
 
 <Render.Provider url="ws://localhost:9981" instance="render" video>
@@ -440,6 +517,11 @@ const Render = createTDClient<RenderParams>()
 
 Each instance gets its own socket, peer, status signal, throttle state, and
 backoff schedule. One dropping or reconnecting does not affect the others.
+
+Those two providers are siblings above, but they need not be. Nesting them is
+safe and is how a control for one instance renders inside another's subtree —
+`<Mixer.Value>` under a `<Render.Provider>` still reads the mixer. See
+[Scoping](#scoping).
 
 Keep the instance list in your app, not in `td-core` — the library stays
 config-agnostic and just receives URLs:
@@ -479,14 +561,14 @@ connection to ride and observes signaling through `subscribe()`.
 
 ## Wire helpers
 
-| Export                      | Description                                                              |
-| --------------------------- | ------------------------------------------------------------------------ |
-| `PROTOCOL_VERSION`          | Wire protocol integer. See [protocol.md](protocol.md).                   |
-| `parse(raw)`                | Parse an inbound payload to a `Message`, or `null` if malformed/unknown. |
-| `escapeNewlines(text)`      | Real newlines → TD's two-character `\n` escape.                          |
-| `unescapeNewlines(wire)`    | The inverse, for showing a TD string in a `<textarea>`.                  |
-| `createTDHandler(name, fn)` | Register a call handler, unregistering on cleanup. See [Calls](#calls).  |
-| `TDCallError`               | Thrown by a rejected `call()`; carries `.code` and `.callName`.          |
+| Export                      | Description                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PROTOCOL_VERSION`          | Wire protocol integer. See [protocol.md](protocol.md).                                                                                                                                     |
+| `parse(raw)`                | Parse an inbound payload to a `Message`, or `null` if malformed/unknown.                                                                                                                   |
+| `escapeNewlines(text)`      | Real newlines → TD's two-character `\n` escape.                                                                                                                                            |
+| `unescapeNewlines(wire)`    | The inverse, for showing a TD string in a `<textarea>`.                                                                                                                                    |
+| `createTDHandler(name, fn)` | Register a call handler on the nearest provider of **any** factory, unregistering on cleanup. Factory-scoped alternative: `Factory.useConnection().handle(name, fn)`. See [Calls](#calls). |
+| `TDCallError`               | Thrown by a rejected `call()`; carries `.code` and `.callName`.                                                                                                                            |
 
 `unescapeNewlines` is deliberately naive — it doesn't honour a backslash-escaped
 backslash, so text whose literal content is `C:\name` comes back with a line

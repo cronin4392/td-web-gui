@@ -67,12 +67,89 @@ was empty or its names don't match. Check the `snapshot` frame in devtools
 **Browser console: `no TD connection in context`**
 
 A bound component rendered outside its `<Provider>`. Components bind through
-Solid context, so they must be descendants.
+Solid context, so they must be descendants — and a component from a factory
+bundle needs a provider **from that factory** above it. Another factory's
+provider does not stand in for it, even when it is the nearest one.
 
 **Browser console: `no TD video peer in context`**
 
 `<Video>` rendered under a provider that didn't opt into video. Pass
-`video` or `video={{ receivers: N }}` to the `<Provider>`.
+`video` or `video={{ receivers: N }}` to the `<Provider>`. Note which provider it
+binds: `<App.Video>` wants `video` on the nearest `<App.Provider>`, a bare
+`<Video>` on the nearest provider of any factory. See
+[api.md § Scoping](api.md#scoping).
+
+**A few controls read `undefined` forever, and their writes do nothing.**
+
+Everything else on the page syncs. One group of controls stays empty, and edits
+to them either vanish or come back refused (`unknown_param`, or
+`param_not_writable` on a name you know is writable). Nothing throws.
+
+They are bound to the **wrong instance**. Recognizing it:
+
+- The stuck controls are all from **one factory**, and they sit inside a subtree
+  where a **different** factory's `<Provider>` is the nearest one.
+- Their names typecheck — that is the tell. The schema they were checked against
+  isn't the schema of the connection they reached.
+- Watch the sockets in devtools (Network → WS → Messages). The `update` for
+  `intensity` leaves on the **other** instance's socket, and that instance
+  answers `unknown_param` because the name means nothing to it.
+- If both instances happen to share a name, there is no error at all — the
+  control silently drives the wrong TouchDesigner project. Reach for this
+  diagnosis whenever an edit moves something in the machine you weren't aiming
+  at.
+
+The fix is to make sure a provider **of that control's own factory** is above it.
+A bundle member resolves the nearest provider from its own factory, skipping
+other factories' providers on the way up — so nesting is fine, but there has to
+be one of its own to find. If there is none at all it throws
+`no TD connection in context` rather than binding to a neighbour.
+
+The bare exports (`useTDConnection`, `createTDSignal`, `createTDHandler`,
+`useTDVideoStream`, and components imported directly from `td-core`) work the
+other way on purpose: they take the nearest provider of any factory. A custom
+control built on `createTDSignal` and dropped under the wrong provider reads that
+provider, with no compile-time schema to contradict it — which is the one place
+this symptom can still be authored. See
+[api.md § Scoping](api.md#scoping) and
+[design-notes.md § Factories are runtime-scoped](design-notes.md#factories-are-runtime-scoped-bare-exports-are-not).
+
+> Versions of `td-core` before this scoping rule bound **every** factory through
+> one shared context, so the innermost provider won for everything. If you are on
+> an older build, the symptom above appears wherever two factories' providers
+> nest, and the only workaround is not to nest them.
+
+**A component that worked before now throws `no TD connection in context` on mount.**
+
+```
+[td-core] no TD connection in context — wrap this component in a <Provider>
+```
+
+Nothing about the component changed; it started throwing when you upgraded. This
+is the scoping rule catching a binding that used to succeed by accident.
+
+`Factory.signal`, `Factory.useConnection`, `Factory.useVideo`, and every typed
+component (`Factory.Value`, `Factory.TextInput`, …) now require a
+`<Factory.Provider>` above them. Before, they read one shared context, so
+`FactoryA.Value` under only a `<FactoryB.Provider>` quietly bound to B — right
+value if the two schemas happened to share the name, wrong instance in general,
+and typechecked as A either way. It now refuses instead of guessing.
+
+Which fix you want depends on what you meant:
+
+- **You meant that factory's instance.** Add a `<Factory.Provider>` above the
+  component. It may sit anywhere up-tree, with any number of other factories'
+  providers in between — nesting is fine, absence is not.
+- **You meant "whichever instance I'm inside".** That is the bare form. Swap
+  `<Factory.Value name="x" />` for `<Value name="x" />` imported from `td-core`,
+  or `Factory.signal(name)` for `createTDSignal(name)`, and it binds the nearest
+  provider of any factory exactly as it used to. You lose the schema typing on
+  `name`, which is the honest trade: the name can no longer be checked, because
+  which schema applies isn't known until render.
+
+Deliberately relying on the old behavior — using one factory's control under
+another's provider because both schemas declare the same name — is the case that
+breaks loudly here. The bare components are its supported replacement.
 
 ## One parameter doesn't work
 
@@ -250,6 +327,13 @@ arrived. For the TD → web direction specifically, check that the component
 calling `createTDHandler` is actually mounted — it unregisters on unmount, so
 a call arriving after the component that owned the handler went away gets this
 same error rather than being silently dropped.
+
+With more than one instance, also check **which connection it registered on**.
+`createTDHandler` is a bare export: it registers on the nearest provider of any
+factory, so a handler component moved into another instance's subtree now answers
+that instance and the one you expected replies `unknown_handler`. Register with
+`Factory.useConnection().handle(name, fn)` when the handler belongs to a named
+instance. See [api.md § Scoping](api.md#scoping).
 
 **A handler's exception shows up as `handler_error`, not a crash**
 
