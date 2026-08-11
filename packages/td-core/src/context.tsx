@@ -6,13 +6,18 @@
  * that instance's param map, so parameter `name`s autocomplete and typos are
  * compile errors *inside JSX*.
  *
- * There is a single module-level context holding the active connection, and a
- * second one holding that provider's WebRTC peer when `<Provider video>` opts
- * into video. `<Provider>` owns one connection (and at most one peer) and shares
- * them via those contexts; `createTDSignal(name)` binds to the nearest
- * provider's connection. The per-factory generic typing is a purely compile-time
- * wrapper over this one shared runtime context — the factory exists only to flow
- * the generic into JSX, which a bare `useContext` cannot do.
+ * **Anything reached through a factory bundle is factory-scoped. Anything
+ * imported bare from `td-core` binds to the nearest provider of any factory.**
+ *
+ * `<Provider>` owns one connection and, when `<Provider video>` opts in, one
+ * WebRTC peer. It publishes both to a pair of contexts private to its own
+ * factory *and* to the module-level shared pair. The bundle's members
+ * (`signal`, `useConnection`, `useVideo`, the typed components) read the
+ * private pair, so `A.signal(name)` rendered inside a nested `<B.Provider>`
+ * still reaches A — nesting resolves by factory, not by tree position. The bare
+ * exports (`createTDSignal`, `useTDConnection`, `useTDVideoStream`,
+ * `createTDHandler`, the unwrapped components) read the shared pair, which is
+ * the deliberate escape hatch: they bind to the nearest provider of any factory.
  *
  * `Calls`/`Handlers` are two more optional generics on `createTDClient`, typing
  * `call`/`notify` (what TD exposes) and `handle` (what the web exposes)
@@ -34,7 +39,7 @@
  * ```
  */
 
-import { createContext, onCleanup, useContext, type JSX } from 'solid-js';
+import { createContext, onCleanup, useContext, type Context, type JSX } from 'solid-js';
 import {
   createTDConnection,
   type ParamSchema,
@@ -58,8 +63,11 @@ import { Value, type ValueProps } from './components/Value';
 import { Vector, type VectorProps } from './components/Vector';
 import { Video, type VideoProps } from './components/Video';
 
-/** Shared runtime context: the nearest provider's connection. */
-const TDContext = createContext<TDConnection>();
+type ConnectionContext = Context<TDConnection | undefined>;
+type VideoContext = Context<TDVideoStream | undefined>;
+
+/** Shared runtime context: the nearest provider's connection, whatever factory it came from. */
+const TDContext: ConnectionContext = createContext<TDConnection>();
 
 /**
  * Shared runtime context: the nearest provider's WebRTC peer, when that
@@ -67,24 +75,32 @@ const TDContext = createContext<TDConnection>();
  * opt-in — a provider with no `video` prop opens no peer at all, which matters
  * when up to 8 instances are live.
  */
-const TDVideoContext = createContext<TDVideoStream>();
+const TDVideoContext: VideoContext = createContext<TDVideoStream>();
 
-/** Read the nearest provider's connection, or throw if used outside one. */
-export function useTDConnection(): TDConnection {
-  const connection = useContext(TDContext);
+function readConnection(context: ConnectionContext): TDConnection {
+  const connection = useContext(context);
   if (!connection) {
     throw new Error('[td-core] no TD connection in context — wrap this component in a <Provider>');
   }
   return connection;
 }
 
-/** Read the nearest provider's video peer, or throw if video wasn't enabled. */
-export function useTDVideoStream(): TDVideoStream {
-  const video = useContext(TDVideoContext);
+function readVideo(context: VideoContext): TDVideoStream {
+  const video = useContext(context);
   if (!video) {
     throw new Error('[td-core] no TD video peer in context — pass `video` to the <Provider>');
   }
   return video;
+}
+
+/** Read the nearest provider's connection, or throw if used outside one. */
+export function useTDConnection(): TDConnection {
+  return readConnection(TDContext);
+}
+
+/** Read the nearest provider's video peer, or throw if video wasn't enabled. */
+export function useTDVideoStream(): TDVideoStream {
+  return readVideo(TDVideoContext);
 }
 
 /**
@@ -163,30 +179,50 @@ export function createTDClient<
 >() {
   type Connection = TDConnection<Schema, Calls, Handlers>;
 
+  const FactoryContext: ConnectionContext = createContext<TDConnection>();
+  const FactoryVideoContext: VideoContext = createContext<TDVideoStream>();
+
   function Provider(props: TDProviderProps): JSX.Element {
     // One connection per provider; auto-torn-down via the connection's own
     // onCleanup when this provider unmounts.
     const connection = createTDConnection<Schema, Calls, Handlers>(props.url, {
       ...props.options,
       readonly: props.readonly ?? props.options?.readonly,
-    });
+    }) as unknown as TDConnection;
     // Read once at setup, like `url`: swapping video on/off mid-life would mean
     // tearing a peer down, which is what unmounting the provider already does.
     const video = props.video
       ? createTDVideoStream({
           ...(typeof props.video === 'object' ? props.video : {}),
-          connection: connection as unknown as TDConnection,
+          connection,
         })
       : undefined;
     return (
-      <TDContext.Provider value={connection as unknown as TDConnection}>
+      <FactoryContext.Provider value={connection}>
+        <FactoryVideoContext.Provider value={video}>
+          <TDContext.Provider value={connection}>
+            <TDVideoContext.Provider value={video}>{props.children}</TDVideoContext.Provider>
+          </TDContext.Provider>
+        </FactoryVideoContext.Provider>
+      </FactoryContext.Provider>
+    );
+  }
+
+  // Only works because Solid evaluates a Provider's JSX children lazily, under
+  // the owner carrying the context: the child is constructed in here, not at
+  // the wrapper's call site. Calling the raw component as a function would not.
+  function Bound(props: { children: JSX.Element }): JSX.Element {
+    const connection = readConnection(FactoryContext);
+    const video = useContext(FactoryVideoContext);
+    return (
+      <TDContext.Provider value={connection}>
         <TDVideoContext.Provider value={video}>{props.children}</TDVideoContext.Provider>
       </TDContext.Provider>
     );
   }
 
   function signal<K extends AnyKey<Schema>>(name: K): TDBinding<Schema[K]> {
-    return createTDSignal<Schema[K]>(name);
+    return readConnection(FactoryContext).signal(name) as unknown as TDBinding<Schema[K]>;
   }
 
   /**
@@ -196,54 +232,98 @@ export function createTDClient<
    * file for why there is no bundle-level `call`.
    */
   function useConnection(): Connection {
-    return useTDConnection() as unknown as Connection;
+    return readConnection(FactoryContext) as unknown as Connection;
+  }
+
+  /** This factory's peer, or throw if its provider didn't opt into video. */
+  function useVideo(): TDVideoStream {
+    return readVideo(FactoryVideoContext);
   }
 
   // Typed wrappers: restrict `name` to the keys whose wire-type matches each
-  // control. The underlying components are untyped (string name) and bind via
-  // the shared context, so the wrappers add only compile-time safety.
+  // control. The underlying components are untyped (string name) and bind
+  // through the shared context, which `Bound` points at this factory.
   const TypedTextInput = (
     props: TextInputProps & { name: KeysOfType<Schema, string> },
-  ): JSX.Element => TextInput(props);
+  ): JSX.Element => (
+    <Bound>
+      <TextInput {...props} />
+    </Bound>
+  );
 
   const TypedNumberInput = (
     props: NumberInputProps & { name: KeysOfType<Schema, number> },
-  ): JSX.Element => NumberInput(props);
+  ): JSX.Element => (
+    <Bound>
+      <NumberInput {...props} />
+    </Bound>
+  );
 
   const TypedRangeInput = (
     props: RangeInputProps & { name: KeysOfType<Schema, number> },
-  ): JSX.Element => RangeInput(props);
+  ): JSX.Element => (
+    <Bound>
+      <RangeInput {...props} />
+    </Bound>
+  );
 
-  const TypedValue = (props: ValueProps & { name: AnyKey<Schema> }): JSX.Element => Value(props);
+  const TypedValue = (props: ValueProps & { name: AnyKey<Schema> }): JSX.Element => (
+    <Bound>
+      <Value {...props} />
+    </Bound>
+  );
 
-  const TypedToggle = (props: ToggleProps & { name: KeysOfType<Schema, boolean> }): JSX.Element =>
-    Toggle(props);
+  const TypedToggle = (props: ToggleProps & { name: KeysOfType<Schema, boolean> }): JSX.Element => (
+    <Bound>
+      <Toggle {...props} />
+    </Bound>
+  );
 
   // `name` isn't narrowed to a boolean-valued key: `mode="pulse"` binds a
   // momentary param that isn't part of the synced value schema at all, so
   // `Button` accepts any schema key regardless of mode (same stance as
   // `<Value>`, which also works across every value type).
-  const TypedButton = (props: ButtonProps & { name: AnyKey<Schema> }): JSX.Element => Button(props);
+  const TypedButton = (props: ButtonProps & { name: AnyKey<Schema> }): JSX.Element => (
+    <Bound>
+      <Button {...props} />
+    </Bound>
+  );
 
-  const TypedSelect = (props: SelectProps & { name: KeysOfType<Schema, string> }): JSX.Element =>
-    Select(props);
+  const TypedSelect = (props: SelectProps & { name: KeysOfType<Schema, string> }): JSX.Element => (
+    <Bound>
+      <Select {...props} />
+    </Bound>
+  );
 
-  const TypedVector = (props: VectorProps & { name: KeysOfType<Schema, number[]> }): JSX.Element =>
-    Vector(props);
+  const TypedVector = (
+    props: VectorProps & { name: KeysOfType<Schema, number[]> },
+  ): JSX.Element => (
+    <Bound>
+      <Vector {...props} />
+    </Bound>
+  );
 
-  const TypedColor = (props: ColorProps & { name: KeysOfType<Schema, number[]> }): JSX.Element =>
-    Color(props);
+  const TypedColor = (props: ColorProps & { name: KeysOfType<Schema, number[]> }): JSX.Element => (
+    <Bound>
+      <Color {...props} />
+    </Bound>
+  );
 
   // Narrowed to `string[][]` keys, which are readouts by construction — no TD
   // parameter carries a table, so there is nothing writable to confuse this with.
-  const TypedTable = (props: TableProps & { name: KeysOfType<Schema, string[][]> }): JSX.Element =>
-    Table(props);
+  const TypedTable = (
+    props: TableProps & { name: KeysOfType<Schema, string[][]> },
+  ): JSX.Element => (
+    <Bound>
+      <Table {...props} />
+    </Bound>
+  );
 
   return {
     Provider,
     signal,
     useConnection,
-    useVideo: useTDVideoStream,
+    useVideo,
     TextInput: TypedTextInput,
     NumberInput: TypedNumberInput,
     RangeInput: TypedRangeInput,
@@ -256,7 +336,15 @@ export function createTDClient<
     Table: TypedTable,
     // Not schema-typed: both select on a stream id TD announces at runtime,
     // which isn't part of the param schema.
-    Video: (props: VideoProps): JSX.Element => Video(props),
-    StreamToggle: (props: StreamToggleProps): JSX.Element => StreamToggle(props),
+    Video: (props: VideoProps): JSX.Element => (
+      <Bound>
+        <Video {...props} />
+      </Bound>
+    ),
+    StreamToggle: (props: StreamToggleProps): JSX.Element => (
+      <Bound>
+        <StreamToggle {...props} />
+      </Bound>
+    ),
   };
 }
