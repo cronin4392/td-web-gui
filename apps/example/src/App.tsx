@@ -20,11 +20,19 @@ import {
   type Example2Params,
 } from './td.config';
 
-// One factory per TD instance, typed by that instance's param schema. The
-// factories are purely compile-time: `Example1.TextInput` and
-// `Example2.TextInput` are the same component behind different `name` types, and
-// each binds to whichever `<Provider>` it renders inside. That is what makes the
-// two columns below independent without either knowing the other exists.
+// One factory per TD instance, typed by that instance's param schema.
+// `Example1.TextInput` and `Example2.TextInput` are the same component behind
+// different `name` types — but a factory is more than compile-time sugar: each
+// owns its own context, so a bundle member binds the nearest `<Provider>` **of
+// its own factory**, skipping any other factory's providers in between. That is
+// what keeps the two columns independent even though their providers nest, and
+// what lets `CrossInstanceReadout` below read instance 1 from inside instance
+// 2's column.
+//
+// The bare imports above — `useTDConnection`, `useTDVideoStream`, `Video`,
+// `StreamToggle`, `createTDHandler` — work the other way round on purpose: they
+// take the nearest provider of *any* factory, which is what lets one untyped
+// component serve both instances.
 //
 // Instance 1 also carries `Calls`/`Handlers` generics — the two independent
 // namespaces for "what TD exposes" (`call`/`notify`) and "what the web
@@ -78,11 +86,11 @@ function useRecentError(lastError: () => ErrorMessage | undefined) {
  * freezing. Must render inside a `<Provider>` to see the connection.
  *
  * Shared by both columns, and deliberately **not** built from either factory:
- * `useTDConnection` reads the nearest provider from context, so one untyped
- * component serves every instance. Only the parts that name a parameter need the
- * schema typing. With two instances live, this is also the clearest proof they
- * have independent lifecycles — close one `.toe` and only its column drops to
- * "reconnecting…".
+ * `useTDConnection` is a bare export, so it reads the nearest provider of *any*
+ * factory and one untyped component serves every instance. Only the parts that
+ * name a parameter need the schema typing. With two instances live, this is also
+ * the clearest proof they have independent lifecycles — close one `.toe` and
+ * only its column drops to "reconnecting…".
  */
 function StatusBar(props: { id: string; url: string }) {
   const conn = useTDConnection();
@@ -321,9 +329,10 @@ function Example1Readouts() {
  *
  * Shared by both columns for the same reason `StatusBar` is: a stream id is not
  * part of the param schema, so `<Video>` was never schema-typed, and
- * `useTDVideoStream` finds the nearest provider's peer. Two of these on one page
- * are two peers — the ids repeat across them (`tile1`…`tile4` in both configs)
- * and never collide, because each resolves inside its own provider.
+ * `useTDVideoStream` — a bare export — finds the nearest provider of any
+ * factory. Two of these on one page are two peers: the ids repeat across them
+ * (`tile1`…`tile4` in both configs) and never collide, because each resolves
+ * inside its own provider.
  *
  * The tile count is whatever TD announces, up to the `receivers` m-lines our
  * offer carried. Rendering the list rather than a fixed four is what makes a
@@ -388,27 +397,50 @@ function VideoWall() {
 }
 
 /**
+ * One number from each instance, side by side — rendered **inside** instance 2's
+ * column, where `<Example2.Provider>` is the nearest provider.
+ *
+ * This is what factory scoping is for. Both values sit in the same paragraph,
+ * under the same provider, and they read different TouchDesigner processes:
+ * `Example1.Value` resolves the nearest `<Example1.Provider>`, which is the one
+ * wrapping the whole page in `App`, while `Example2.Value` resolves the nearer
+ * `<Example2.Provider>` around this column. Which instance a control talks to is
+ * decided by the factory it came from, never by where it happens to render.
+ *
+ * The practical case: instance 1's `intensity` is the level driving the mix, and
+ * an operator watching playback wants it visible here rather than a scroll away.
+ * Drag the slider in column 1 and this tracks it — same signal, one connection,
+ * two places on the page.
+ */
+function CrossInstanceReadout() {
+  return (
+    <section>
+      <h3>Cross-instance readout</h3>
+      <p>
+        Instance 1 intensity:{' '}
+        <Example1.Value name="intensity" format={(v) => Number(v).toFixed(2)} />
+        {' · '}
+        instance 2 opacity: <Example2.Value name="opacity" format={(v) => Number(v).toFixed(2)} />
+      </p>
+      <p class="caption">
+        The first value comes from the other column’s TouchDesigner process, through the
+        <code>Example1</code> factory’s own provider. Rendering it here needs nothing threaded
+        through — only that an <code>&lt;Example1.Provider&gt;</code> sits somewhere above.
+      </p>
+    </section>
+  );
+}
+
+/**
  * Instance 1 — the kitchen sink: one control of every kind, every readout shape,
  * both menu cases, and a four-tile wall.
+ *
+ * Both panels are provider-less: the two `<Provider>`s live in `App`, so their
+ * nesting is visible in one place.
  */
 function Example1Panel() {
   return (
-    // `video` is opt-in per provider — without it no RTCPeerConnection is
-    // created at all, which is exactly why it is per-provider: this page opens
-    // two peers because two providers asked for one, not one shared peer split
-    // between them. `receivers` is how many recvonly video m-lines each offer
-    // carries, and so the ceiling on how many tracks that TD can attach when it
-    // answers: an answerer cannot add m-lines, so a wall of four needs all four
-    // offered up front or the surplus streams have nowhere to land.
-    //
-    // `readonly` is web-side only, never sent over the wire — it just disables
-    // readout controls from the first paint.
-    <Example1.Provider
-      url={example1.url}
-      instance={example1.id}
-      readonly={[...example1Readonly]}
-      video={{ receivers: VIDEO_TILES }}
-    >
+    <>
       <h2>Instance 1 · control surface</h2>
       <StatusBar id={example1.id} url={example1.url} />
 
@@ -483,27 +515,26 @@ function Example1Panel() {
       <Example1Readouts />
 
       <VideoWall />
-    </Example1.Provider>
+    </>
   );
 }
 
 /**
  * Instance 2 — a second TD process on its own port, with its own vocabulary.
  *
- * Nothing here is shared with the column beside it but the page. Its parameter
+ * Nothing here is bound to the column beside it. Its parameter
  * names differ (`label`/`opacity`/`tint` against instance 1's
  * `message`/`intensity`/`color`) even where the same TD parameter backs them,
  * which is the compile-time half of the isolation; the runtime half is a
  * separate socket, a separate peer, and a separate reconnect clock.
+ *
+ * This whole panel renders inside instance 1's provider as well as its own (see
+ * `App`), and every control below still reaches instance 2 — a factory member
+ * skips other factories' providers on its way up.
  */
 function Example2Panel() {
   return (
-    <Example2.Provider
-      url={example2.url}
-      instance={example2.id}
-      readonly={[...example2Readonly]}
-      video={{ receivers: VIDEO_TILES }}
-    >
+    <>
       <h2>Instance 2 · playback node</h2>
       <StatusBar id={example2.id} url={example2.url} />
 
@@ -561,8 +592,10 @@ function Example2Panel() {
         </p>
       </section>
 
+      <CrossInstanceReadout />
+
       <VideoWall />
-    </Example2.Provider>
+    </>
   );
 }
 
@@ -572,17 +605,50 @@ export function App() {
       <h1>td-web-gui · example</h1>
       <p class="caption">
         Two TouchDesigner instances, one page. Each column owns its connection, its WebRTC peer, and
-        its own parameter schema; nothing is shared between them.
+        its own parameter schema; nothing is shared between them but the page.
       </p>
 
-      <div class="columns">
-        <div class="column">
-          <Example1Panel />
+      {/* The two providers **nest** rather than sit side by side, and that costs
+          nothing: each factory resolves the nearest provider of its own factory,
+          so instance 2's column reads instance 2 no matter how many other
+          providers wrap it. What the nesting buys is `CrossInstanceReadout` —
+          an `Example1.Value` rendered down in instance 2's column needs an
+          `<Example1.Provider>` somewhere above it, and this is it. Siblings
+          would serve everything else, and are the shape most apps have.
+
+          `video` is opt-in per provider — without it no RTCPeerConnection is
+          created at all, which is exactly why it is per-provider: this page
+          opens two peers because two providers asked for one, not one shared
+          peer split between them. `receivers` is how many recvonly video
+          m-lines each offer carries, and so the ceiling on how many tracks TD
+          can attach when it answers: an answerer cannot add m-lines, so a wall
+          of four needs all four offered up front or the surplus streams have
+          nowhere to land.
+
+          `readonly` is web-side only, never sent over the wire — it just
+          disables readout controls from the first paint. */}
+      <Example1.Provider
+        url={example1.url}
+        instance={example1.id}
+        readonly={[...example1Readonly]}
+        video={{ receivers: VIDEO_TILES }}
+      >
+        <div class="columns">
+          <div class="column">
+            <Example1Panel />
+          </div>
+          <div class="column">
+            <Example2.Provider
+              url={example2.url}
+              instance={example2.id}
+              readonly={[...example2Readonly]}
+              video={{ receivers: VIDEO_TILES }}
+            >
+              <Example2Panel />
+            </Example2.Provider>
+          </div>
         </div>
-        <div class="column">
-          <Example2Panel />
-        </div>
-      </div>
+      </Example1.Provider>
     </main>
   );
 }

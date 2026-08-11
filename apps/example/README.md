@@ -57,13 +57,23 @@ that maps them beside it in `config.py`.
 Worth reading in `App.tsx`:
 
 - **The two factories** — `createTDClient<Example1Params>()` and
-  `createTDClient<Example2Params>()`. They are purely compile-time: the
-  components they hand back are the same components, bound to whichever
-  `<Provider>` they render inside. Typing instance 1's `message` into instance
-  2's column is a type error, not a silently dropped `update`.
+  `createTDClient<Example2Params>()`. The components they hand back are the same
+  components behind different `name` types, and each binds the nearest
+  `<Provider>` **of its own factory**. Typing instance 1's `message` into
+  instance 2's column is a type error, not a silently dropped `update`.
+- **The nested providers, in `App`** — instance 2's `<Provider>` renders inside
+  instance 1's rather than beside it. Scoping is per factory, so the nesting
+  changes nothing about what either column reads; what it buys is the bullet
+  below. Siblings are the shape most apps have.
+- **`CrossInstanceReadout`** — an `Example1.Value` and an `Example2.Value` in one
+  paragraph, rendered inside instance 2's column. They read two different
+  TouchDesigner processes from the same spot in the tree, because a bundle member
+  resolves its own factory's provider and skips anything else on the way up. Drag
+  instance 1's intensity slider in column 1 and watch it move here.
 - **`StatusBar` / `VideoWall`** — built from the bare `useTDConnection` /
   `useTDVideoStream` rather than from either factory, because neither names a
-  parameter. One component serves both columns.
+  parameter. Those bare exports take the nearest provider of _any_ factory, which
+  is exactly what lets one component serve both columns.
 - **The per-tile `<StreamToggle>`** — unchecking one stops that stream's encoder
   and everything feeding it in TouchDesigner, which the wall's heading counts
   ("_N_ encoding"). The peer is untouched, so the tile comes back on TD's next
