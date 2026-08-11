@@ -4,7 +4,9 @@
        nearer ancestor escapes the `overflow: hidden` below and scrolls the page. */
     position: relative;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    /* Previews, scene grid, status bar. The bar is `auto` so it costs only what
+       it draws; the scene grid takes whatever is left. */
+    grid-template-rows: auto minmax(0, 1fr) auto;
     height: 100%;
     gap: var(--spacing-m);
     padding: var(--spacing-m) var(--spacing-m) 0;

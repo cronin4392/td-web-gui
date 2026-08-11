@@ -4,6 +4,7 @@ Config for the GUI instance — the scene-loader control surface, on port 8765.
 Backing operators this project expects:
         /GUI/ExternalScenes/SceneA … SceneH   custom pars `Text`, `Text2`
         the Colors tool named by COLOR_TOOL below, and its color scheme COMPs
+        the status bar's beat-period radio, named by BEAT_PERIOD_RADIO below
 
 Loading a scene does NOT go through here: the web app calls each SceneLoader
 process directly (`loadScene` in td/scene-config.py), bypassing this project's
@@ -32,6 +33,11 @@ COLOR_TOOL = "/GUI/GUI/Main/Settings/Colors/Colors"
 # from the web and the TD panel together.
 COLOR_GROUPS = "/GUI/GUI/Main/Settings/Colors/null_color_groups"
 
+# The widget inside Radio1, which holds the bind's CONSTANT master. Radio1's own
+# Value0 is the BIND-mode follower, and a web write to any non-CONSTANT par is
+# refused — so the master is the writable end, and the bind moves Radio1 with it.
+BEAT_PERIOD_RADIO = "/GUI/GUI/StatusBar/Radio1/buttonRadio"
+
 REGISTRY = {
     # The color scheme currently driving the GUI. Its value is the scheme COMP's
     # path, which is also that scheme's id in the `colorSchemes` catalog below —
@@ -45,6 +51,13 @@ REGISTRY = {
         "op": COLOR_TOOL,
         "par": "Activecolorpath",
         "type": "string",
+    },
+    # 0-2 selects the period rather than being it: GlobalLoader/BeatPeriod
+    # switches those onto 1, 2, 4.
+    "beatPeriod": {
+        "op": BEAT_PERIOD_RADIO,
+        "par": "Value0",
+        "type": "number",
     },
 }
 

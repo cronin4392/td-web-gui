@@ -1,0 +1,8 @@
+@layer components {
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-m);
+    padding-bottom: var(--spacing-m);
+  }
+}

@@ -41,9 +41,12 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
 /** Wire names of the per-loader text params, e.g. `sceneAText1`. */
 export type LayerTextParamName = `scene${LayerId}Text${1 | 2}`;
 
+/** Authored here, like {@link LAYOUT_OPTIONS}: TD announces menus, not radios. */
+export const BEAT_PERIODS = [1, 2, 4] as const;
+
 /**
  * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
- * scene loader, plus the selected Color scheme.
+ * scene loader, plus the selected Color scheme and beat period.
  */
 export type GuiParams = Record<LayerTextParamName, string> & {
   /**
@@ -55,6 +58,9 @@ export type GuiParams = Record<LayerTextParamName, string> & {
    * in TD's own panel moves the web's selection with it.
    */
   activeColorScheme: string;
+  /** Index into {@link BEAT_PERIODS}, which is what TD's radio par holds — not
+   * the period in beats. */
+  beatPeriod: number;
 };
 
 /**

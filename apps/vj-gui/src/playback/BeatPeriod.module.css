@@ -1,0 +1,10 @@
+@layer components {
+  .periods {
+    /* Columns rather than flex children: the width floor belongs to the track,
+       so `1` and `4` sit on one rhythm without reaching into RadioButton's DOM. */
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(2rem, max-content);
+    gap: var(--spacing-s);
+  }
+}

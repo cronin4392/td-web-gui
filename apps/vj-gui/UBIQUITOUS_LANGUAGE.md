@@ -37,6 +37,8 @@ relative to `apps/vj-gui`.
 | **Load**           | Telling a Layer's Loader to play a given Tox path                                        | Play, fire, trigger, cue    |
 | **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project     | MIDI project, controllers   |
 | **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web | Tempo, beat, rate, speed    |
+| **Beat period**    | How many beats one cycle of the rig's beat-driven motion lasts — 1, 2 or 4               | Division, multiplier, bars  |
+| **Status bar**     | The bar along the bottom of the GUI, each item reading its own TouchDesigner process     | Footer, toolbar, tempo row  |
 
 ## Color
 

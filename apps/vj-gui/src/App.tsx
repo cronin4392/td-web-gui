@@ -1,9 +1,9 @@
 import { onCleanup, type JSX } from 'solid-js';
-import { guiInstance } from './playback/layers';
+import { guiInstance, inputInstance } from './playback/layers';
 import { loaderInstances } from './playback/wire';
-import { GuiProvider, InputProvider } from './playback/clients';
+import { GuiProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
-import { BpmReadout } from './playback/BpmReadout';
+import { StatusBar } from './playback/StatusBar';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
@@ -38,13 +38,13 @@ export function App(props: AppProps): JSX.Element {
             <ColorSelector />
           </div>
         </GuiProvider>
-        <InputProvider>
-          <BpmReadout />
-        </InputProvider>
+        <StatusBar />
         {/* Hidden for now — re-enable by dropping `u-hidden`. */}
         <p class={`${styles.binding} u-hidden`}>
           Bound to{' '}
-          {[guiInstance, ...loaderInstances].map((inst) => `${inst.id} at ${inst.url}`).join(' · ')}
+          {[guiInstance, inputInstance, ...loaderInstances]
+            .map((inst) => `${inst.id} at ${inst.url}`)
+            .join(' · ')}
         </p>
       </main>
     </PlaybackProvider>
