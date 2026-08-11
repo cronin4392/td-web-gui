@@ -2,11 +2,15 @@
  * The `createTDClient` factories, shared across the app's components — a
  * factory must be created once per *schema*, not per-component.
  *
- * Three factories for ten instances, because a factory is purely compile-time:
- * its components bind to whichever `<Provider>` they render inside, so the eight
- * scene instances — same project, same wire names — share one. `LoaderClient`
- * rendered under sceneA's provider reads sceneA; the identical markup under
- * sceneB's reads sceneB.
+ * Three factories for ten instances, because a factory selects a *schema*, not
+ * an instance: its members bind the nearest `<Provider>` **of that factory**,
+ * so the eight scene instances — same project, same wire names — share one.
+ * `LoaderClient` rendered under sceneA's provider reads sceneA; the identical
+ * markup under sceneB's reads sceneB.
+ *
+ * Scoping is per factory, so the providers may nest freely: `GuiProvider` and
+ * `InputProvider` wrap the whole app in `App.tsx`, and a `GuiClient` control
+ * down inside a scene tile still reaches the GUI project, not the scene.
  */
 
 import type { JSX } from 'solid-js';

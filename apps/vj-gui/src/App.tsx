@@ -1,7 +1,7 @@
 import { onCleanup, type JSX } from 'solid-js';
 import { guiInstance, inputInstance } from './playback/layers';
 import { loaderInstances } from './playback/wire';
-import { GuiProvider } from './playback/clients';
+import { GuiProvider, InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
 import { StatusBar } from './playback/StatusBar';
 import { createWordbankStore } from './wordbank/store';
@@ -27,26 +27,28 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => store.dispose());
 
   return (
-    <PlaybackProvider>
-      <main class={styles.app}>
-        <LayerPreviews />
-        <GuiProvider>
-          <div class={styles.columns}>
-            <SceneSelector />
-            <EffectSelector />
-            <TextSelector store={store} />
-            <ColorSelector />
-          </div>
-        </GuiProvider>
-        <StatusBar />
-        {/* Hidden for now — re-enable by dropping `u-hidden`. */}
-        <p class={`${styles.binding} u-hidden`}>
-          Bound to{' '}
-          {[guiInstance, inputInstance, ...loaderInstances]
-            .map((inst) => `${inst.id} at ${inst.url}`)
-            .join(' · ')}
-        </p>
-      </main>
-    </PlaybackProvider>
+    <GuiProvider>
+      <InputProvider>
+        <PlaybackProvider>
+          <main class={styles.app}>
+            <LayerPreviews />
+            <div class={styles.columns}>
+              <SceneSelector />
+              <EffectSelector />
+              <TextSelector store={store} />
+              <ColorSelector />
+            </div>
+            <StatusBar />
+            {/* Hidden for now — re-enable by dropping `u-hidden`. */}
+            <p class={`${styles.binding} u-hidden`}>
+              Bound to{' '}
+              {[guiInstance, inputInstance, ...loaderInstances]
+                .map((inst) => `${inst.id} at ${inst.url}`)
+                .join(' · ')}
+            </p>
+          </main>
+        </PlaybackProvider>
+      </InputProvider>
+    </GuiProvider>
   );
 }

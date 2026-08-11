@@ -23,7 +23,7 @@
  *
  * Sharing the names is safe because a wire name is scoped to its instance: every
  * scene publishes a plain `level`, and which one a control reads is decided by
- * the `<Provider>` it renders inside, not by the name.
+ * the nearest `<LoaderProvider>` above it, not by the name.
  */
 
 /** Static `{ id, url }` descriptor for one TD instance's Web Server DAT. */
