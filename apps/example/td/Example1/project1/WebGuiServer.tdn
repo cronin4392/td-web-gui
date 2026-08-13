@@ -4,7 +4,7 @@ build: 12
 generator: Embody/6.0.154
 td_build: 099.2025.33070
 source_file: Example.toe
-exported_at: '2026-07-31T03:45:46Z'
+exported_at: '2026-08-11T01:11:32Z'
 network_path: /project1/WebGuiServer
 options:
   include_dat_content: false
@@ -53,7 +53,6 @@ type_defaults:
     parameters:
       mode: webrtc
       fps: 15
-      webrtc: webrtc1
     size: [130, 90]
     color: [0.67, 0.67, 0.67]
     tags:
@@ -278,32 +277,24 @@ operators:
   dock: webrtc1
 - name: videostreamout_tile1
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile1
   position: [2400, 717]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile1
 - name: videostreamout_tile2
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile2
   position: [2400, 317]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile2
 - name: videostreamout_tile3
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile3
   position: [2400, -83]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile3
 - name: videostreamout_tile4
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile4
   position: [2400, -483]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
