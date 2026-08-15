@@ -4,12 +4,11 @@
        nearer ancestor escapes the `overflow: hidden` below and scrolls the page. */
     position: relative;
     display: grid;
-    /* Previews, scene grid, status bar. The bar is `auto` so it costs only what
-       it draws; the scene grid takes whatever is left. */
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    /* Previews, then the scene grid taking whatever is left. */
+    grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
     gap: var(--spacing-m);
-    padding: var(--spacing-m) var(--spacing-m) 0;
+    padding: var(--spacing-m);
     overflow: hidden;
   }
 
@@ -19,18 +18,6 @@
     grid-template-rows: minmax(0, 1fr);
     gap: var(--spacing-l);
     overflow: hidden;
-  }
-
-  .toolsColumn {
-    display: grid;
-    /* The first row may be squeezed to nothing — the schemes list scrolls
-       inside itself. Said here rather than left to that section's own
-       `min-height`, because what a refusal to shrink pushes out of the column
-       is the meter below it. */
-    grid-template-rows: minmax(0, auto) auto;
-    align-content: start;
-    gap: var(--spacing-m);
-    min-height: 0;
   }
 
   .binding {

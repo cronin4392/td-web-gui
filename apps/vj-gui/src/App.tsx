@@ -3,16 +3,14 @@ import { guiInstance, inputInstance } from './playback/layers';
 import { loaderInstances } from './playback/wire';
 import { GuiProvider, InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
-import { StatusBar } from './playback/StatusBar';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
-import { AudioMeter } from './playback/AudioMeter';
-import { ColorSelector } from './playback/ColorSelector';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
 import { TextSelector } from './wordbank/TextSelector';
+import { Tools } from './playback/Tools';
 import styles from './App.module.css';
 
 export interface AppProps {
@@ -37,12 +35,8 @@ export function App(props: AppProps): JSX.Element {
               <SceneSelector />
               <EffectSelector />
               <TextSelector store={store} />
-              <div class={styles.toolsColumn}>
-                <ColorSelector />
-                <AudioMeter />
-              </div>
+              <Tools />
             </div>
-            <StatusBar />
             {/* Hidden for now — re-enable by dropping `u-hidden`. */}
             <p class={`${styles.binding} u-hidden`}>
               Bound to{' '}
