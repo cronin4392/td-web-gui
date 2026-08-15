@@ -31,12 +31,10 @@ export function App(props: AppProps): JSX.Element {
         <PlaybackProvider>
           <main class={styles.app}>
             <LayerPreviews />
-            <div class={styles.columns}>
-              <SceneSelector />
-              <EffectSelector />
-              <TextSelector store={store} />
-              <Tools />
-            </div>
+            <SceneSelector />
+            <EffectSelector />
+            <TextSelector store={store} />
+            <Tools />
             {/* Hidden for now — re-enable by dropping `u-hidden`. */}
             <p class={`${styles.binding} u-hidden`}>
               Bound to{' '}

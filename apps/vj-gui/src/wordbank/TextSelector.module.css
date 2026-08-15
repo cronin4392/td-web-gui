@@ -5,6 +5,7 @@
     flex: 1;
     flex-direction: column;
     padding: var(--spacing-m);
+    background-color: var(--color-surface);
   }
 
   .fields {

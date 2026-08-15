@@ -4,21 +4,25 @@
        nearer ancestor escapes the `overflow: hidden` below and scrolls the page. */
     position: relative;
     display: grid;
-    /* Previews, then the scene grid taking whatever is left. */
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns:
+      [previews-start scenes-start] 4fr
+      [scenes-end effects-start] 2fr
+      [effects-end text-start] 2fr
+      [text-end tools-start] 1fr
+      [tools-end previews-end];
+    /* Previews, then the panels taking whatever is left. */
+    grid-template-rows: [previews] auto [panels] minmax(0, 1fr);
     height: 100%;
     overflow: hidden;
   }
 
-  .columns {
-    display: grid;
-    grid-template-columns: 4fr 2fr 2fr 1fr;
-    grid-template-rows: minmax(0, 1fr);
-    overflow: hidden;
-    background-color: var(--color-surface);
+  /* LayerPreviews: the only child not sitting in a column of its own. */
+  .app > :first-child {
+    grid-column: previews;
   }
 
   .binding {
+    grid-column: previews;
     margin-top: var(--spacing-l);
     font-size: var(--text-m);
     color: var(--color-text-faint);

@@ -5,6 +5,7 @@
     gap: var(--spacing-s);
     overflow-y: auto;
     padding: var(--spacing-m);
+    background-color: var(--color-surface);
   }
 
   .list {
