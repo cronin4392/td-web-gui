@@ -65,6 +65,7 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   const { registerConnection } = usePlayback();
   const video = LoaderClient.useVideo();
   const activeScene = LoaderClient.signal('activeScene');
+  const level = LoaderClient.signal('level');
   // Published to PlaybackProvider because the scene picker sits outside every
   // scene provider and still has to call this instance. Only reachable from
   // in here.
@@ -114,7 +115,14 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
       </div>
       {/* Not a <figcaption>: that has to be the figure's first or last child,
         and the name belongs under the tile rather than under the controls. */}
-      <p class={styles.sceneName} title={activeScene.value()}>
+      {/* The layer's level fills the name from the left rather than riding its
+        own slider — one less row, and the tile it belongs to reads it at a
+        glance. */}
+      <p
+        class={styles.sceneName}
+        title={activeScene.value()}
+        style={{ '--level': `${Math.min(Math.max(level.value() ?? 0, 0), 1) * 100}%` }}
+      >
         {activeSceneName(activeScene.value()) ?? '—'}
       </p>
       <div class={styles.params}>
@@ -133,7 +141,6 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           options={COLOR_OPTIONS}
         />
       </div>
-      <LoaderClient.RangeInput name="level" min={0} max={1} step={0.01} readOnly />
     </figure>
   );
 }

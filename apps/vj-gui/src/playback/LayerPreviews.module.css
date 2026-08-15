@@ -58,8 +58,14 @@
 
   .sceneName {
     overflow: hidden;
+    padding-inline: var(--spacing-s);
+    background: linear-gradient(
+      to right,
+      var(--color-accent) var(--level, 0%),
+      transparent var(--level, 0%)
+    );
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-text);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
