@@ -3,6 +3,7 @@
     display: grid;
     grid-template-columns: 7rem 1fr;
     gap: var(--spacing-m);
+    padding: var(--spacing-m);
   }
 
   .tags {

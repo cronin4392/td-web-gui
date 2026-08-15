@@ -9,5 +9,6 @@
     align-content: start;
     gap: var(--spacing-m);
     min-height: 0;
+    padding: var(--spacing-m);
   }
 }

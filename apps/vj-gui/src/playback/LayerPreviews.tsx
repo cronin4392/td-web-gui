@@ -83,13 +83,9 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   };
 
   return (
-    <figure>
+    <figure class={styles.layerPreview} data-active={props.active}>
       <div class={styles.frame}>
-        <button
-          type="button"
-          class={`${styles.tile} ${props.active ? styles.tileActive : ''}`}
-          onClick={props.onSelect}
-        >
+        <button type="button" class={styles.tile} onClick={props.onSelect}>
           <Show when={video.stream(LOADER_STREAM)} keyed>
             {(_stream) => <LoaderClient.Video stream={LOADER_STREAM} />}
           </Show>

@@ -5,6 +5,14 @@
     gap: var(--spacing-m);
   }
 
+  .layerPreview {
+    padding: var(--spacing-m);
+
+    &[data-active='true'] {
+      background-color: var(--color-surface);
+    }
+  }
+
   .frame {
     position: relative;
   }
@@ -14,7 +22,6 @@
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
-    border: 1px solid transparent;
     background: var(--color-canvas);
     cursor: pointer;
 
@@ -24,10 +31,6 @@
       height: 100%;
       object-fit: contain;
     }
-  }
-
-  .tileActive {
-    border-color: var(--color-accent);
   }
 
   .thumbnail {

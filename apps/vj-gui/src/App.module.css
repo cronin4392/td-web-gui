@@ -7,8 +7,6 @@
     /* Previews, then the scene grid taking whatever is left. */
     grid-template-rows: auto minmax(0, 1fr);
     height: 100%;
-    gap: var(--spacing-m);
-    padding: var(--spacing-m);
     overflow: hidden;
   }
 
@@ -16,8 +14,8 @@
     display: grid;
     grid-template-columns: 4fr 2fr 2fr 1fr;
     grid-template-rows: minmax(0, 1fr);
-    gap: var(--spacing-l);
     overflow: hidden;
+    background-color: var(--color-surface);
   }
 
   .binding {
