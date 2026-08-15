@@ -21,6 +21,18 @@
     overflow: hidden;
   }
 
+  .toolsColumn {
+    display: grid;
+    /* The first row may be squeezed to nothing — the schemes list scrolls
+       inside itself. Said here rather than left to that section's own
+       `min-height`, because what a refusal to shrink pushes out of the column
+       is the meter below it. */
+    grid-template-rows: minmax(0, auto) auto;
+    align-content: start;
+    gap: var(--spacing-m);
+    min-height: 0;
+  }
+
   .binding {
     margin-top: var(--spacing-l);
     font-size: var(--text-m);

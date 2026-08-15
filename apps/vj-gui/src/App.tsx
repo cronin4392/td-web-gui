@@ -7,6 +7,7 @@ import { StatusBar } from './playback/StatusBar';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
 import type { Wordbank } from '@domain/wordbank/wordbank';
+import { AudioMeter } from './playback/AudioMeter';
 import { ColorSelector } from './playback/ColorSelector';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
@@ -36,7 +37,10 @@ export function App(props: AppProps): JSX.Element {
               <SceneSelector />
               <EffectSelector />
               <TextSelector store={store} />
-              <ColorSelector />
+              <div class={styles.toolsColumn}>
+                <ColorSelector />
+                <AudioMeter />
+              </div>
             </div>
             <StatusBar />
             {/* Hidden for now — re-enable by dropping `u-hidden`. */}

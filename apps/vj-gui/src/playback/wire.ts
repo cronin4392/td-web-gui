@@ -103,10 +103,22 @@ export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
  */
 export interface InputParams {
   bpm: number;
+  /** The analyser's three bands, in {@link AUDIO_BANDS} order. One
+   * multi-channel readout rather than three, so the bands always describe the
+   * same frame. */
+  audio: number[];
 }
 
+/**
+ * The bands `audio` carries, in the order `td/input-config.py` lists its
+ * channels. That order is the entire contract — the wire sends bare numbers —
+ * so this array is the one place the web restates it, the way
+ * {@link LAYOUT_OPTIONS} restates a TD menu.
+ */
+export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
+
 /** Input readout names, declared read-only so their controls render disabled. */
-export const inputReadonly = ['bpm'] as const satisfies readonly (keyof InputParams)[];
+export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**
  * Calls each scene instance exposes — the TS half of `HANDLERS` in
