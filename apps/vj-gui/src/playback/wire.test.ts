@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { activeSceneFolder, performanceStat } from './wire';
+import { activeSceneFolder, asLayerId, performanceStat } from './wire';
+
+describe('asLayerId', () => {
+  it('passes a layer letter through', () => {
+    expect(asLayerId('D')).toBe('D');
+  });
+
+  it('is undefined for a payload with no layer in it', () => {
+    expect(asLayerId(undefined)).toBeUndefined();
+  });
+
+  it('is undefined for the empty par of a loader that has no scene key', () => {
+    expect(asLayerId('')).toBeUndefined();
+  });
+
+  it('is undefined for a letter past the eight loaders', () => {
+    expect(asLayerId('I')).toBeUndefined();
+  });
+
+  it('does not accept a lowercase letter, which names no loader', () => {
+    expect(asLayerId('d')).toBeUndefined();
+  });
+});
 
 describe('activeSceneFolder', () => {
   it('drops the .tox filename', () => {

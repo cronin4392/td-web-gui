@@ -1,5 +1,5 @@
 import type { JsonValue, SelectOption } from 'td-core';
-import { host, type LayerId, type TDInstanceConfig } from './layers';
+import { host, layerIds, type LayerId, type TDInstanceConfig } from './layers';
 
 /**
  * One port per instance. Separate variables rather than a base + offset: the
@@ -74,6 +74,22 @@ export type GuiParams = Record<LayerTextParamName, string> & {
  */
 export interface GuiCalls {
   colorSchemes: { args?: undefined; result: JsonValue };
+}
+
+/**
+ * Calls the GUI instance invokes on the web — what its `Notify`/`Call` may name.
+ *
+ * `selectLayer` is the rig's MIDI select button reaching the page. An event
+ * rather than a param because it is the press that carries meaning: the
+ * selection stays the web's own, and nothing about it need outlive a project
+ * that is on its way out.
+ *
+ * `layer` is a loader's `Scenekey` letter, but typed as a plain string: it
+ * arrives off the wire, so it is a claim about a layer until
+ * {@link asLayerId} has agreed.
+ */
+export interface GuiHandlers {
+  selectLayer: { args: { layer: string } };
 }
 
 /** GUI readout names, declared read-only so bound controls render disabled —
@@ -182,6 +198,14 @@ export function performanceStat(table: string[][] | undefined, stat: string): nu
   if (!cell) return undefined;
   const value = Number(cell);
   return Number.isFinite(value) ? value : undefined;
+}
+
+/** A `selectLayer` payload's `layer` as a {@link LayerId}, `undefined` for a
+ * letter that names no loader — a loader whose `Scenekey` is blank or mis-set
+ * says nothing about where the operator wants to be, so its press is dropped
+ * rather than answered by moving the selection somewhere they didn't ask for. */
+export function asLayerId(value: string | undefined): LayerId | undefined {
+  return layerIds.includes(value as LayerId) ? (value as LayerId) : undefined;
 }
 
 /** Wire name of the video stream each loader publishes over WebRTC. */

@@ -22,6 +22,7 @@ import {
   loaderInstances,
   loaderReadonly,
   type GuiCalls,
+  type GuiHandlers,
   type GuiParams,
   type InputParams,
   type LoaderCalls,
@@ -29,9 +30,9 @@ import {
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the eight loaders' text params, the color ramp, and the
- * Color scheme catalog. */
-export const GuiClient = createTDClient<GuiParams, GuiCalls>();
+/** The GUI project: the eight loaders' text params, the color ramp, the Color
+ * scheme catalog, and the MIDI select button's `selectLayer`. */
+export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
 
 /** Every scene project: performance readouts, the video stream, and the
  * `loadScene` call. */

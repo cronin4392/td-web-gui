@@ -10,9 +10,16 @@ Loading a scene does NOT go through here: the web app calls each SceneLoader
 process directly (`loadScene` in td/scene-config.py), bypassing this project's
 MessageDispatcher entirely.
 
-Which loader's text pair the web app shows is local UI state (`selectedLayer`
-in apps/vj-gui/src/App.tsx, set by clicking a video tile in LayerPreviews),
-not a value read from TD — so there's no `Selectedloader` entry here.
+Which loader the web app shows is its own state, not a value read from TD — so
+there's no `Selectedloader` entry here. The MIDI select button nudges it with a
+fire-and-forget call the web registered, which needs nothing in this file:
+
+        op.GUI.op('Tools/WebGuiServer').Notify(
+                'selectLayer', {'layer': parent.ToxLoader.par.Scenekey.eval()}
+        )
+
+An event rather than a parameter deliberately: nothing about the selection
+outlives this project, which is on its way out.
 
 The scenes are separate processes with their own config: td/scene-config.py.
 """

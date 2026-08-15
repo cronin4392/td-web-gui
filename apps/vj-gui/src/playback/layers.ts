@@ -9,8 +9,9 @@
  * The page drives **ten** TouchDesigner processes, of **three** kinds:
  *
  *   - the GUI project (`td/gui-config.py`), which owns the eight loaders'
- *     text params — one of a kind, one schema; which loader is active is
- *     local UI state (`selectedLayer` in `App.tsx`), not a TD-driven value;
+ *     text params — one of a kind, one schema; which loader is active is this
+ *     app's own state (`selectedLayer` in `PlaybackProvider`), which TD's MIDI
+ *     select button nudges by calling `selectLayer` rather than by holding it;
  *   - the scene projects (`td/scene-config.py`), one process per live scene;
  *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
  *     end — one of a kind, one schema.
