@@ -1,5 +1,6 @@
 import {
   createContext,
+  createMemo,
   createSignal,
   onCleanup,
   useContext,
@@ -13,6 +14,9 @@ import { asLayerId } from './wire';
 export interface PlaybackContextValue {
   selectedLayer: Accessor<LayerId>;
   selectLayer: (layer: LayerId) => void;
+  /** The selected layer's fader, `0` while nothing is connected — anything above
+   * it means whatever is loaded there is on the audience's screen. */
+  selectedLevel: Accessor<number>;
   connections: Accessor<LayerConnections>;
   registerConnection: (layer: LayerId, connection: LoaderConnection | undefined) => void;
   loadTox: (path: string) => Promise<void>;
@@ -44,6 +48,11 @@ export function PlaybackProvider(props: { children: JSX.Element }): JSX.Element 
     }),
   );
 
+  // The binding is memoized rather than the value: `signal()` warns on every
+  // call for a read-only name, and `level` arrives frame by frame.
+  const levelBinding = createMemo(() => connections()[selectedLayer()]?.signal('level'));
+  const selectedLevel = () => levelBinding()?.value() ?? 0;
+
   function registerConnection(layer: LayerId, connection: LoaderConnection | undefined): void {
     setConnections((prev) => ({ ...prev, [layer]: connection }));
   }
@@ -55,6 +64,7 @@ export function PlaybackProvider(props: { children: JSX.Element }): JSX.Element 
   const value: PlaybackContextValue = {
     selectedLayer,
     selectLayer,
+    selectedLevel,
     connections,
     registerConnection,
     loadTox,

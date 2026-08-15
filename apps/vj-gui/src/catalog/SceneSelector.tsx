@@ -8,7 +8,7 @@ import { RadioButton } from '@/ui/RadioButton';
 import styles from './SceneSelector.module.css';
 
 export function SceneSelector(): JSX.Element {
-  const { loadTox } = usePlayback();
+  const { loadTox, selectedLevel } = usePlayback();
   const picker = createCatalogPicker<Catalog>({
     fetch: fetchCatalog,
     sync: syncCatalog,
@@ -62,7 +62,9 @@ export function SceneSelector(): JSX.Element {
           onRefresh={() => void picker.refresh()}
         />
 
-        <div class={styles.grid}>
+        {/* Faded while the selected layer is up: loading over a live layer cuts
+            in front of the audience, so a tile has to be hovered to be read. */}
+        <div class={styles.grid} data-live={selectedLevel() > 0}>
           <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
             {(scene) => (
               <button
