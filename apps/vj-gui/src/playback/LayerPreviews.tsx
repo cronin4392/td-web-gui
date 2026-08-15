@@ -5,6 +5,7 @@ import { RadioButton } from '@/ui/RadioButton';
 import type { LayerId } from './layers';
 import {
   activeSceneFolder,
+  activeSceneName,
   COLOR_OPTIONS,
   LAYOUT_OPTIONS,
   LOADER_STREAM,
@@ -111,6 +112,11 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           class={styles.streamToggle}
         />
       </div>
+      {/* Not a <figcaption>: that has to be the figure's first or last child,
+        and the name belongs under the tile rather than under the controls. */}
+      <p class={styles.sceneName} title={activeScene.value()}>
+        {activeSceneName(activeScene.value()) ?? '—'}
+      </p>
       <div class={styles.params}>
         <ParamRadios
           layer={props.layer}

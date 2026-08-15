@@ -201,6 +201,24 @@ export function activeSceneFolder(path: string | undefined): string | undefined 
   return /^[A-Za-z]:$/.test(folder) ? undefined : folder;
 }
 
+/**
+ * The name of a loader's active scene — the `.tox`'s filename, extension
+ * dropped. `undefined` for a layer that has never loaded anything.
+ *
+ * Derived from the same par as {@link activeSceneFolder} rather than read from
+ * the Loader's own `SceneName` cell, which would reintroduce the trap
+ * `td/scene-config.py` documents over `activeScene`: that table is fed by an
+ * Evaluate DAT, TD is pull-based, and with nothing demanding it the cell never
+ * cooks. The par is already on the wire and the Loader derives its own name
+ * from it by the same split, so there is nothing to learn by asking twice.
+ */
+export function activeSceneName(path: string | undefined): string | undefined {
+  if (!path) return undefined;
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  const file = path.slice(cut + 1);
+  return file ? file.replace(/\.tox$/i, '') : undefined;
+}
+
 /** One stat out of the `performance` table by its TD row name (`fps`,
  * `cookTime`, `gpu_mem_used`, …). `undefined` before TD has synced the table,
  * and for a row that isn't in it or doesn't hold a number. */

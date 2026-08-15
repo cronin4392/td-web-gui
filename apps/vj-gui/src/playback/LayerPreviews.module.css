@@ -56,6 +56,14 @@
     height: var(--spacing-l);
   }
 
+  .sceneName {
+    overflow: hidden;
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .params {
     display: flex;
     justify-content: space-between;

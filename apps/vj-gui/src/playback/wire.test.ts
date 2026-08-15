@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeSceneFolder, asLayerId, performanceStat } from './wire';
+import { activeSceneFolder, activeSceneName, asLayerId, performanceStat } from './wire';
 
 describe('asLayerId', () => {
   it('passes a layer letter through', () => {
@@ -57,6 +57,40 @@ describe('activeSceneFolder', () => {
   it('is undefined at a drive root, the form the root actually takes here', () => {
     expect(activeSceneFolder('C:/A.tox')).toBeUndefined();
     expect(activeSceneFolder('C:\\A.tox')).toBeUndefined();
+  });
+});
+
+describe('activeSceneName', () => {
+  it('drops the folder and the .tox', () => {
+    expect(activeSceneName('C:/Scenes/AudioSpectrum/AudioSpectrum.tox')).toBe('AudioSpectrum');
+  });
+
+  it('accepts backslashes, which a par can hold even though loadScene cannot send them', () => {
+    expect(activeSceneName('C:\\Scenes\\A\\A.tox')).toBe('A');
+  });
+
+  it('takes the last separator when both kinds appear', () => {
+    expect(activeSceneName('C:\\Scenes/A/Nested.tox')).toBe('Nested');
+  });
+
+  it('accepts a bare filename, which names a scene even though it names no folder', () => {
+    expect(activeSceneName('A.tox')).toBe('A');
+  });
+
+  it('keeps a name that is not a .tox, since the par reports whatever it holds', () => {
+    expect(activeSceneName('C:/Scenes/A/A.toe')).toBe('A.toe');
+  });
+
+  it('is undefined before TD has synced a path', () => {
+    expect(activeSceneName(undefined)).toBeUndefined();
+  });
+
+  it('is undefined for the empty par a layer starts on', () => {
+    expect(activeSceneName('')).toBeUndefined();
+  });
+
+  it('is undefined for a path ending in a separator, which names no file', () => {
+    expect(activeSceneName('C:/Scenes/A/')).toBeUndefined();
   });
 });
 
