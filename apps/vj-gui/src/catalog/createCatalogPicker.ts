@@ -5,8 +5,11 @@ export interface CatalogPicker<T> {
   catalog: InitializedResource<T>;
   error: Accessor<string | undefined>;
   refreshing: Accessor<boolean>;
+  editing: Accessor<boolean>;
+  toggleEditing: () => void;
   refresh: () => Promise<void>;
   loadTox: (path: string) => Promise<void>;
+  setHidden: (name: string, hidden: boolean) => Promise<void>;
 }
 
 function reason(error: unknown): string {
@@ -16,31 +19,39 @@ function reason(error: unknown): string {
 
 /**
  * The picker state every catalog shares: the fetched catalog, a sync that
- * replaces it in place, and a load the caller has already aimed at the
- * right destination. The catalog is served by the dev/preview server, but
- * `config.load` goes straight to TD — the GUI is not in that path.
+ * swaps in the server's result, an edit mode, and a load the caller has already
+ * aimed at the right destination. The catalog is served by the dev/preview
+ * server, but `config.load` goes straight to TD — the GUI is not in that path.
+ * `setHidden` only flips the flag: filtering on it needs the catalog's shape,
+ * which only the caller knows.
  */
 export function createCatalogPicker<T>(config: {
   fetch: () => Promise<T>;
   sync: () => Promise<T>;
   initialValue: T;
   load: (path: string) => Promise<void>;
+  setHidden: (name: string, hidden: boolean) => Promise<T>;
 }): CatalogPicker<T> {
   const [catalog, { mutate }] = createResource(config.fetch, { initialValue: config.initialValue });
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [refreshing, setRefreshing] = createSignal(false);
+  const [editing, setEditing] = createSignal(false);
 
   async function refresh(): Promise<void> {
     setError(undefined);
     setRefreshing(true);
     try {
-      const rebuilt = await config.sync();
-      mutate(() => rebuilt);
+      const synced = await config.sync();
+      mutate(() => synced);
     } catch (err) {
       setError(`Refresh failed: ${reason(err)}`);
     } finally {
       setRefreshing(false);
     }
+  }
+
+  function toggleEditing(): void {
+    setEditing((on) => !on);
   }
 
   async function loadTox(path: string): Promise<void> {
@@ -52,5 +63,15 @@ export function createCatalogPicker<T>(config: {
     }
   }
 
-  return { catalog, error, refreshing, refresh, loadTox };
+  async function setHidden(name: string, hidden: boolean): Promise<void> {
+    setError(undefined);
+    try {
+      const updated = await config.setHidden(name, hidden);
+      mutate(() => updated);
+    } catch (err) {
+      setError(`Edit failed: ${reason(err)}`);
+    }
+  }
+
+  return { catalog, error, refreshing, editing, toggleEditing, refresh, loadTox, setHidden };
 }

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchEffectCatalog, syncEffectCatalog } from './effects-api';
+import { fetchEffectCatalog, setEffectHidden, syncEffectCatalog } from './effects-api';
 import type { EffectCatalog } from '@domain/catalog/effect';
 
-const CATALOG: EffectCatalog = [{ name: 'Blur', path: 'C:/Effects/3 Effect/Blur/Blur.tox' }];
+const CATALOG: EffectCatalog = [
+  { name: 'Blur', hidden: false, path: 'C:/Effects/3 Effect/Blur/Blur.tox' },
+];
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
@@ -52,7 +54,7 @@ describe('fetchEffectCatalog', () => {
 });
 
 describe('syncEffectCatalog', () => {
-  it('returns the rebuilt catalog from the sync response, in one request', async () => {
+  it('returns the synced catalog from the sync response, in one request', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(CATALOG));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -61,7 +63,7 @@ describe('syncEffectCatalog', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/effects/sync', { method: 'POST' });
   });
 
-  it('rejects rather than falling back when the rebuilt catalog fails validation', async () => {
+  it('rejects rather than falling back when the synced catalog fails validation', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([{}])));
 
     await expect(syncEffectCatalog()).rejects.toThrow('shape validation');
@@ -78,5 +80,32 @@ describe('syncEffectCatalog', () => {
   it('rejects on a network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
     await expect(syncEffectCatalog()).rejects.toThrow('network down');
+  });
+});
+
+describe('setEffectHidden', () => {
+  it('posts the name and flag and returns the catalog that resulted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(CATALOG));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(setEffectHidden('Blur', true)).resolves.toEqual(CATALOG);
+    expect(fetchMock).toHaveBeenCalledWith('/api/effects/hidden', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Blur', hidden: true }),
+    });
+  });
+
+  it('rejects rather than falling back when the response fails validation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse([{ name: 'Blur' }])));
+    await expect(setEffectHidden('Blur', true)).rejects.toThrow('shape validation');
+  });
+
+  it('rejects with the server message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('no such effect', { status: 400 })),
+    );
+    await expect(setEffectHidden('Gone', true)).rejects.toThrow('no such effect');
   });
 });

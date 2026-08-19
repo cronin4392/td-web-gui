@@ -8,14 +8,22 @@ import {
   directoryNames,
   isFile,
   openCatalogDb,
+  pruneRows,
   transaction,
+  type TableColumns,
 } from '../platform/catalog-db';
 import { requiredEnv } from '../platform/env';
 
-const TABLE_COLUMNS: Record<string, string[]> = {
-  scenes: ['name', 'folder', 'rank', 'dark'],
-  scene_tags: ['scene_name', 'tag'],
-  tags: ['name', 'rank'],
+const TABLE_COLUMNS: TableColumns = {
+  scenes: {
+    name: 'TEXT PRIMARY KEY NOT NULL',
+    folder: 'TEXT NOT NULL',
+    rank: 'REAL',
+    dark: 'INTEGER NOT NULL',
+    hidden: 'INTEGER NOT NULL DEFAULT 0',
+  },
+  scene_tags: { scene_name: 'TEXT NOT NULL', tag: 'TEXT NOT NULL' },
+  tags: { name: 'TEXT PRIMARY KEY', rank: 'REAL' },
 };
 
 /** Ranks for the tags that get a fixed slot in the picker. Negative sorts above
@@ -43,7 +51,9 @@ const DDL = `
     name   TEXT PRIMARY KEY NOT NULL,
     folder TEXT NOT NULL,
     rank   REAL,
-    dark   INTEGER NOT NULL
+    dark   INTEGER NOT NULL,
+    -- Authored in the GUI, which is why the sync's upsert never names it.
+    hidden INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE tags (
     name TEXT PRIMARY KEY,
@@ -135,8 +145,8 @@ export function scanSceneFolders(root: string): Scene[] {
   return scanSceneFields(root).map(sceneFrom);
 }
 
-/** Rebuild the catalog from disk in one transaction — the whole scan or none of
- * it. Scanning happens first so a malformed `meta.json` leaves the prior
+/** Reconcile the catalog against disk in one transaction — the whole scan or none
+ * of it. Scanning happens first so a malformed `meta.json` leaves the prior
  * catalog serving rather than emptying it. */
 export function syncScenes(db: DatabaseSync, root: string): { scenes: number; tags: number } {
   const scenes = scanSceneFields(root);
@@ -146,21 +156,32 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
   ]);
 
   return transaction(db, () => {
+    // Naming every scanned column and no authored one is what carries `hidden`
+    // through a sync: a scene that is still on disk keeps the row it had.
+    const upsertScene = db.prepare(`
+      INSERT INTO scenes (name, folder, rank, dark) VALUES (?, ?, ?, ?)
+      ON CONFLICT(name) DO UPDATE SET folder = excluded.folder,
+                                      rank   = excluded.rank,
+                                      dark   = excluded.dark
+    `);
+    for (const scene of scenes) {
+      upsertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0);
+    }
+    pruneRows(db, 'scenes', new Set(scenes.map((scene) => scene.name)));
+
+    // Both tag tables are wholly derived, so they are replaced outright rather
+    // than reconciled — that is also what resets a hand-edited rank. Links go
+    // before the tags they reference, and both refill after the scene rows
+    // exist, so the foreign keys hold throughout.
     db.exec('DELETE FROM scene_tags');
     db.exec('DELETE FROM tags');
-    db.exec('DELETE FROM scenes');
 
     const insertTag = db.prepare('INSERT INTO tags (name, rank) VALUES (?, ?)');
     for (const name of [...tagNames].sort()) insertTag.run(name, SEEDED_TAG_RANKS[name] ?? null);
 
-    const insertScene = db.prepare(
-      'INSERT INTO scenes (name, folder, rank, dark) VALUES (?, ?, ?, ?)',
-    );
     const insertSceneTag = db.prepare('INSERT INTO scene_tags (scene_name, tag) VALUES (?, ?)');
-
     let tags = 0;
     for (const scene of scenes) {
-      insertScene.run(scene.name, scene.folder, scene.rank, scene.dark ? 1 : 0);
       for (const tag of scene.tags) {
         insertSceneTag.run(scene.name, tag);
         tags += 1;
@@ -170,13 +191,23 @@ export function syncScenes(db: DatabaseSync, root: string): { scenes: number; ta
   });
 }
 
+/** Throws on a name no scene carries: the picker only ever names a scene it just
+ * rendered, so a miss means the catalog moved under it — worth surfacing. */
+export function setSceneHidden(db: DatabaseSync, name: string, hidden: boolean): void {
+  const { changes } = db
+    .prepare('UPDATE scenes SET hidden = ? WHERE name = ?')
+    .run(hidden ? 1 : 0, name);
+  if (changes === 0) throw new Error(`no such scene "${name}"`);
+}
+
 export function readScenes(db: DatabaseSync): Scene[] {
   const rows = (
-    db.prepare('SELECT name, folder, rank, dark FROM scenes').all() as {
+    db.prepare('SELECT name, folder, rank, dark, hidden FROM scenes').all() as {
       name: string;
       folder: string;
       rank: number | null;
       dark: number;
+      hidden: number;
     }[]
   ).sort(byRank);
 
@@ -197,6 +228,7 @@ export function readScenes(db: DatabaseSync): Scene[] {
       tags: tags.get(row.name) ?? [],
       rank: row.rank,
       dark: row.dark !== 0,
+      hidden: row.hidden !== 0,
     }),
   );
 }

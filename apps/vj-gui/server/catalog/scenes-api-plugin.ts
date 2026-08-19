@@ -1,5 +1,12 @@
 import type { Plugin } from 'vite';
-import { openScenesDb, readCatalog, scenesDbPath, scenesRoot, syncScenes } from './scenes-db';
+import {
+  openScenesDb,
+  readCatalog,
+  scenesDbPath,
+  scenesRoot,
+  setSceneHidden,
+  syncScenes,
+} from './scenes-db';
 import { catalogApiHandler, sqliteApiPlugin } from '../platform/api-plugin';
 
 const ROUTE = '/api/scenes';
@@ -7,6 +14,7 @@ const ROUTE = '/api/scenes';
 export const scenesApiHandler = catalogApiHandler({
   read: readCatalog,
   sync: (db) => syncScenes(db, scenesRoot(process.env)),
+  setHidden: setSceneHidden,
 });
 
 /** Opened on the first request, not at config load — `pnpm db:scenes` loads this

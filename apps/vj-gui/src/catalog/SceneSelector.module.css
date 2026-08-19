@@ -38,9 +38,15 @@
     color: var(--color-text-faint);
   }
 
+  .cell {
+    position: relative;
+    min-width: 0;
+  }
+
   .tile {
     position: relative;
     display: flex;
+    width: 100%;
     aspect-ratio: 16 / 9;
     align-items: flex-end;
     overflow: hidden;
@@ -71,6 +77,27 @@
       &:hover {
         opacity: 1;
       }
+    }
+
+    .cell[data-hidden='true'] & {
+      filter: grayscale(1);
+      opacity: 0.35;
+    }
+  }
+
+  .hide {
+    position: absolute;
+    top: var(--spacing-s);
+    right: var(--spacing-s);
+    padding: 0 var(--spacing-s);
+    border: 1px solid var(--color-border-hover);
+    border-radius: var(--radius);
+    background: var(--color-overlay);
+    font-size: var(--text-s);
+    color: var(--color-text);
+
+    &:hover {
+      border-color: var(--color-text);
     }
   }
 

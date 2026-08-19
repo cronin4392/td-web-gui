@@ -12,12 +12,18 @@ import {
   directoryNames,
   isFile,
   openCatalogDb,
+  pruneRows,
   transaction,
+  type TableColumns,
 } from '../platform/catalog-db';
 import { requiredEnv } from '../platform/env';
 
-const TABLE_COLUMNS: Record<string, string[]> = {
-  effects: ['name', 'folder'],
+const TABLE_COLUMNS: TableColumns = {
+  effects: {
+    name: 'TEXT PRIMARY KEY NOT NULL',
+    folder: 'TEXT NOT NULL',
+    hidden: 'INTEGER NOT NULL DEFAULT 0',
+  },
 };
 
 const DDL = `
@@ -26,7 +32,9 @@ const DDL = `
     -- NOT NULL is what makes the name truly unique: SQLite lets a PRIMARY
     -- KEY column hold NULL, and any number of them.
     name   TEXT PRIMARY KEY NOT NULL,
-    folder TEXT NOT NULL
+    folder TEXT NOT NULL,
+    -- Authored in the GUI, which is why the sync's upsert never names it.
+    hidden INTEGER NOT NULL DEFAULT 0
   );
 `;
 
@@ -82,24 +90,40 @@ export function scanEffectFolders(root: string): EffectCatalog {
   return scanEffectFields(root).map(effectFrom);
 }
 
-/** Rebuild the catalog from disk in one transaction — the whole scan or none of
- * it. Scanning happens first so a failed scan leaves the prior catalog serving
+/** Reconcile the catalog against disk in one transaction — the whole scan or none
+ * of it. Scanning happens first so a failed scan leaves the prior catalog serving
  * rather than emptying it. */
 export function syncEffects(db: DatabaseSync, root: string): { effects: number } {
   const effects = scanEffectFields(root);
 
   return transaction(db, () => {
-    db.exec('DELETE FROM effects');
-    const insert = db.prepare('INSERT INTO effects (name, folder) VALUES (?, ?)');
-    for (const effect of effects) insert.run(effect.name, effect.folder);
+    // Naming every scanned column and no authored one is what carries `hidden`
+    // through a sync: an effect that is still on disk keeps the row it had, even
+    // when it moved to another group.
+    const upsert = db.prepare(`
+      INSERT INTO effects (name, folder) VALUES (?, ?)
+      ON CONFLICT(name) DO UPDATE SET folder = excluded.folder
+    `);
+    for (const effect of effects) upsert.run(effect.name, effect.folder);
+    pruneRows(db, 'effects', new Set(effects.map((effect) => effect.name)));
     return { effects: effects.length };
   });
 }
 
+/** Throws on a name no effect carries: the picker only ever names an effect it
+ * just rendered, so a miss means the catalog moved under it — worth surfacing. */
+export function setEffectHidden(db: DatabaseSync, name: string, hidden: boolean): void {
+  const { changes } = db
+    .prepare('UPDATE effects SET hidden = ? WHERE name = ?')
+    .run(hidden ? 1 : 0, name);
+  if (changes === 0) throw new Error(`no such effect "${name}"`);
+}
+
 export function readEffects(db: DatabaseSync): EffectCatalog {
-  const rows = db.prepare('SELECT name, folder FROM effects').all() as {
+  const rows = db.prepare('SELECT name, folder, hidden FROM effects').all() as {
     name: string;
     folder: string;
+    hidden: number;
   }[];
-  return rows.map((row): Effect => effectFrom(row)).sort(byName);
+  return rows.map((row): Effect => effectFrom({ ...row, hidden: row.hidden !== 0 })).sort(byName);
 }

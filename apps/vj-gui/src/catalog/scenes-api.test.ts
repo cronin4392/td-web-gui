@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchCatalog, syncCatalog } from './scenes-api';
+import { fetchCatalog, setSceneHidden, syncCatalog } from './scenes-api';
 import type { Catalog, Scene } from '@domain/catalog/scene';
 
 const SCENE: Scene = {
@@ -7,6 +7,7 @@ const SCENE: Scene = {
   tags: ['audio'],
   rank: 200,
   dark: false,
+  hidden: false,
   path: 'C:/Scenes/AudioSpectrum/AudioSpectrum.tox',
   thumbnail: '/scenes/AudioSpectrum/thumbnail.jpg',
 };
@@ -60,7 +61,7 @@ describe('fetchCatalog', () => {
 });
 
 describe('syncCatalog', () => {
-  it('returns the rebuilt catalog from the sync response, in one request', async () => {
+  it('returns the synced catalog from the sync response, in one request', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(CATALOG));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -69,7 +70,7 @@ describe('syncCatalog', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/scenes/sync', { method: 'POST' });
   });
 
-  it('rejects rather than falling back when the rebuilt catalog fails validation', async () => {
+  it('rejects rather than falling back when the synced catalog fails validation', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ scenes: [{}], tags: [] })));
 
     await expect(syncCatalog()).rejects.toThrow('shape validation');
@@ -86,5 +87,32 @@ describe('syncCatalog', () => {
   it('rejects on a network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
     await expect(syncCatalog()).rejects.toThrow('network down');
+  });
+});
+
+describe('setSceneHidden', () => {
+  it('posts the name and flag and returns the catalog that resulted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(CATALOG));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(setSceneHidden('AudioSpectrum', true)).resolves.toEqual(CATALOG);
+    expect(fetchMock).toHaveBeenCalledWith('/api/scenes/hidden', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'AudioSpectrum', hidden: true }),
+    });
+  });
+
+  it('rejects rather than falling back when the response fails validation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ scenes: [{}], tags: [] })));
+    await expect(setSceneHidden('AudioSpectrum', true)).rejects.toThrow('shape validation');
+  });
+
+  it('rejects with the server message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('no such scene', { status: 400 })),
+    );
+    await expect(setSceneHidden('Gone', true)).rejects.toThrow('no such scene');
   });
 });

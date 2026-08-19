@@ -18,15 +18,39 @@ export function routePath(req: IncomingMessage): string {
   return (req.url ?? '').split('?')[0]!.replace(/\/+$/, '');
 }
 
-const SYNC_PATH = '/sync';
+export function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolvePromise, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolvePromise(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
 
-/** `GET ''` reads the catalog, `POST /sync` rebuilds it from disk and returns
- * the rebuilt one; anything else falls through to the next middleware. */
+const SYNC_PATH = '/sync';
+const HIDDEN_PATH = '/hidden';
+
+interface HiddenRequest {
+  name: string;
+  hidden: boolean;
+}
+
+function isHiddenRequest(x: unknown): x is HiddenRequest {
+  if (typeof x !== 'object' || x === null) return false;
+  const body = x as Record<string, unknown>;
+  return typeof body.name === 'string' && body.name !== '' && typeof body.hidden === 'boolean';
+}
+
+/** `GET ''` reads the catalog, `POST /sync` reconciles it against disk, and
+ * `POST /hidden` hides or unhides one entry by name; each of the two POSTs
+ * answers with the catalog that resulted, so the client needs no second read.
+ * Anything else falls through to the next middleware. */
 export function catalogApiHandler(config: {
   read: (db: DatabaseSync) => unknown;
   sync: (db: DatabaseSync) => void;
+  setHidden: (db: DatabaseSync, name: string, hidden: boolean) => void;
 }): (getDb: () => DatabaseSync) => Connect.NextHandleFunction {
-  return (getDb) => (req, res, next) => {
+  return (getDb) => async (req, res, next) => {
     function respond(work: (db: DatabaseSync) => unknown): void {
       try {
         sendJson(res, work(getDb()));
@@ -40,6 +64,25 @@ export function catalogApiHandler(config: {
     if (req.method === 'POST' && path === SYNC_PATH) {
       respond((db) => {
         config.sync(db);
+        return config.read(db);
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && path === HIDDEN_PATH) {
+      let body: unknown;
+      try {
+        body = JSON.parse(await readBody(req));
+      } catch {
+        sendError(res, 400, 'malformed JSON');
+        return;
+      }
+      if (!isHiddenRequest(body)) {
+        sendError(res, 400, 'expected { name: string, hidden: boolean }');
+        return;
+      }
+      respond((db) => {
+        config.setHidden(db, body.name, body.hidden);
         return config.read(db);
       });
       return;

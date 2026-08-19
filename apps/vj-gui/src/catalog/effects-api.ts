@@ -18,13 +18,26 @@ export async function fetchEffectCatalog(): Promise<EffectCatalog> {
   }
 }
 
-/** Rebuilds the catalog from the effect folders on disk and returns the rebuilt
- * catalog. Rejects rather than falling back — a refresh is an explicit request,
- * so the user needs to see why it failed. */
+/** Rejects rather than falling back — a refresh is an explicit request, so the
+ * user needs to see why it failed. */
 export async function syncEffectCatalog(): Promise<EffectCatalog> {
   const res = await fetch(`${ENDPOINT}/sync`, { method: 'POST' });
   if (!res.ok) throw new Error((await res.text()) || `sync failed (${res.status})`);
   const body: unknown = await res.json();
   if (!isEffectCatalog(body)) throw new Error('sync response failed shape validation');
+  return body;
+}
+
+/** Rejects rather than falling back — hiding is an explicit request, so the
+ * user needs to see why it failed. */
+export async function setEffectHidden(name: string, hidden: boolean): Promise<EffectCatalog> {
+  const res = await fetch(`${ENDPOINT}/hidden`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, hidden }),
+  });
+  if (!res.ok) throw new Error((await res.text()) || `hide failed (${res.status})`);
+  const body: unknown = await res.json();
+  if (!isEffectCatalog(body)) throw new Error('hide response failed shape validation');
   return body;
 }

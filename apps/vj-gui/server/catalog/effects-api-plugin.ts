@@ -1,5 +1,12 @@
 import type { Plugin } from 'vite';
-import { effectsDbPath, effectsRoot, openEffectsDb, readEffects, syncEffects } from './effects-db';
+import {
+  effectsDbPath,
+  effectsRoot,
+  openEffectsDb,
+  readEffects,
+  setEffectHidden,
+  syncEffects,
+} from './effects-db';
 import { catalogApiHandler, sqliteApiPlugin } from '../platform/api-plugin';
 
 const ROUTE = '/api/effects';
@@ -7,6 +14,7 @@ const ROUTE = '/api/effects';
 export const effectsApiHandler = catalogApiHandler({
   read: readEffects,
   sync: (db) => syncEffects(db, effectsRoot(process.env)),
+  setHidden: setEffectHidden,
 });
 
 /** Opened on the first request, not at config load — `pnpm db:effects` loads this

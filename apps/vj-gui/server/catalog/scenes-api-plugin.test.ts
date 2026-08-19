@@ -6,7 +6,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openScenesDb } from './scenes-db';
 import { scenesApiHandler } from './scenes-api-plugin';
-import { callHandler } from '../platform/api-plugin.test-helpers';
+import { callHandler, callHandlerWithBody } from '../platform/api-plugin.test-helpers';
 
 let dir: string;
 let root: string;
@@ -17,6 +17,15 @@ function call(method: string, url: string) {
     scenesApiHandler(() => db),
     method,
     url,
+  );
+}
+
+function hide(name: string, hidden: boolean) {
+  return callHandlerWithBody(
+    scenesApiHandler(() => db),
+    'POST',
+    '/hidden',
+    JSON.stringify({ name, hidden }),
   );
 }
 
@@ -37,7 +46,7 @@ afterEach(() => {
 });
 
 describe('scenesApiHandler', () => {
-  it('rebuilds from the scene root on POST /sync and returns the scene catalog', () => {
+  it('reconciles against the scene root on POST /sync and returns the scene catalog', () => {
     const res = call('POST', '/sync');
 
     expect(res.status).toBe(200);
@@ -59,5 +68,34 @@ describe('scenesApiHandler', () => {
     const res = call('POST', '/sync');
     expect(res.status).toBe(500);
     expect(res.body).toContain('nope');
+  });
+
+  it('hides a scene, and keeps it hidden across a sync', async () => {
+    call('POST', '/sync');
+
+    const hidden = await hide('AudioSpectrum', true);
+    expect(JSON.parse(hidden.body).scenes).toEqual([
+      expect.objectContaining({ name: 'AudioSpectrum', hidden: true }),
+    ]);
+
+    const resynced = JSON.parse(call('POST', '/sync').body);
+    expect(resynced.scenes).toEqual([expect.objectContaining({ hidden: true })]);
+  });
+
+  it('unhides again', async () => {
+    call('POST', '/sync');
+    await hide('AudioSpectrum', true);
+
+    const shown = await hide('AudioSpectrum', false);
+    expect(JSON.parse(shown.body).scenes).toEqual([expect.objectContaining({ hidden: false })]);
+  });
+
+  it('reports a hide aimed at a vanished scene as a 500', async () => {
+    call('POST', '/sync');
+
+    const res = await hide('Ghost', true);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toContain('Ghost');
   });
 });

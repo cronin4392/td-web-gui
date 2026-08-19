@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openScenesDb, readScenes, readTagNames, scanSceneFolders, syncScenes } from './scenes-db';
+import {
+  openScenesDb,
+  readScenes,
+  readTagNames,
+  scanSceneFolders,
+  setSceneHidden,
+  syncScenes,
+} from './scenes-db';
 
 let dir: string;
 let root: string;
@@ -52,6 +59,7 @@ describe('scanSceneFolders', () => {
         tags: ['audio', 'foreground'],
         rank: 200,
         dark: false,
+        hidden: false,
         path: `${root.replace(/\\/g, '/')}/AudioSpectrum/AudioSpectrum.tox`,
         thumbnail: '/scenes/AudioSpectrum/thumbnail.jpg',
       },
@@ -285,5 +293,113 @@ describe('schema', () => {
 
     expect(readScenes(second)).toEqual(scanSceneFolders(root));
     expect(readTagNames(second)).toContain('alpha');
+  });
+});
+
+describe('setSceneHidden', () => {
+  function hiddenNames(db: DatabaseSync): string[] {
+    return readScenes(db)
+      .filter((scene) => scene.hidden)
+      .map((scene) => scene.name);
+  }
+
+  it('reads back on the scene it names, and on no other', () => {
+    scene('One', { tags: [] });
+    scene('Two', { tags: [] });
+    const db = open();
+    syncScenes(db, root);
+
+    setSceneHidden(db, 'One', true);
+
+    expect(hiddenNames(db)).toEqual(['One']);
+  });
+
+  it('unhides again', () => {
+    scene('One', { tags: [] });
+    const db = open();
+    syncScenes(db, root);
+
+    setSceneHidden(db, 'One', true);
+    setSceneHidden(db, 'One', false);
+
+    expect(hiddenNames(db)).toEqual([]);
+  });
+
+  it('throws on a name no scene carries', () => {
+    const db = open();
+    syncScenes(db, root);
+
+    expect(() => setSceneHidden(db, 'Ghost', true)).toThrow(/Ghost/);
+  });
+
+  it('survives a sync', () => {
+    scene('One', { tags: [] });
+    scene('Two', { tags: [] });
+    const db = open();
+    syncScenes(db, root);
+    setSceneHidden(db, 'One', true);
+
+    syncScenes(db, root);
+
+    expect(hiddenNames(db)).toEqual(['One']);
+  });
+
+  it('survives a sync that rewrote the scene it is set on', () => {
+    scene('One', { tags: ['a'], rank: 1 });
+    const db = open();
+    syncScenes(db, root);
+    setSceneHidden(db, 'One', true);
+
+    scene('One', { tags: ['b'], rank: 900, dark: true });
+    syncScenes(db, root);
+
+    expect(readScenes(db)).toEqual([
+      expect.objectContaining({ name: 'One', tags: ['b'], rank: 900, dark: true, hidden: true }),
+    ]);
+  });
+
+  it('goes with the scene when it vanishes from disk', () => {
+    scene('One', { tags: [] });
+    const db = open();
+    syncScenes(db, root);
+    setSceneHidden(db, 'One', true);
+
+    rmSync(join(root, 'One'), { recursive: true, force: true });
+    syncScenes(db, root);
+    scene('One', { tags: [] });
+    syncScenes(db, root);
+
+    expect(hiddenNames(db)).toEqual([]);
+  });
+
+  it('survives a reopen', () => {
+    scene('One', { tags: [] });
+    const first = open();
+    syncScenes(first, root);
+    setSceneHidden(first, 'One', true);
+    first.close();
+    openDbs = [];
+
+    const second = open();
+    expect(hiddenNames(second)).toEqual(['One']);
+  });
+
+  it('is added to a file that predates the column, rows intact', () => {
+    const old = new DatabaseSync(dbPath);
+    old.exec(`
+      CREATE TABLE scenes (
+        name TEXT PRIMARY KEY NOT NULL, folder TEXT NOT NULL, rank REAL, dark INTEGER NOT NULL
+      );
+      CREATE TABLE tags (name TEXT PRIMARY KEY, rank REAL);
+      CREATE TABLE scene_tags (scene_name TEXT NOT NULL, tag TEXT NOT NULL);
+      INSERT INTO scenes VALUES ('Kept', '/scenes/Kept', 5, 0);
+    `);
+    old.close();
+
+    const db = open();
+
+    expect(readScenes(db)).toEqual([
+      expect.objectContaining({ name: 'Kept', rank: 5, hidden: false }),
+    ]);
   });
 });

@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openEffectsDb, readEffects, scanEffectFolders, syncEffects } from './effects-db';
+import {
+  openEffectsDb,
+  readEffects,
+  scanEffectFolders,
+  setEffectHidden,
+  syncEffects,
+} from './effects-db';
 
 let dir: string;
 let root: string;
@@ -45,7 +51,7 @@ describe('scanEffectFolders', () => {
     effect('3 Effect', 'Blur');
 
     expect(scanEffectFolders(root)).toEqual([
-      { name: 'Blur', path: toxPathOf('3 Effect', 'Blur') },
+      { name: 'Blur', hidden: false, path: toxPathOf('3 Effect', 'Blur') },
     ]);
   });
 
@@ -203,5 +209,108 @@ describe('schema', () => {
 
     const second = open();
     expect(readEffects(second).map((e) => e.name)).toEqual(['Blur']);
+  });
+});
+
+describe('setEffectHidden', () => {
+  function hiddenNames(db: DatabaseSync): string[] {
+    return readEffects(db)
+      .filter((entry) => entry.hidden)
+      .map((entry) => entry.name);
+  }
+
+  it('reads back on the effect it names, and on no other', () => {
+    effect('3 Effect', 'Blur');
+    effect('4 3D', 'Tube');
+    const db = open();
+    syncEffects(db, root);
+
+    setEffectHidden(db, 'Blur', true);
+
+    expect(hiddenNames(db)).toEqual(['Blur']);
+  });
+
+  it('unhides again', () => {
+    effect('3 Effect', 'Blur');
+    const db = open();
+    syncEffects(db, root);
+
+    setEffectHidden(db, 'Blur', true);
+    setEffectHidden(db, 'Blur', false);
+
+    expect(hiddenNames(db)).toEqual([]);
+  });
+
+  it('throws on a name no effect carries', () => {
+    const db = open();
+    syncEffects(db, root);
+
+    expect(() => setEffectHidden(db, 'Ghost', true)).toThrow(/Ghost/);
+  });
+
+  it('survives a sync', () => {
+    effect('3 Effect', 'Blur');
+    effect('4 3D', 'Tube');
+    const db = open();
+    syncEffects(db, root);
+    setEffectHidden(db, 'Blur', true);
+
+    syncEffects(db, root);
+
+    expect(hiddenNames(db)).toEqual(['Blur']);
+  });
+
+  it('follows an effect that moved to another group', () => {
+    effect('1 Flashing', 'Drifter');
+    const db = open();
+    syncEffects(db, root);
+    setEffectHidden(db, 'Drifter', true);
+
+    rmSync(join(root, '1 Flashing'), { recursive: true, force: true });
+    effect('3 Effect', 'Drifter');
+    syncEffects(db, root);
+
+    expect(readEffects(db)).toEqual([
+      expect.objectContaining({ path: toxPathOf('3 Effect', 'Drifter'), hidden: true }),
+    ]);
+  });
+
+  it('goes with the effect when it vanishes from disk', () => {
+    effect('3 Effect', 'Blur');
+    const db = open();
+    syncEffects(db, root);
+    setEffectHidden(db, 'Blur', true);
+
+    rmSync(join(root, '3 Effect'), { recursive: true, force: true });
+    syncEffects(db, root);
+    effect('3 Effect', 'Blur');
+    syncEffects(db, root);
+
+    expect(hiddenNames(db)).toEqual([]);
+  });
+
+  it('survives a reopen', () => {
+    effect('3 Effect', 'Blur');
+    const first = open();
+    syncEffects(first, root);
+    setEffectHidden(first, 'Blur', true);
+    first.close();
+    openDbs = [];
+
+    const second = open();
+    expect(hiddenNames(second)).toEqual(['Blur']);
+  });
+
+  it('is added to a file that predates the column, rows intact', () => {
+    const old = new DatabaseSync(dbPath);
+    old.exec(`
+      CREATE TABLE effects (name TEXT PRIMARY KEY NOT NULL, folder TEXT NOT NULL);
+      INSERT INTO effects VALUES ('Kept', '/effects/3 Effect/Kept');
+    `);
+    old.close();
+
+    const db = open();
+
+    expect(readEffects(db)).toEqual([expect.objectContaining({ name: 'Kept', hidden: false })]);
   });
 });

@@ -6,7 +6,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openEffectsDb } from './effects-db';
 import { effectsApiHandler } from './effects-api-plugin';
-import { callHandler } from '../platform/api-plugin.test-helpers';
+import { callHandler, callHandlerWithBody } from '../platform/api-plugin.test-helpers';
 
 let dir: string;
 let root: string;
@@ -17,6 +17,15 @@ function call(method: string, url: string) {
     effectsApiHandler(() => db),
     method,
     url,
+  );
+}
+
+function hide(name: string, hidden: boolean) {
+  return callHandlerWithBody(
+    effectsApiHandler(() => db),
+    'POST',
+    '/hidden',
+    JSON.stringify({ name, hidden }),
   );
 }
 
@@ -36,12 +45,16 @@ afterEach(() => {
 });
 
 describe('effectsApiHandler', () => {
-  it('rebuilds from the effect root on POST /sync and returns the effect catalog', () => {
+  it('reconciles against the effect root on POST /sync and returns the effect catalog', () => {
     const res = call('POST', '/sync');
 
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body)).toEqual([
-      { name: 'Blur', path: `${root.replace(/\\/g, '/')}/3 Effect/Blur/Blur.tox` },
+      {
+        name: 'Blur',
+        hidden: false,
+        path: `${root.replace(/\\/g, '/')}/3 Effect/Blur/Blur.tox`,
+      },
     ]);
   });
 
@@ -58,5 +71,36 @@ describe('effectsApiHandler', () => {
     const res = call('POST', '/sync');
     expect(res.status).toBe(500);
     expect(res.body).toContain('nope');
+  });
+
+  it('hides an effect, and keeps it hidden across a sync', async () => {
+    call('POST', '/sync');
+
+    const hidden = await hide('Blur', true);
+    expect(JSON.parse(hidden.body)).toEqual([
+      expect.objectContaining({ name: 'Blur', hidden: true }),
+    ]);
+
+    expect(JSON.parse(call('POST', '/sync').body)).toEqual([
+      expect.objectContaining({ hidden: true }),
+    ]);
+  });
+
+  it('unhides again', async () => {
+    call('POST', '/sync');
+    await hide('Blur', true);
+
+    expect(JSON.parse((await hide('Blur', false)).body)).toEqual([
+      expect.objectContaining({ hidden: false }),
+    ]);
+  });
+
+  it('reports a hide aimed at a vanished effect as a 500', async () => {
+    call('POST', '/sync');
+
+    const res = await hide('Ghost', true);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toContain('Ghost');
   });
 });

@@ -2,6 +2,10 @@ import { mkdirSync, readdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { dirname, resolve } from 'node:path';
 
+/** Each table's columns, mapped to the SQL that declares one — enough for the
+ * schema check to add a missing column rather than rebuild the table. */
+export type TableColumns = Record<string, Record<string, string>>;
+
 export function transaction<T>(db: DatabaseSync, work: () => T): T {
   db.exec('BEGIN');
   try {
@@ -27,32 +31,54 @@ function columnsOf(db: DatabaseSync, table: string): string[] {
   return rows.map((row) => row.name);
 }
 
-function schemaIsCurrent(db: DatabaseSync, tableColumns: Record<string, string[]>): boolean {
-  return Object.entries(tableColumns).every(([table, expected]) => {
+/** Adds any column the live file is missing, in place. Answers false when the
+ * drift needs the rebuild instead — a table that isn't there, or a column the DDL
+ * no longer declares. That is the one path that costs authored state. */
+function addMissingColumns(db: DatabaseSync, tableColumns: TableColumns): boolean {
+  for (const [table, columns] of Object.entries(tableColumns)) {
     const actual = columnsOf(db, table);
-    return actual.length === expected.length && expected.every((name) => actual.includes(name));
-  });
+    if (actual.length === 0) return false;
+    if (actual.some((name) => !(name in columns))) return false;
+
+    for (const [name, definition] of Object.entries(columns)) {
+      if (actual.includes(name)) continue;
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+      } catch {
+        // SQLite refuses some additions outright, a PRIMARY KEY among them.
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**
- * Every row is rederivable from the folders on disk, so a stale schema is
- * dropped and rebuilt rather than migrated in place — the next sync refills it.
- * `ddl` carries its own `DROP TABLE` statements so each schema states its own
- * drop order, which foreign keys make load-bearing. The check reads the live
- * columns instead of a `user_version` counter, so a file whose version says one
- * thing and whose tables say another still self-heals.
+ * A catalog row is mostly rederivable from the folders on disk, but not wholly —
+ * `hidden` is authored in the GUI — so a stale schema is grown into the current
+ * one where that is possible: a column the file lacks is added in place. Only
+ * drift `ALTER TABLE` can't express falls back to `ddl`, which drops and
+ * recreates and takes the authored columns with it. `ddl` carries its own `DROP
+ * TABLE` statements so each schema states its own drop order, which foreign keys
+ * make load-bearing. The check reads the live columns instead of a
+ * `user_version` counter, so a file whose version says one thing and whose
+ * tables say another still self-heals.
  */
-export function openCatalogDb(
-  path: string,
-  tableColumns: Record<string, string[]>,
-  ddl: string,
-): DatabaseSync {
+export function openCatalogDb(path: string, tableColumns: TableColumns, ddl: string): DatabaseSync {
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
-  if (!schemaIsCurrent(db, tableColumns)) transaction(db, () => db.exec(ddl));
+  if (!addMissingColumns(db, tableColumns)) transaction(db, () => db.exec(ddl));
   return db;
+}
+
+/** Deletes the rows a Scan no longer found. Catalogs run to hundreds of rows, so
+ * this reads the names back rather than building an `IN (?, ?, …)` list. */
+export function pruneRows(db: DatabaseSync, table: string, keep: Set<string>): void {
+  const rows = db.prepare(`SELECT name FROM ${table}`).all() as { name: string }[];
+  const remove = db.prepare(`DELETE FROM ${table} WHERE name = ?`);
+  for (const row of rows) if (!keep.has(row.name)) remove.run(row.name);
 }
 
 export function isFile(path: string): boolean {

@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import { fetchCatalog, syncCatalog } from './scenes-api';
+import { fetchCatalog, setSceneHidden, syncCatalog } from './scenes-api';
 import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
@@ -14,6 +14,7 @@ export function SceneSelector(): JSX.Element {
     sync: syncCatalog,
     initialValue: emptyCatalog(),
     load: loadTox,
+    setHidden: setSceneHidden,
   });
 
   const scenes = () => picker.catalog().scenes;
@@ -31,8 +32,10 @@ export function SceneSelector(): JSX.Element {
 
   const visibleScenes = createMemo(() => {
     const tag = selectedTag();
-    if (tag === null) return scenes();
-    return scenes().filter((scene) => scene.tags.includes(tag));
+    const editing = picker.editing();
+    return scenes().filter(
+      (scene) => (editing || !scene.hidden) && (tag === null || scene.tags.includes(tag)),
+    );
   });
 
   return (
@@ -58,8 +61,10 @@ export function SceneSelector(): JSX.Element {
       <div class={styles.scenes}>
         <PickerToolbar
           refreshing={picker.refreshing()}
+          editing={picker.editing()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
+          onToggleEditing={() => picker.toggleEditing()}
         />
 
         {/* Faded while the selected layer is up: loading over a live layer cuts
@@ -67,19 +72,35 @@ export function SceneSelector(): JSX.Element {
         <div class={styles.grid} data-live={selectedLevel() > 0}>
           <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
             {(scene) => (
-              <button
-                type="button"
-                class={styles.tile}
-                style={
-                  scene.thumbnail ? { 'background-image': `url("${scene.thumbnail}")` } : undefined
-                }
-                title={scene.name}
-                disabled={!scene.path}
-                onClick={() => void picker.loadTox(scene.path)}
-              >
-                {/* Scrim — the label sits over arbitrary artwork. */}
-                <span class={styles.caption}>{scene.name}</span>
-              </button>
+              // The hide button can't nest inside the tile — a button inside a
+              // button is invalid, and the tile is the load target.
+              <div class={styles.cell} data-hidden={scene.hidden}>
+                <button
+                  type="button"
+                  class={styles.tile}
+                  style={
+                    scene.thumbnail
+                      ? { 'background-image': `url("${scene.thumbnail}")` }
+                      : undefined
+                  }
+                  title={scene.name}
+                  disabled={!scene.path}
+                  onClick={() => void picker.loadTox(scene.path)}
+                >
+                  {/* Scrim — the label sits over arbitrary artwork. */}
+                  <span class={styles.caption}>{scene.name}</span>
+                </button>
+
+                <Show when={picker.editing()}>
+                  <button
+                    type="button"
+                    class={styles.hide}
+                    onClick={() => void picker.setHidden(scene.name, !scene.hidden)}
+                  >
+                    {scene.hidden ? 'Show' : 'Hide'}
+                  </button>
+                </Show>
+              </div>
             )}
           </For>
         </div>

@@ -18,14 +18,16 @@ relative to `apps/vj-gui`.
 
 ## Catalogs
 
-| Term               | Definition                                                                 | Aliases to avoid            |
-| ------------------ | -------------------------------------------------------------------------- | --------------------------- |
-| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order               | Scene library, scene list   |
-| **Effect catalog** | Every Effect the GUI can offer, in name order                              | Effect library, effect list |
-| **Sync**           | Rebuilding a catalog from the folders on disk, replacing it wholesale      | Refresh, reindex, import    |
-| **Scan**           | Reading the folders on disk into catalog rows, without touching a database | Crawl, walk, discover       |
-| **Tag**            | A label a Scene carries, used to filter the Scene picker                   | Category, genre, keyword    |
-| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last        | Priority, order, weight     |
+| Term               | Definition                                                                  | Aliases to avoid            |
+| ------------------ | --------------------------------------------------------------------------- | --------------------------- |
+| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                | Scene library, scene list   |
+| **Effect catalog** | Every Effect the GUI can offer, in name order                               | Effect library, effect list |
+| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned | Refresh, reindex, import    |
+| **Scan**           | Reading the folders on disk into catalog rows, without touching a database  | Crawl, walk, discover       |
+| **Tag**            | A label a Scene carries, used to filter the Scene picker                    | Category, genre, keyword    |
+| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last         | Priority, order, weight     |
+| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned | Disabled, archived, deleted |
+| **Edit mode**      | The picker state that reveals Hidden entries and offers the hide toggle     | Manage mode, admin, unlock  |
 
 ## Playback
 
@@ -67,7 +69,8 @@ relative to `apps/vj-gui`.
 - A **Scene** and an **Effect** each resolve to exactly one **Tox**; the **Loader** cannot tell them apart.
 - A **Layer** plays at most one **Tox** at a time; **Loading** replaces whatever was there.
 - A **Scene** carries zero or more **Tags** and at most one **Rank**; an **Effect** carries neither.
-- A **Sync** rebuilds one catalog from one root folder — the **Scene catalog** and the **Effect catalog** never mix.
+- A **Sync** reconciles one catalog against one root folder — the **Scene catalog** and the **Effect catalog** never mix.
+- **Hidden** is the one piece of catalog state a **Sync** leaves alone: it is authored rather than scanned, so only **Edit mode** can undo it. It lives on the row, so it dies with it — a **Scene** deleted from disk does not come back hidden.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
@@ -96,4 +99,4 @@ relative to `apps/vj-gui`.
 - **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene`, `sceneAText1`…`sceneHText2`, and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
 - **"Effect" collides with the `3 Effect` group folder.** That folder is one **Group** among several; every folder under the **Effect** root is an **Effect** regardless of which **Group** it sits in.
 - **"Library" vs "catalog" — resolved on the GUI side.** What was `library.ts`'s saved text/phrase state is now the **Wordbank** (`domain/wordbank/wordbank.ts`), a name **Catalog** no longer has to share. `sceneLibrary` is still the TouchDesigner-side table this project no longer reads; neither it nor the **Wordbank** is a **catalog** — use **catalog** only for the synced set of **Scenes** or **Effects**.
-- **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` rebuild a database from disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.
+- **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` reconcile a database against disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.

@@ -9,13 +9,18 @@ export interface Scene {
   /** Carried end-to-end but not rendered yet — the picker will style dark
    * scenes differently. Deliberate, not dead weight. */
   dark: boolean;
+  hidden: boolean;
   path: string;
   thumbnail: string;
 }
 
 /** `folder` never reaches the client — `path` and `thumbnail` are derived from
- * it here, and nothing downstream needs the raw location. */
-export type SceneFields = Omit<Scene, 'path' | 'thumbnail'> & { folder: string };
+ * it here, and nothing downstream needs the raw location. `hidden` is optional
+ * because a Scan has no way to know it; only a catalog read does. */
+export type SceneFields = Omit<Scene, 'path' | 'thumbnail' | 'hidden'> & {
+  folder: string;
+  hidden?: boolean;
+};
 
 /** `tags` is every tag in use, already in picker order — the ordering lives in
  * the `tags` table's rank, so the client renders the list as given. */
@@ -26,9 +31,10 @@ export interface Catalog {
 
 /** The one place `path` and `thumbnail` are derived, so a scan and a DB read
  * can't disagree about them. */
-export function sceneFrom({ folder, ...fields }: SceneFields): Scene {
+export function sceneFrom({ folder, hidden = false, ...fields }: SceneFields): Scene {
   return {
     ...fields,
+    hidden,
     path: toxPath(folder, fields.name),
     thumbnail: sceneThumbnailUrl(folder),
   };
@@ -46,6 +52,7 @@ function isScene(x: unknown): x is Scene {
     isStringArray(s.tags) &&
     (s.rank === null || typeof s.rank === 'number') &&
     typeof s.dark === 'boolean' &&
+    typeof s.hidden === 'boolean' &&
     typeof s.path === 'string' &&
     typeof s.thumbnail === 'string'
   );
