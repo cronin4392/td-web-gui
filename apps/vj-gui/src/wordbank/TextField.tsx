@@ -2,7 +2,8 @@
  * A single Text 1 / Text 2 field (TEXT_SELECTOR.md §1, §4): a `<form>`-wrapped
  * `commitOn="enter"` input, feeding the recent list on commit, and a drop
  * target for phrase chips (custom-mime only — plain text dragged in from
- * outside the app is not accepted).
+ * outside the app is not accepted). Typing also drives the phrase-list filter,
+ * and focusing makes this the field a clicked phrase lands in.
  *
  * `multiline` makes it a textarea: Enter still commits, Shift+Enter inserts a
  * line break, and `td-core` carries the breaks to TD as `\n` escapes.
@@ -18,10 +19,14 @@ export interface TextFieldProps {
   name: LayerTextParamName;
   label: string;
   commitRecent: (phrase: string) => void;
-  /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s (always Text 1) `onApply`. */
+  /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s `onApply`. */
   applyPhrase: (name: LayerTextParamName, phrase: string) => void;
   /** Clear this field's TD text param. */
   onClear: (name: LayerTextParamName) => void;
+  /** Each keystroke's draft text, which filters the phrase lists below; `''` once the edit ends. */
+  onFilter: (text: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
@@ -48,6 +53,18 @@ export function TextField(props: TextFieldProps): JSX.Element {
         placeholder={props.label}
         aria-label={props.label}
         class={styles.input}
+        onFocus={props.onFocus}
+        onBlur={props.onBlur}
+        onInput={(event) => props.onFilter(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          // Enter commits, Escape reverts — either way the draft stops being a
+          // query. Shift+Enter is this textarea's line break, so it isn't one.
+          if (
+            event.key === 'Escape' ||
+            (event.key === 'Enter' && !event.shiftKey && !event.isComposing)
+          )
+            props.onFilter('');
+        }}
         onDragOver={(event) => {
           if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault();
         }}

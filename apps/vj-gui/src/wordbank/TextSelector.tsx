@@ -1,4 +1,4 @@
-import { createMemo, Show, type JSX } from 'solid-js';
+import { createMemo, createSignal, Show, type JSX } from 'solid-js';
 import { escapeNewlines } from 'td-core';
 import { layerTextParam } from '@/playback/wire';
 import { GuiClient, type LayerTextParamName } from '@/playback/clients';
@@ -18,8 +18,18 @@ export function TextSelector(props: {
   // handlers, where there is no reactive owner for the context lookup.
   const connection = GuiClient.useConnection();
 
+  // Typing in either text field filters the phrase lists below it, and a
+  // clicked phrase lands in the field that is focused — Text 1 if none is.
+  const [filter, setFilter] = createSignal('');
+  // A slot rather than a param name, so it survives a layer change.
+  const [focusedSlot, setFocusedSlot] = createSignal<1 | 2 | null>(null);
+  // Clicking a chip blurs the field before the click lands, so the target is
+  // read at mousedown — while that field still has focus — and used by the
+  // click that follows.
+  let pressedSlot: 1 | 2 | null = null;
+
   // The one place that owns "commit a phrase to a TD text field" — shared by
-  // TextField's own drop target and RecentPanel/ListPanel (always Text 1).
+  // TextField's own drop target and RecentPanel/ListPanel's click-to-apply.
   // This writes the signal directly, so it owes the same newline escaping the
   // multiline <TextInput> does on its own commits; stored phrases keep real
   // newlines.
@@ -27,11 +37,19 @@ export function TextSelector(props: {
     connection.signal(name).setValue(escapeNewlines(phrase));
     props.store.commitRecent(phrase);
   }
-  function applyToText1(phrase: string) {
-    applyPhrase(layerTextParam(selectedLayer(), 1), phrase);
+  function applyToFocused(phrase: string) {
+    const slot = focusedSlot() ?? pressedSlot ?? 1;
+    pressedSlot = null;
+    applyPhrase(layerTextParam(selectedLayer(), slot), phrase);
+    setFilter('');
   }
   function clearText(name: LayerTextParamName) {
     applyPhrase(name, '');
+    setFilter('');
+  }
+  function endEdit() {
+    setFocusedSlot(null);
+    setFilter('');
   }
 
   const selectedList = createMemo(
@@ -53,6 +71,9 @@ export function TextSelector(props: {
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
               onClear={clearText}
+              onFilter={setFilter}
+              onFocus={() => setFocusedSlot(1)}
+              onBlur={endEdit}
             />
             <TextField
               name={layerTextParam(layer, 2)}
@@ -60,6 +81,9 @@ export function TextSelector(props: {
               commitRecent={props.store.commitRecent}
               applyPhrase={applyPhrase}
               onClear={clearText}
+              onFilter={setFilter}
+              onFocus={() => setFocusedSlot(2)}
+              onBlur={endEdit}
             />
           </section>
         )}
@@ -67,13 +91,22 @@ export function TextSelector(props: {
 
       <section class={styles.lists}>
         <TabStrip store={props.store} />
-        <div class={styles.body}>
+        <div class={styles.body} onMouseDown={() => (pressedSlot = focusedSlot())}>
           <Show
             when={props.store.state.selectedListId !== RECENT_LIST_ID}
-            fallback={<RecentPanel store={props.store} onApply={applyToText1} />}
+            fallback={
+              <RecentPanel store={props.store} filter={filter()} onApply={applyToFocused} />
+            }
           >
             <Show when={selectedList()}>
-              {(list) => <ListPanel store={props.store} list={list()} onApply={applyToText1} />}
+              {(list) => (
+                <ListPanel
+                  store={props.store}
+                  list={list()}
+                  filter={filter()}
+                  onApply={applyToFocused}
+                />
+              )}
             </Show>
           </Show>
         </div>

@@ -1,7 +1,7 @@
 /**
- * Active tab's phrase list body (TEXT_SELECTOR.md §3 "List body"): search
- * filter, inline add form, draggable/reorderable phrase rows with a
- * drop-indicator line, and the one-shot A→Z sort.
+ * Active tab's phrase list body (TEXT_SELECTOR.md §3 "List body"): inline add
+ * form, draggable/reorderable phrase rows with a drop-indicator line, and the
+ * one-shot A→Z sort. Filtering comes from the text fields above it.
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
@@ -13,23 +13,24 @@ import styles from './ListPanel.module.css';
 export interface ListPanelProps {
   store: WordbankStore;
   list: PhraseList;
+  /** Live text of whichever field is being typed in. */
+  filter: string;
   onApply: (phrase: string) => void;
 }
 
 export function ListPanel(props: ListPanelProps): JSX.Element {
-  const [filter, setFilter] = createSignal('');
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
   let addInputRef: HTMLTextAreaElement | undefined;
 
-  const isFiltered = createMemo(() => filter().trim().length > 0);
+  const isFiltered = createMemo(() => props.filter.trim().length > 0);
 
   // Split so a filter keystroke only re-filters — it doesn't reallocate the
   // per-phrase objects, letting <For>'s identity-based diffing leave
   // unaffected rows (and their DOM) untouched.
   const indexed = createMemo(() => props.list.phrases.map((phrase, index) => ({ phrase, index })));
   const rows = createMemo(() => {
-    const q = filter().trim().toLowerCase();
+    const q = props.filter.trim().toLowerCase();
     return q ? indexed().filter((row) => row.phrase.toLowerCase().includes(q)) : indexed();
   });
 
@@ -50,14 +51,6 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
       class={styles.panel}
     >
       <div class={styles.toolbar}>
-        <input
-          type="search"
-          value={filter()}
-          onInput={(event) => setFilter(event.currentTarget.value)}
-          placeholder="filter…"
-          aria-label="Filter phrases in this list"
-          class={styles.filter}
-        />
         <button
           type="button"
           onClick={() => props.store.sortPhrases(props.list.id)}
