@@ -1,4 +1,13 @@
 @layer base {
+  /* `scrollbar-width` isn't inherited, so it has to be said on every scroller. */
+  * {
+    scrollbar-width: thin;
+  }
+
+  html {
+    scrollbar-color: var(--color-border-hover) transparent;
+  }
+
   body {
     background: var(--color-canvas);
     color: var(--color-text);
