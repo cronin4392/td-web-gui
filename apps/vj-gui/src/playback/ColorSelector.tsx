@@ -19,7 +19,7 @@ import { GuiClient } from './clients';
 import { openColorGroup, parseColorGroups, schemesInGroup, type ColorGroup } from './colorSchemes';
 import styles from './ColorSelector.module.css';
 
-export function ColorSelector(): JSX.Element {
+export function ColorSelector(props: { class?: string }): JSX.Element {
   const connection = GuiClient.useConnection();
   const active = GuiClient.signal('activeColorScheme');
   const [groups, setGroups] = createSignal<ColorGroup[]>([]);
@@ -52,7 +52,7 @@ export function ColorSelector(): JSX.Element {
   }
 
   return (
-    <section class={styles.schemes}>
+    <section class={[styles.schemes, props.class].filter(Boolean).join(' ')}>
       <div role="tablist" aria-label="Color groups" class={styles.tabs}>
         <For each={groups()}>
           {(group) => (

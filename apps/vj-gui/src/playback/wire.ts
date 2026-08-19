@@ -16,7 +16,7 @@ const loaderFPort = import.meta.env.VITE_TD_PORT_SCENE_F ?? '10007';
 const loaderGPort = import.meta.env.VITE_TD_PORT_SCENE_G ?? '11007';
 const loaderHPort = import.meta.env.VITE_TD_PORT_SCENE_H ?? '12007';
 
-/** The scene projects, in display order. Same schema, one `<Provider>` each. */
+/** The scene projects, in layer order. Same schema, one `<Provider>` each. */
 export const loaderInstances = [
   { id: 'sceneA', url: `ws://${host}:${loaderAPort}` },
   { id: 'sceneB', url: `ws://${host}:${loaderBPort}` },

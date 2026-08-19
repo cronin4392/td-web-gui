@@ -26,10 +26,13 @@ import {
 } from './health';
 import styles from './LayerPreviews.module.css';
 
-export function LayerPreviews(): JSX.Element {
+export function LayerPreviews(props: { class?: string }): JSX.Element {
+  // Top of the column is the last layer, matching the rig's stacking order —
+  // the layer nearest the audience sits nearest the top of the screen.
+  const topDown = [...loaderInstances].reverse();
   return (
-    <div class={styles.grid}>
-      <For each={loaderInstances}>{(loader) => <LayerPanel loader={loader.id} />}</For>
+    <div class={[styles.grid, props.class].filter(Boolean).join(' ')}>
+      <For each={topDown}>{(loader) => <LayerPanel loader={loader.id} />}</For>
     </div>
   );
 }
@@ -84,6 +87,22 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
 
   return (
     <figure class={styles.layerPreview} data-active={props.active}>
+      <div class={styles.params}>
+        <ParamRadios
+          layer={props.layer}
+          name="layout"
+          legend="Layout"
+          prefix="L"
+          options={LAYOUT_OPTIONS}
+        />
+        <ParamRadios
+          layer={props.layer}
+          name="color"
+          legend="Color"
+          prefix="C"
+          options={COLOR_OPTIONS}
+        />
+      </div>
       <div class={styles.frame}>
         <button type="button" class={styles.tile} onClick={props.onSelect}>
           <Show when={video.stream(LOADER_STREAM)} keyed>
@@ -101,6 +120,9 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
+          <span class={styles.sceneName} title={activeScene.value()}>
+            {activeSceneName(activeScene.value()) ?? '—'}
+          </span>
         </button>
         <PerformanceReadouts />
         <LoaderClient.StreamToggle
@@ -109,41 +131,17 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           class={styles.streamToggle}
         />
       </div>
-      {/* Not a <figcaption>: that has to be the figure's first or last child,
-        and the name belongs under the tile rather than under the controls. */}
-      {/* The layer's level fills the name from the left rather than riding its
-        own slider — one less row, and the tile it belongs to reads it at a
-        glance. */}
-      <p
-        class={styles.sceneName}
-        title={activeScene.value()}
+      <div
+        class={styles.level}
         style={{ '--level': `${Math.min(Math.max(level.value() ?? 0, 0), 1) * 100}%` }}
-      >
-        {activeSceneName(activeScene.value()) ?? '—'}
-      </p>
-      <div class={styles.params}>
-        <ParamRadios
-          layer={props.layer}
-          name="layout"
-          legend="Layout"
-          prefix="L"
-          options={LAYOUT_OPTIONS}
-        />
-        <ParamRadios
-          layer={props.layer}
-          name="color"
-          legend="Color"
-          prefix="C"
-          options={COLOR_OPTIONS}
-        />
-      </div>
+      />
     </figure>
   );
 }
 
 /**
- * A menu param as a row of position codes — `L1`/`L2`/`L3`, `C1`–`C4` — because
- * eight tiles across leave no room for "Split X". The number is the option's
+ * A menu param as a column of position codes — `L1`/`L2`/`L3`, `C1`–`C4` —
+ * because the previews column leaves no room for "Split X". The number is the option's
  * place in {@link LAYOUT_OPTIONS} / {@link COLOR_OPTIONS}, so reordering either
  * list renumbers codes the operator plays from memory.
  */
@@ -178,8 +176,8 @@ function ParamRadios(props: {
 function PerformanceReadouts(): JSX.Element {
   const stats = LoaderClient.signal('performance');
   const stat = (name: string) => performanceStat(stats.value(), name);
-  // `pointer-events-none` so the overlay never swallows the click that selects
-  // the layer — the button underneath still triggers the `group` hover.
+  // `pointer-events: none` so the overlay never swallows the click that selects
+  // the layer — the tile underneath still drives the hover that reveals it.
   return (
     <table class={styles.stats}>
       <tbody>

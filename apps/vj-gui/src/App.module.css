@@ -5,26 +5,26 @@
     position: relative;
     display: grid;
     grid-template-columns:
-      [previews-start scenes-start] 4fr
-      [scenes-end effects-start] 2fr
-      [effects-end text-start] 2fr
-      [text-end tools-start] 1fr
-      [tools-end previews-end];
-    /* Previews, then the panels taking whatever is left. */
-    grid-template-rows: [previews] auto [panels] minmax(0, 1fr);
+      [previews-start] 2fr
+      [previews-end scenes-start] 4fr
+      4fr
+      2fr
+      [scenes-end];
+    /* The scene picker takes the top of the space the previews leave; the rest
+       of the panels auto-flow across the row below it, in JSX order. */
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     height: 100%;
     overflow: hidden;
   }
 
-  /* LayerPreviews: the only child not sitting in a column of its own. */
-  .app > :first-child {
+  /* A full-height column, so the panels start beside it. */
+  .previews {
     grid-column: previews;
+    grid-row: 1 / -1;
   }
 
-  .binding {
-    grid-column: previews;
-    margin-top: var(--spacing-l);
-    font-size: var(--text-m);
-    color: var(--color-text-faint);
+  /* The only panel wider than one column. */
+  .scenes {
+    grid-column: scenes;
   }
 }

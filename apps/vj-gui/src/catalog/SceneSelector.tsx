@@ -7,7 +7,7 @@ import { PickerToolbar } from './PickerToolbar';
 import { RadioButton } from '@/ui/RadioButton';
 import styles from './SceneSelector.module.css';
 
-export function SceneSelector(): JSX.Element {
+export function SceneSelector(props: { class?: string }): JSX.Element {
   const { loadTox, selectedLevel } = usePlayback();
   const picker = createCatalogPicker<Catalog>({
     fetch: fetchCatalog,
@@ -39,7 +39,7 @@ export function SceneSelector(): JSX.Element {
   });
 
   return (
-    <section class={styles.selector}>
+    <section class={[styles.selector, props.class].filter(Boolean).join(' ')}>
       <Show when={tags().length > 0}>
         <fieldset class={styles.tags} aria-label="Scene tag">
           {/* For, not Index: a radio holds DOM state, so a reordered list must

@@ -10,7 +10,6 @@
   .tags {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-s);
     /* `scroll`, not `auto`: the track is a fixed width, so a conditional
        scrollbar would take its width out of labels that are single words with
        nowhere to wrap. */
@@ -27,13 +26,13 @@
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     align-content: start;
     gap: var(--spacing-s);
   }
 
   .empty {
-    grid-column: span 4;
+    grid-column: 1 / -1;
     font-size: var(--text-m);
     color: var(--color-text-faint);
   }

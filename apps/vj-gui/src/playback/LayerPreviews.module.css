@@ -1,12 +1,18 @@
 @layer components {
   .grid {
-    display: grid;
-    grid-template-columns: repeat(8, minmax(0, 1fr));
-    gap: var(--spacing-m);
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    overflow-y: auto;
   }
 
   .layerPreview {
-    padding: var(--spacing-m);
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--spacing-m);
+    padding: var(--spacing-s);
 
     &[data-active='true'] {
       background-color: var(--color-surface);
@@ -15,6 +21,8 @@
 
   .frame {
     position: relative;
+    min-width: 0;
+    flex: 1;
   }
 
   .tile {
@@ -22,8 +30,18 @@
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    /* Not the scene picker's `--color-surface`: the video is letterboxed by
+       `object-fit: contain`, and black is what belongs in the bars. */
     background: var(--color-canvas);
+    text-align: left;
     cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-border-hover);
+    }
 
     & :global(.td-video) {
       display: block;
@@ -51,48 +69,61 @@
     color: var(--color-text);
   }
 
+  /* Top-right, out of the caption's way, where the scene picker keeps its own
+     tile-corner button. */
   .streamToggle {
     position: absolute;
-    bottom: 0;
-    left: 0;
+    top: 0;
+    right: 0;
     width: var(--spacing-l);
     height: var(--spacing-l);
   }
 
   .sceneName {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
     overflow: hidden;
-    padding-inline: var(--spacing-s);
-    background: linear-gradient(
-      to right,
-      var(--color-accent) var(--level, 0%),
-      transparent var(--level, 0%)
-    );
+    padding: var(--spacing-s);
+    background: var(--color-overlay);
     font-size: var(--text-s);
     color: var(--color-text);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  .level {
+    width: 6px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(to top, var(--color-accent) var(--level, 0%), transparent var(--level, 0%)),
+      var(--color-border);
+  }
+
   .params {
     display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-m);
+    align-self: center;
+    align-items: center;
+    gap: var(--spacing-s);
   }
 
   .paramGroup {
     display: flex;
-    gap: var(--spacing-s);
+    flex-direction: column;
+    border-radius: var(--radius);
+    overflow: hidden;
   }
 
   .stats {
     position: absolute;
     left: var(--spacing-s);
     top: var(--spacing-s);
-    pointer-events: none;
     font-family: var(--font-mono);
     font-size: var(--text-s);
     text-align: left;
     color: var(--color-text);
+    pointer-events: none;
   }
 
   .dotCell {

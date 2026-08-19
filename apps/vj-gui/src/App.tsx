@@ -1,6 +1,4 @@
 import { onCleanup, type JSX } from 'solid-js';
-import { guiInstance, inputInstance } from './playback/layers';
-import { loaderInstances } from './playback/wire';
 import { GuiProvider, InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
 import { createWordbankStore } from './wordbank/store';
@@ -30,18 +28,11 @@ export function App(props: AppProps): JSX.Element {
       <InputProvider>
         <PlaybackProvider>
           <main class={styles.app}>
-            <LayerPreviews />
-            <SceneSelector />
-            <EffectSelector />
+            <LayerPreviews class={styles.previews} />
+            <SceneSelector class={styles.scenes} />
             <TextSelector store={store} />
+            <EffectSelector />
             <Tools />
-            {/* Hidden for now — re-enable by dropping `u-hidden`. */}
-            <p class={`${styles.binding} u-hidden`}>
-              Bound to{' '}
-              {[guiInstance, inputInstance, ...loaderInstances]
-                .map((inst) => `${inst.id} at ${inst.url}`)
-                .join(' · ')}
-            </p>
           </main>
         </PlaybackProvider>
       </InputProvider>

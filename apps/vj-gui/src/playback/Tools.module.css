@@ -1,14 +1,23 @@
 @layer components {
   .tools {
-    display: grid;
-    /* The first row may be squeezed to nothing — the schemes list scrolls
-       inside itself. Said here rather than left to that section's own
-       `min-height`, because what a refusal to shrink pushes out of the column
-       is everything below it. */
-    grid-template-rows: minmax(0, auto);
-    align-content: start;
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-m);
     min-height: 0;
     padding: var(--spacing-m);
+  }
+
+  /* The schemes list scrolls inside itself, so it may be squeezed to nothing.
+     Said here rather than left to that section's own `min-height`, because what
+     a refusal to shrink pushes out of the column is everything below it. */
+  .schemes {
+    min-height: 0;
+  }
+
+  /* Sits at the foot of the column, below whatever the tools leave. */
+  .binding {
+    margin-block-start: auto;
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
   }
 }
