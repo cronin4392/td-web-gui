@@ -5,7 +5,7 @@
     position: relative;
     display: grid;
     grid-template-columns:
-      [previews-start] 2fr
+      [previews-start] 3fr
       [previews-end scenes-start] 4fr
       4fr
       2fr
