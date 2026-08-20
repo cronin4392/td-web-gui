@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { activeSceneFolder, activeSceneName, asLayerId, performanceStat } from './wire';
+import {
+  activeSceneFolder,
+  activeSceneName,
+  asLayerId,
+  layerIdForLoader,
+  performanceStat,
+} from './wire';
+import { isZLayer, layerIds } from './layers';
 
 describe('asLayerId', () => {
   it('passes a layer letter through', () => {
@@ -14,8 +21,16 @@ describe('asLayerId', () => {
     expect(asLayerId('')).toBeUndefined();
   });
 
-  it('is undefined for a letter past the eight loaders', () => {
+  it('passes a Z layer key through', () => {
+    expect(asLayerId('Z1')).toBe('Z1');
+  });
+
+  it('is undefined for a letter past the eight stacked loaders', () => {
     expect(asLayerId('I')).toBeUndefined();
+  });
+
+  it('is undefined for a bare Z, which names no loader on its own', () => {
+    expect(asLayerId('Z')).toBeUndefined();
   });
 
   it('does not accept a lowercase letter, which names no loader', () => {
@@ -120,5 +135,21 @@ describe('performanceStat', () => {
   it('is undefined for a row that does not hold a number', () => {
     expect(performanceStat([['fps', '']], 'fps')).toBeUndefined();
     expect(performanceStat([['fps', 'n/a']], 'fps')).toBeUndefined();
+  });
+});
+
+describe('layerIdForLoader', () => {
+  it('strips the scene prefix off a lettered loader', () => {
+    expect(layerIdForLoader('sceneD')).toBe('D');
+  });
+
+  it('keeps both characters of a Z loader key', () => {
+    expect(layerIdForLoader('sceneZ2')).toBe('Z2');
+  });
+});
+
+describe('isZLayer', () => {
+  it('splits the ten layers into the eight stacked and the two Z', () => {
+    expect(layerIds.filter(isZLayer)).toEqual(['Z1', 'Z2']);
   });
 });

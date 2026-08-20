@@ -1,16 +1,17 @@
 """
-Config for ALL EIGHT scene instances — sceneA (4007), sceneB (5007), sceneC
+Config for ALL TEN scene instances — sceneA (4007), sceneB (5007), sceneC
 (6007), sceneD (7007), sceneE (9007), sceneF (10007), sceneG (11007), sceneH
-(12007). The 8000 block is skipped; the GUI project owns it (8765).
+(12007), sceneZ1 (13007), sceneZ2 (13107). The 8000 block is skipped; the GUI
+project owns it (8765), and the Z layers take half-blocks off 13000.
 
-One file for eight TouchDesigner processes. The scene projects are the same
+One file for ten TouchDesigner processes. The scene projects are the same
 project, so their registry, readouts, and streams are identical and there is
 nothing to keep in sync: point every WebGuiServer component's `Config File` par
 at this file. Each process loads its own copy into its own `config` Text DAT and
 only ever reads it, so sharing the file on disk is safe.
 
 What differs between them lives on WebGuiServer's own parameters, not in
-here: `Identifier` (sceneA … sceneH — the id the web app matches) and `Port`.
+here: `Identifier` (sceneA … sceneZ2 — the id the web app matches) and `Port`.
 
 That is also why no name below is scene-prefixed. A wire name is scoped to its
 instance, so every process publishes a plain `level` and a plain `performance`,

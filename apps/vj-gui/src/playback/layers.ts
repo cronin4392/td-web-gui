@@ -6,9 +6,9 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The page drives **ten** TouchDesigner processes, of **three** kinds:
+ * The page drives **twelve** TouchDesigner processes, of **three** kinds:
  *
- *   - the GUI project (`td/gui-config.py`), which owns the eight loaders'
+ *   - the GUI project (`td/gui-config.py`), which owns the ten loaders'
  *     text params — one of a kind, one schema; which loader is active is this
  *     app's own state (`selectedLayer` in `PlaybackProvider`), which TD's MIDI
  *     select button nudges by calling `selectLayer` rather than by holding it;
@@ -16,11 +16,11 @@
  *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
  *     end — one of a kind, one schema.
  *
- * The eight scene processes run the same project, so they publish the same wire
+ * The ten scene processes run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
  * That is the opposite of `apps/example`, where the two instances deliberately
  * differ; here symmetry is the point, and duplicating the schema per scene
- * would only create eight things to keep in sync.
+ * would only create ten things to keep in sync.
  *
  * Sharing the names is safe because a wire name is scoped to its instance: every
  * scene publishes a plain `level`, and which one a control reads is decided by
@@ -59,9 +59,23 @@ export const inputInstance = {
   url: `ws://${host}:${inputPort}`,
 } as const satisfies TDInstanceConfig;
 
-/** The eight external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`. */
-export const layerIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+/** The ten external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`
+ * and `SCENE_KEYS` in the rig's `Tools/ExternalPorts`. */
+export const layerIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Z1', 'Z2'] as const;
 export type LayerId = (typeof layerIds)[number];
+
+/**
+ * The two layers that sit above the eight-deep stack. Ordinary layers on the
+ * wire — same project, same schema — so nothing but the GUI treats them apart:
+ * they get a compact tile with no video, no layout and no color, because in the
+ * rig they are held, not performed.
+ */
+export const zLayerIds = ['Z1', 'Z2'] as const satisfies readonly LayerId[];
+export type ZLayerId = (typeof zLayerIds)[number];
+
+export function isZLayer(layer: LayerId): layer is ZLayerId {
+  return (zLayerIds as readonly LayerId[]).includes(layer);
+}
 
 /** The loader a freshly-opened page targets. A layer is always selected — every
  * `selectedLayer` in the app is a `LayerId`, never `undefined`. */

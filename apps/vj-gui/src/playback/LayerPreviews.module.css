@@ -1,8 +1,24 @@
 @layer components {
-  .grid {
+  .column {
     display: flex;
     min-height: 0;
     height: 100%;
+    flex-direction: column;
+    gap: var(--spacing-s);
+  }
+
+  /* Fixed above the stack: the Z layers stay put while the eight below scroll. */
+  .zGrid {
+    display: grid;
+    flex-shrink: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-s);
+  }
+
+  .grid {
+    display: flex;
+    min-height: 0;
+    flex: 1;
     flex-direction: column;
     gap: var(--spacing-s);
     overflow-y: auto;
@@ -17,6 +33,12 @@
     &[data-active='true'] {
       background-color: var(--color-surface);
     }
+  }
+
+  /* Half the column's width, so the gap the full-width tiles can afford between
+     frame and level bar is most of what a Z tile has to spend. */
+  .compact {
+    gap: var(--spacing-s);
   }
 
   .frame {

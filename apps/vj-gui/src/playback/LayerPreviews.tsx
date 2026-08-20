@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from '
 import type { SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
-import type { LayerId } from './layers';
+import { isZLayer, type LayerId } from './layers';
 import {
   activeSceneFolder,
   activeSceneName,
@@ -27,12 +27,21 @@ import {
 import styles from './LayerPreviews.module.css';
 
 export function LayerPreviews(props: { class?: string }): JSX.Element {
+  const zLoaders = loaderInstances.filter((loader) => isZLayer(layerIdForLoader(loader.id)));
   // Top of the column is the last layer, matching the rig's stacking order —
-  // the layer nearest the audience sits nearest the top of the screen.
-  const topDown = [...loaderInstances].reverse();
+  // the layer nearest the audience sits nearest the top of the screen. The Z
+  // layers sit above the lot of them, which is where they sit in the mix too.
+  const topDown = loaderInstances
+    .filter((loader) => !isZLayer(layerIdForLoader(loader.id)))
+    .reverse();
   return (
-    <div class={[styles.grid, props.class].filter(Boolean).join(' ')}>
-      <For each={topDown}>{(loader) => <LayerPanel loader={loader.id} />}</For>
+    <div class={[styles.column, props.class].filter(Boolean).join(' ')}>
+      <div class={styles.zGrid}>
+        <For each={zLoaders}>{(loader) => <LayerPanel loader={loader.id} compact />}</For>
+      </div>
+      <div class={styles.grid}>
+        <For each={topDown}>{(loader) => <LayerPanel loader={loader.id} />}</For>
+      </div>
     </div>
   );
 }
@@ -43,19 +52,19 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
  * its own socket, its own WebRTC peer, and its own reconnect clock; drop one
  * scene's `.toe` and only that tile goes dark.
  *
+ * `compact` skips the WebRTC peer entirely rather than merely hiding the video:
+ * a Z layer is held rather than performed, so it is not worth a stream.
+ *
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function LayerPanel(props: { loader: LoaderId }): JSX.Element {
+function LayerPanel(props: { loader: LoaderId; compact?: boolean }): JSX.Element {
   const { selectedLayer, selectLayer } = usePlayback();
   const layer = layerIdForLoader(props.loader);
+  const Body = props.compact ? CompactLayerBody : LayerBody;
   return (
-    <LoaderProvider loader={props.loader} video>
-      <LayerBody
-        layer={layer}
-        active={layer === selectedLayer()}
-        onSelect={() => selectLayer(layer)}
-      />
+    <LoaderProvider loader={props.loader} video={!props.compact}>
+      <Body layer={layer} active={layer === selectedLayer()} onSelect={() => selectLayer(layer)} />
     </LoaderProvider>
   );
 }
@@ -109,6 +118,39 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           aria-label={`Layer ${props.layer} video`}
           class={styles.streamToggle}
         />
+      </div>
+      <div class={styles.level} style={levelStyle(level.value())} />
+    </figure>
+  );
+}
+
+/**
+ * A Z layer: the thumbnail, the scene name, the level and the performance
+ * readouts, and nothing else. No video, and no layout or color — those are
+ * performance controls, and a Z layer is set once and left.
+ */
+function CompactLayerBody(props: {
+  layer: LayerId;
+  active: boolean;
+  onSelect: () => void;
+}): JSX.Element {
+  const scene = createActiveScene();
+  const level = LoaderClient.signal('level');
+  publishConnection(props.layer);
+
+  return (
+    <figure class={`${styles.layerPreview} ${styles.compact}`} data-active={props.active}>
+      <div class={styles.frame}>
+        <button
+          type="button"
+          class={styles.tile}
+          onClick={props.onSelect}
+          aria-label={`Layer ${props.layer}`}
+        >
+          <SceneThumbnail scene={scene} />
+          <SceneName path={scene.path()} />
+        </button>
+        <PerformanceReadouts />
       </div>
       <div class={styles.level} style={levelStyle(level.value())} />
     </figure>

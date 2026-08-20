@@ -36,6 +36,7 @@ relative to `apps/vj-gui`.
 | **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process  | Channel, deck, slot, output |
 | **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing          | Player, host, container     |
 | **Selected layer** | The Layer that a pick in the GUI acts on                                                 | Active deck, current output |
+| **Z layer**        | One of the two Layers above the eight-deep stack — `Z1`, `Z2`; held, not performed       | Overlay, aux, extra layer   |
 | **Load**           | Telling a Layer's Loader to play a given Tox path                                        | Play, fire, trigger, cue    |
 | **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project     | MIDI project, controllers   |
 | **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web | Tempo, beat, rate, speed    |
@@ -68,6 +69,7 @@ relative to `apps/vj-gui`.
 
 - A **Scene** and an **Effect** each resolve to exactly one **Tox**; the **Loader** cannot tell them apart.
 - A **Layer** plays at most one **Tox** at a time; **Loading** replaces whatever was there.
+- A **Z layer** is a **Layer** in every respect the wire can see — same process, same schema, same **Loader**. Only the GUI treats it apart, giving it a compact tile with no video and no layout or color.
 - A **Scene** carries zero or more **Tags** and at most one **Rank**; an **Effect** carries neither.
 - A **Sync** reconciles one catalog against one root folder — the **Scene catalog** and the **Effect catalog** never mix.
 - **Hidden** is the one piece of catalog state a **Sync** leaves alone: it is authored rather than scanned, so only **Edit mode** can undo it. It lives on the row, so it dies with it — a **Scene** deleted from disk does not come back hidden.

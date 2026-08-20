@@ -26,8 +26,10 @@ The scenes are separate processes with their own config: td/scene-config.py.
 
 CALLBACKS = "webserver1_callbacks"
 
-# The eight external scene loaders. Each exposes the same pair of text pars.
-SCENE_IDS = "ABCDEFGH"
+# The ten external scene loaders, matching SCENE_KEYS in Tools/ExternalPorts.
+# Each exposes the same pair of text pars. A tuple rather than a string: Z1 and
+# Z2 are two characters, so iterating a string would split them.
+SCENE_IDS = ("A", "B", "C", "D", "E", "F", "G", "H", "Z1", "Z2")
 SCENE_PATH = "/GUI/ExternalScenes/Scene%s"
 
 # The Colors tool: owner of the active-scheme par, and the COMP the color groups
@@ -68,8 +70,8 @@ REGISTRY = {
     },
 }
 
-# sceneAText1 / sceneAText2 … sceneHText1 / sceneHText2. The web app derives these
-# same names from its scene id, so the two sides must agree on the spelling.
+# sceneAText1 / sceneAText2 … sceneZ2Text1 / sceneZ2Text2. The web app derives
+# these same names from its scene id, so the two sides must agree on the spelling.
 for _scene in SCENE_IDS:
     REGISTRY["scene%sText1" % _scene] = {"op": SCENE_PATH % _scene, "par": "Text", "type": "string"}
     REGISTRY["scene%sText2" % _scene] = {

@@ -2,9 +2,9 @@
  * The `createTDClient` factories, shared across the app's components — a
  * factory must be created once per *schema*, not per-component.
  *
- * Three factories for ten instances, because a factory selects a *schema*, not
- * an instance: its members bind the nearest `<Provider>` **of that factory**,
- * so the eight scene instances — same project, same wire names — share one.
+ * Three factories for twelve instances, because a factory selects a *schema*,
+ * not an instance: its members bind the nearest `<Provider>` **of that factory**,
+ * so the ten scene instances — same project, same wire names — share one.
  * `LoaderClient` rendered under sceneA's provider reads sceneA; the identical
  * markup under sceneB's reads sceneB.
  *
@@ -30,7 +30,7 @@ import {
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the eight loaders' text params, the color ramp, the Color
+/** The GUI project: the ten loaders' text params, the color ramp, the Color
  * scheme catalog, and the MIDI select button's `selectLayer`. */
 export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
 
