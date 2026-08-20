@@ -131,20 +131,17 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
  * every layer is saying without selecting each one. They live on the GUI
  * instance rather than the loader, so this reaches past `LoaderProvider` to the
  * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
- * shadow it. An unset caption is one TD isn't drawing, so it takes no room.
+ * shadow it. Always rendered, blank or not: the row holds its line so a caption
+ * arriving mid-set doesn't shunt every tile below it down the column.
  */
 function LayerTexts(props: { layer: LayerId }): JSX.Element {
   const text1 = layerText(props.layer, 1);
   const text2 = layerText(props.layer, 2);
   const line = () => [text1(), text2()].filter(Boolean).join(' / ') || undefined;
   return (
-    <Show when={line()}>
-      {(text) => (
-        <p class={styles.texts} title={text()}>
-          {text()}
-        </p>
-      )}
-    </Show>
+    <p class={styles.texts} title={line()}>
+      {line()}
+    </p>
   );
 }
 

@@ -117,6 +117,8 @@
 
   .texts {
     overflow: hidden;
+    /* Held open while blank, so a caption arriving doesn't resize the tile. */
+    min-height: 1lh;
     margin-top: var(--spacing-s);
     font-size: var(--text-s);
     color: var(--color-text);
