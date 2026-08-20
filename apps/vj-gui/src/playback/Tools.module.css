@@ -14,6 +14,13 @@
     min-height: 0;
   }
 
+  .tempo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-m);
+  }
+
   /* Sits at the foot of the column, below whatever the tools leave. */
   .binding {
     margin-block-start: auto;

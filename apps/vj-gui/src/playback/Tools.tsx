@@ -19,8 +19,10 @@ export function Tools(): JSX.Element {
     <div class={styles.tools}>
       <ColorSelector class={styles.schemes} />
       <AudioMeter />
-      <BpmReadout />
-      <BeatPeriod />
+      <div class={styles.tempo}>
+        <BpmReadout />
+        <BeatPeriod />
+      </div>
       {/* Hidden for now — re-enable by dropping `u-hidden`. */}
       <p class={`${styles.binding} u-hidden`}>
         Bound to{' '}
