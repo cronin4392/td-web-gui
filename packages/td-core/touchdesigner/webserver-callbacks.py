@@ -100,7 +100,8 @@ peer_by_client = {}
 client_by_peer = {}
 
 # Cached Web Server DAT so broadcast_param_change() can send from outside a
-# callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`.
+# callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`,
+# and re-resolved by _server_dat() when a cook of this DAT wipes it.
 _server = None
 
 # Keys already warned about, so a project missing a backing operator/par/
@@ -156,6 +157,34 @@ def _handlers():
 def _remember(dat):
     global _server
     _server = dat
+
+
+def _server_dat():
+    """The Web Server DAT these are the callbacks for.
+
+    Latched from whichever callback last carried `dat`, and re-resolved from
+    the component whenever that latch is empty — which happens far more often
+    than "before the first request". This DAT's `file` par is an expression
+    through the parent shortcut, so structural churn anywhere above it (a COMP
+    reinitialising its network, say) re-evaluates the expression, cooks the
+    DAT, and builds the module again from nothing. Every global here goes back
+    to its default in that window, `_server` included.
+
+    A send that lands in that window and trusts the bare latch reaches nobody.
+    Readouts survive it, since the next change re-sends; a REGISTRY param does
+    not, because it is broadcast exactly once, so the browser keeps the stale
+    value until it reconnects and asks for a fresh snapshot.
+    """
+    global _server
+    if _server is not None and _server.valid:
+        return _server
+    _server = None
+    for child in _webgui().findChildren(type=webserverDAT, maxDepth=1):
+        target = child.par.callbacks.eval()
+        if target is not None and target.path == me.path:
+            _server = child
+            break
+    return _server
 
 
 def _warn_once(key, reason):
@@ -712,7 +741,8 @@ def _live_clients():
     # getattr, matching _readouts()/_streams(): a build without the member
     # leaves the callback-maintained set as the only source, which is the old
     # behaviour rather than an AttributeError out of a broadcast.
-    reported = getattr(_server, "webSocketConnections", None) if _server else None
+    server = _server_dat()
+    reported = getattr(server, "webSocketConnections", None) if server else None
     if reported is None:
         return clients
     clients.clear()
@@ -736,16 +766,18 @@ def _sweep_clients():
 
 
 def _send(client, message):
-    if _server is not None:
-        _server.webSocketSendText(client, json.dumps(message))
+    server = _server_dat()
+    if server is not None:
+        server.webSocketSendText(client, json.dumps(message))
 
 
 def _broadcast(message):
-    if _server is None:
+    server = _server_dat()
+    if server is None:
         return
     text = json.dumps(message)
     for client in list(_live_clients()):
-        _server.webSocketSendText(client, text)
+        server.webSocketSendText(client, text)
 
 
 def _report(client, name, problem):
