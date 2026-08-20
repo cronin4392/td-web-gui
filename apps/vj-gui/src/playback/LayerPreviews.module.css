@@ -115,6 +115,15 @@
     white-space: nowrap;
   }
 
+  .texts {
+    overflow: hidden;
+    margin-top: var(--spacing-s);
+    font-size: var(--text-s);
+    color: var(--color-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .level {
     width: 6px;
     flex-shrink: 0;

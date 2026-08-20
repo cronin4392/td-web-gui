@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
-import type { SelectOption } from 'td-core';
+import { unescapeNewlines, type SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
 import { isZLayer, type LayerId } from './layers';
@@ -10,11 +10,12 @@ import {
   LAYOUT_OPTIONS,
   LOADER_STREAM,
   layerIdForLoader,
+  layerTextParam,
   loaderInstances,
   performanceStat,
   type LoaderId,
 } from './wire';
-import { LoaderClient, LoaderProvider } from './clients';
+import { GuiClient, LoaderClient, LoaderProvider } from './clients';
 import { usePlayback } from './PlaybackProvider';
 import {
   atLeast,
@@ -118,10 +119,38 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           aria-label={`Layer ${props.layer} video`}
           class={styles.streamToggle}
         />
+        <LayerTexts layer={props.layer} />
       </div>
       <div class={styles.level} style={levelStyle(level.value())} />
     </figure>
   );
+}
+
+/**
+ * The layer's two captions, echoed under its tile so the operator can read what
+ * every layer is saying without selecting each one. They live on the GUI
+ * instance rather than the loader, so this reaches past `LoaderProvider` to the
+ * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
+ * shadow it. An unset caption is one TD isn't drawing, so it takes no room.
+ */
+function LayerTexts(props: { layer: LayerId }): JSX.Element {
+  const text1 = layerText(props.layer, 1);
+  const text2 = layerText(props.layer, 2);
+  const line = () => [text1(), text2()].filter(Boolean).join(' / ') || undefined;
+  return (
+    <Show when={line()}>
+      {(text) => (
+        <p class={styles.texts} title={text()}>
+          {text()}
+        </p>
+      )}
+    </Show>
+  );
+}
+
+function layerText(layer: LayerId, slot: 1 | 2): () => string | undefined {
+  const binding = GuiClient.signal(layerTextParam(layer, slot));
+  return () => unescapeNewlines(binding.value() ?? '').trim() || undefined;
 }
 
 /**
