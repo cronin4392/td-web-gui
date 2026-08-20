@@ -634,6 +634,21 @@ Findings that cost real debugging time. All measured on 2025.33070.
 to `CONSTANT` and permanently detaches the expression. See
 [Parameter modes](#parameter-modes).
 
+**A DAT's module is rebuilt every time the DAT cooks, and a callbacks DAT
+cooks more often than it looks.** Every module-level global goes back to its
+default — for `webserver-callbacks.py` that is the cached Web Server DAT, the
+client set, and the WebRTC peer tables. The DAT has no inputs and does not sync
+its file, so it looks inert; but its `file` par is an expression through the
+parent shortcut, and structural churn anywhere above it (a COMP pulsing
+`reinitnet` to swap a `.tox`) re-evaluates that expression and cooks the DAT.
+Measured: forcing the cook between a parameter write and the Parameter Execute
+callback it queues loses the broadcast 8 times out of 8, because `_broadcast`
+found the cached DAT back at `None` and returned. Readouts survive it — the next
+change re-sends — but a REGISTRY param is broadcast exactly once, so the browser
+holds the stale value until it reconnects. Anything that must outlive a cook has
+to be re-resolvable from the network rather than latched in a global; see
+`_server_dat()`.
+
 **An unknown menu key silently selects entry 0.** Assigning a Menu parameter a
 key it doesn't have raises nothing and takes its _first_ entry — and the
 Parameter Execute DAT then broadcasts that value back as though the user had
