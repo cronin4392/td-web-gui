@@ -18,7 +18,15 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
   });
 
   const scenes = () => picker.catalog().scenes;
-  const tags = () => picker.catalog().tags;
+
+  /** Editing is the one view that shows a tag whose every scene is hidden —
+   * otherwise there would be no way to unhide them. */
+  const tags = createMemo(() => {
+    const all = picker.catalog().tags;
+    if (picker.editing()) return all;
+    const inUse = new Set(scenes().flatMap((scene) => (scene.hidden ? [] : scene.tags)));
+    return all.filter((tag) => inUse.has(tag));
+  });
   const [pickedTag, setPickedTag] = createSignal<string | null>(null);
 
   /** `null` is the unfiltered "All" option, the default, and the fallback for a
