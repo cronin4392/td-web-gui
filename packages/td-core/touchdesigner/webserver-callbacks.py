@@ -94,10 +94,9 @@ PROTOCOL = 1  # wire protocol version, sent in the `welcome` reply
 
 clients = set()  # open WebSocket client connections, used for broadcast
 
-# Live WebRTC peers, both directions — signaling must reach the one browser
-# that owns a peer, and a closing socket must take its peer down with it.
-peer_by_client = {}
-client_by_peer = {}
+# Storage key for the live WebRTC peers — which browser owns which peer. Held
+# on the component rather than in a global here; see _peers().
+_PEERS_KEY = "webguiPeers"
 
 # Cached Web Server DAT so broadcast_param_change() can send from outside a
 # callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`,
@@ -759,7 +758,7 @@ def _sweep_clients():
     be absent while a client is demonstrably talking to us, rather than absent
     for the one frame of a broadcast."""
     live = _live_clients()
-    for gone in [c for c in list(peer_by_client) if c not in live]:
+    for gone in [c for c in _peers() if c not in live]:
         _close_peer(gone)
     for gone in {p.get("client") for p in _pending_calls.values()} - live - {None}:
         _abandon_calls(gone)
@@ -1024,7 +1023,7 @@ def attach_streams(connection):
     warns about it.
     """
     webrtc, _ = _webrtc()
-    if webrtc is None or connection not in client_by_peer:
+    if webrtc is None or _client_of(connection) is None:
         return  # browser went away during the wait
 
     for stream_id in _streams():
@@ -1051,7 +1050,7 @@ def reattach_streams():
     TOPs feeding them are new, and a new TOP has no WebRTC parameters set. Skip
     this and the peer stays `connected` with every tile black.
     """
-    for connection in list(client_by_peer):
+    for connection in list(_peers().values()):
         _attach_streams_next_frame(connection)
 
 
@@ -1138,11 +1137,58 @@ def _enable_stream(name, enabled):
     return None, before != enabled
 
 
+def _peers():
+    """Which browser socket owns which WebRTC peer, as `client -> connection`.
+
+    Kept in the component's storage rather than in a global here, because it is
+    the one piece of state in this module that a cook cannot rebuild afterwards
+    — and cooks are routine, see _server_dat. `clients` comes back from the Web
+    Server DAT and `_server` from the component, but nothing on the network
+    records which browser a peer belongs to. Losing that strands every open
+    connection: _close_peer stops closing them, so an encoder leaks per
+    refresh; send_signaling can't find the browser to answer; and
+    reattach_streams walks an empty map and leaves the tiles black behind a
+    peer that is still `connected`.
+
+    Not reconciled against the DAT's `peerConnections` the way `clients` is
+    reconciled against `webSocketConnections`: a connection is entered here in
+    the same breath as `openConnection`, and whether the DAT lists it before it
+    next cooks is undocumented, so a reconcile could drop a peer mid-negotiation
+    and leave the tiles black. Entries are removed when their socket goes, which
+    _sweep_clients already drives off the authoritative socket list.
+    """
+    comp = _webgui()
+    pairs = comp.fetch(_PEERS_KEY, None, search=False)
+    if pairs is None:
+        pairs = {}
+        comp.store(_PEERS_KEY, pairs)
+        # A peer belongs to a session, not to the file, so a saved .toe opens
+        # with none rather than with whatever was connected when it was saved.
+        comp.storeStartupValue(_PEERS_KEY, {})
+    return pairs
+
+
+def _client_of(connection):
+    """The browser socket owning `connection`. Searched rather than kept as a
+    second map keyed the other way, which is one more thing to disagree."""
+    for client, held in _peers().items():
+        if held == connection:
+            return client
+    return None
+
+
+def _remember_peer(client, connection):
+    pairs = _peers()
+    pairs[client] = connection
+    _webgui().store(_PEERS_KEY, pairs)
+
+
 def _close_peer(client):
-    connection = peer_by_client.pop(client, None)
+    pairs = _peers()
+    connection = pairs.pop(client, None)
     if connection is None:
         return
-    client_by_peer.pop(connection, None)
+    _webgui().store(_PEERS_KEY, pairs)
     webrtc, _ = _webrtc()
     if webrtc is not None:
         webrtc.closeConnection(connection)  # otherwise a peer/encoder leaks per refresh
@@ -1151,7 +1197,7 @@ def _close_peer(client):
 def send_signaling(connection, message):
     """Send one signaling message to the browser owning `connection`. Called
     by webrtc-callbacks.py, which has the SDP/ICE but not the sockets."""
-    client = client_by_peer.get(connection)
+    client = _client_of(connection)
     if client is not None:
         _send(client, message)
 
@@ -1175,7 +1221,7 @@ def _handle_rtc_offer(client, sdp):
     # Out TOP holds ONE connection, so attach_streams re-points this
     # project's TOPs at whoever negotiated last and the earlier browser's
     # tiles freeze — newest-wins, with no error shown to the victim.
-    others = [c for c in peer_by_client if c != client]
+    others = [c for c in _peers() if c != client]
     if others:
         print(
             "webserver-callbacks: warning - %d other browser(s) already hold a "
@@ -1195,8 +1241,7 @@ def _handle_rtc_offer(client, sdp):
 
     _close_peer(client)
     connection = webrtc.openConnection()
-    peer_by_client[client] = connection
-    client_by_peer[connection] = client
+    _remember_peer(client, connection)
 
     # Order is load-bearing: tracks must exist before the answer is built, or
     # the video m-line comes back `a=inactive`.
@@ -1209,7 +1254,7 @@ def _handle_rtc_offer(client, sdp):
 def _handle_rtc_answer(client, sdp):
     """Apply the browser's answer to an offer TD initiated (a track change)."""
     webrtc, _ = _webrtc()
-    connection = peer_by_client.get(client)
+    connection = _peers().get(client)
     if webrtc is None or connection is None:
         return
     webrtc.setRemoteDescription(connection, "answer", sdp)
@@ -1219,7 +1264,7 @@ def _handle_rtc_ice(client, message):
     """Add a remote ICE candidate. `candidate: null` is end-of-candidates and
     is dropped rather than forwarded — TD finishes checking on its own."""
     webrtc, _ = _webrtc()
-    connection = peer_by_client.get(client)
+    connection = _peers().get(client)
     candidate = message.get("candidate")
     if webrtc is None or connection is None or not candidate:
         return
