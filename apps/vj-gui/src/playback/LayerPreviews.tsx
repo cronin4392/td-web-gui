@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
+import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
@@ -79,6 +79,16 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   // refuses one outside the library — either way the tile falls back to black
   // rather than a broken-image glyph.
   const [broken, setBroken] = createSignal<string>();
+  // Cleared whenever the layer moves to another scene, so a thumbnail the
+  // server missed once is asked for again next time that scene comes up rather
+  // than staying black for the life of the page.
+  createEffect(
+    on(
+      () => activeScene.value(),
+      () => setBroken(undefined),
+      { defer: true },
+    ),
+  );
   const thumbnail = () => {
     const folder = activeSceneFolder(activeScene.value());
     const url = folder ? sceneThumbnailUrlFrom(folder) : undefined;
