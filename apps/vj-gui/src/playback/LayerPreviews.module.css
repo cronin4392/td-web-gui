@@ -115,13 +115,31 @@
     white-space: nowrap;
   }
 
+  /* Over the stream rather than beside it, so the caption reads the way the
+     audience sees it. No scrim — the shadow carries it over a bright frame,
+     and a band across the middle of the tile would hide the scene. */
   .texts {
+    position: absolute;
+    display: block;
+    inset-inline: var(--spacing-m);
+    top: 50%;
     overflow: hidden;
-    /* Held open while blank, so a caption arriving doesn't resize the tile. */
-    min-height: 1lh;
-    margin-top: var(--spacing-s);
-    font-size: var(--text-s);
-    color: var(--color-text);
+    translate: 0 -50%;
+    font-size: var(--text-l);
+    font-weight: var(--font-weight-bold);
+    color: #fff;
+    text-align: center;
+    text-shadow:
+      0 1px 3px var(--black),
+      0 0 6px var(--black);
+    pointer-events: none;
+  }
+
+  /* A slot per param, each on its own line — the two are separate captions, not
+     one sentence, so neither should wrap into the other. */
+  .textLine {
+    display: block;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

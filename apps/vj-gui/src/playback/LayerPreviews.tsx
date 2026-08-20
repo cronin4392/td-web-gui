@@ -111,6 +111,7 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
+          <LayerTexts layer={props.layer} />
           <SceneName path={scene.path()} />
         </button>
         <PerformanceReadouts />
@@ -119,7 +120,6 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           aria-label={`Layer ${props.layer} video`}
           class={styles.streamToggle}
         />
-        <LayerTexts layer={props.layer} />
       </div>
       <div class={styles.level} style={levelStyle(level.value())} />
     </figure>
@@ -127,21 +127,20 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
 }
 
 /**
- * The layer's two captions, echoed under its tile so the operator can read what
+ * The layer's two captions, echoed over its tile so the operator can read what
  * every layer is saying without selecting each one. They live on the GUI
  * instance rather than the loader, so this reaches past `LoaderProvider` to the
  * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
- * shadow it. Always rendered, blank or not: the row holds its line so a caption
- * arriving mid-set doesn't shunt every tile below it down the column.
+ * shadow it.
  */
 function LayerTexts(props: { layer: LayerId }): JSX.Element {
   const text1 = layerText(props.layer, 1);
   const text2 = layerText(props.layer, 2);
-  const line = () => [text1(), text2()].filter(Boolean).join(' / ') || undefined;
+  const lines = () => [text1(), text2()].filter((text) => text !== undefined);
   return (
-    <p class={styles.texts} title={line()}>
-      {line()}
-    </p>
+    <span class={styles.texts}>
+      <For each={lines()}>{(line) => <span class={styles.textLine}>{line}</span>}</For>
+    </span>
   );
 }
 
