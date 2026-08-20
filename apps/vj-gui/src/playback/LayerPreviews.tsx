@@ -81,7 +81,11 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   publishConnection(props.layer);
 
   return (
-    <figure class={styles.layerPreview} data-active={props.active}>
+    <figure
+      ref={revealWhenActive(() => props.active)}
+      class={styles.layerPreview}
+      data-active={props.active}
+    >
       <div class={styles.params}>
         <ParamRadios
           layer={props.layer}
@@ -164,7 +168,11 @@ function CompactLayerBody(props: {
   publishConnection(props.layer);
 
   return (
-    <figure class={`${styles.layerPreview} ${styles.compact}`} data-active={props.active}>
+    <figure
+      ref={revealWhenActive(() => props.active)}
+      class={`${styles.layerPreview} ${styles.compact}`}
+      data-active={props.active}
+    >
       <div class={styles.frame}>
         <button
           type="button"
@@ -180,6 +188,22 @@ function CompactLayerBody(props: {
       <div class={styles.level} style={levelStyle(level.value())} />
     </figure>
   );
+}
+
+/**
+ * Scrolls a layer back into the previews column when it becomes the selected
+ * one, so selecting from anywhere but the tile itself — the scene picker, a MIDI
+ * pad — doesn't leave the operator watching a tile that is scrolled out of sight.
+ * `nearest` so an already-visible tile stays exactly where it is.
+ */
+function revealWhenActive(active: () => boolean): (figure: HTMLElement) => void {
+  let figure: HTMLElement | undefined;
+  createEffect(() => {
+    if (active()) figure?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  return (element) => {
+    figure = element;
+  };
 }
 
 /**
