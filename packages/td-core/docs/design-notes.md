@@ -645,9 +645,15 @@ Measured: forcing the cook between a parameter write and the Parameter Execute
 callback it queues loses the broadcast 8 times out of 8, because `_broadcast`
 found the cached DAT back at `None` and returned. Readouts survive it — the next
 change re-sends — but a REGISTRY param is broadcast exactly once, so the browser
-holds the stale value until it reconnects. Anything that must outlive a cook has
-to be re-resolvable from the network rather than latched in a global; see
-`_server_dat()`.
+holds the stale value until it reconnects. Anything that must outlive a cook
+either has to be re-resolvable from the network — `_server_dat()` finds the Web
+Server DAT again, `_live_clients()` reconciles the socket set against
+`webSocketConnections` — or, when the network does not record it at all, has to
+live in the component's storage instead: `_peers()` keeps the browser-to-peer
+pairing there, since nothing on the network says which browser owns which peer.
+The exception is `_pending_calls`, whose entries hold Python callbacks and so
+cannot be stored; a TD→web `call()` in flight across a cook is dropped without
+firing its `call_timeout`.
 
 **An unknown menu key silently selects entry 0.** Assigning a Menu parameter a
 key it doesn't have raises nothing and takes its _first_ entry — and the
