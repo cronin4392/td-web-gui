@@ -62,7 +62,7 @@
 
   .schemeActive {
     border-color: var(--color-text);
-    background: var(--color-surface);
+    background: var(--color-border);
   }
 
   .swatch {

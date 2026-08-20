@@ -22,7 +22,7 @@
     overflow: hidden;
     height: var(--spacing-m);
     border-radius: var(--radius);
-    background: var(--color-surface);
+    background: var(--color-canvas);
   }
 
   .fill {

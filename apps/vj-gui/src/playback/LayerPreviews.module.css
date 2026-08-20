@@ -5,6 +5,7 @@
     height: 100%;
     flex-direction: column;
     gap: var(--spacing-s);
+    padding: var(--spacing-m);
   }
 
   /* Fixed above the stack: the Z layers stay put while the eight below scroll. */
@@ -31,7 +32,7 @@
     padding: var(--spacing-s);
 
     &[data-active='true'] {
-      background-color: var(--color-surface);
+      background-color: var(--color-border);
     }
   }
 

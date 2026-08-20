@@ -13,8 +13,14 @@
     /* The scene picker takes the top of the space the previews leave; the rest
        of the panels auto-flow across the row below it, in JSX order. */
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing-m);
     height: 100%;
     overflow: hidden;
+  }
+
+  /* One rule for every panel, so the page's canvas shows through the gap. */
+  .app > * {
+    background-color: var(--color-surface);
   }
 
   /* A full-height column, so the panels start beside it. */
