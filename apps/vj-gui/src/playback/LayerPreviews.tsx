@@ -65,35 +65,10 @@ function LayerPanel(props: { loader: LoaderId }): JSX.Element {
  * schema, and the provider above decides which process answers them.
  */
 function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => void }): JSX.Element {
-  const { registerConnection } = usePlayback();
   const video = LoaderClient.useVideo();
-  const activeScene = LoaderClient.signal('activeScene');
+  const scene = createActiveScene();
   const level = LoaderClient.signal('level');
-  // Published to PlaybackProvider because the scene picker sits outside every
-  // scene provider and still has to call this instance. Only reachable from
-  // in here.
-  registerConnection(props.layer, LoaderClient.useConnection());
-  onCleanup(() => registerConnection(props.layer, undefined));
-
-  // A scene folder is not guaranteed to hold a thumbnail.jpg, and the server
-  // refuses one outside the library — either way the tile falls back to black
-  // rather than a broken-image glyph.
-  const [broken, setBroken] = createSignal<string>();
-  // Cleared whenever the layer moves to another scene, so a thumbnail the
-  // server missed once is asked for again next time that scene comes up rather
-  // than staying black for the life of the page.
-  createEffect(
-    on(
-      () => activeScene.value(),
-      () => setBroken(undefined),
-      { defer: true },
-    ),
-  );
-  const thumbnail = () => {
-    const folder = activeSceneFolder(activeScene.value());
-    const url = folder ? sceneThumbnailUrlFrom(folder) : undefined;
-    return url && url !== broken() ? url : undefined;
-  };
+  publishConnection(props.layer);
 
   return (
     <figure class={styles.layerPreview} data-active={props.active}>
@@ -119,20 +94,14 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
             {(_stream) => <LoaderClient.Video stream={LOADER_STREAM} />}
           </Show>
           <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
-            <Show when={thumbnail()}>
-              {(url) => (
-                <img src={url()} alt="" class={styles.thumbnail} onError={() => setBroken(url())} />
-              )}
-            </Show>
+            <SceneThumbnail scene={scene} />
             {/* 'off' is the toggle below doing what it was asked; the checkbox
               already says so, and an "off…" scrim would just hide the tile. */}
             <Show when={video.streamStatus(LOADER_STREAM) !== 'off'}>
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
-          <span class={styles.sceneName} title={activeScene.value()}>
-            {activeSceneName(activeScene.value()) ?? '—'}
-          </span>
+          <SceneName path={scene.path()} />
         </button>
         <PerformanceReadouts />
         <LoaderClient.StreamToggle
@@ -141,12 +110,73 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           class={styles.streamToggle}
         />
       </div>
-      <div
-        class={styles.level}
-        style={{ '--level': `${Math.min(Math.max(level.value() ?? 0, 0), 1) * 100}%` }}
-      />
+      <div class={styles.level} style={levelStyle(level.value())} />
     </figure>
   );
+}
+
+/**
+ * Publishes this loader's connection to `PlaybackProvider`, because the scene
+ * picker sits outside every scene provider and still has to call this instance.
+ * Only reachable from in here.
+ */
+function publishConnection(layer: LayerId): void {
+  const { registerConnection } = usePlayback();
+  registerConnection(layer, LoaderClient.useConnection());
+  onCleanup(() => registerConnection(layer, undefined));
+}
+
+function createActiveScene() {
+  const activeScene = LoaderClient.signal('activeScene');
+  // A scene folder is not guaranteed to hold a thumbnail.jpg, and the server
+  // refuses one outside the library — either way the tile falls back to black
+  // rather than a broken-image glyph.
+  const [broken, setBroken] = createSignal<string>();
+  // Cleared whenever the layer moves to another scene, so a thumbnail the
+  // server missed once is asked for again next time that scene comes up rather
+  // than staying black for the life of the page.
+  createEffect(
+    on(
+      () => activeScene.value(),
+      () => setBroken(undefined),
+      { defer: true },
+    ),
+  );
+  const thumbnail = () => {
+    const folder = activeSceneFolder(activeScene.value());
+    const url = folder ? sceneThumbnailUrlFrom(folder) : undefined;
+    return url && url !== broken() ? url : undefined;
+  };
+  return { path: () => activeScene.value(), thumbnail, markBroken: setBroken };
+}
+
+type ActiveScene = ReturnType<typeof createActiveScene>;
+
+function SceneThumbnail(props: { scene: ActiveScene }): JSX.Element {
+  return (
+    <Show when={props.scene.thumbnail()}>
+      {(url) => (
+        <img
+          src={url()}
+          alt=""
+          class={styles.thumbnail}
+          onError={() => props.scene.markBroken(url())}
+        />
+      )}
+    </Show>
+  );
+}
+
+function SceneName(props: { path: string | undefined }): JSX.Element {
+  return (
+    <span class={styles.sceneName} title={props.path}>
+      {activeSceneName(props.path) ?? '—'}
+    </span>
+  );
+}
+
+function levelStyle(level: number | undefined): JSX.CSSProperties {
+  return { '--level': `${Math.min(Math.max(level ?? 0, 0), 1) * 100}%` };
 }
 
 /**
