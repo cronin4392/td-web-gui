@@ -136,7 +136,7 @@ export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof
  * project (and its MessageDispatcher) entirely.
  *
  * `path` is the scene's absolute `.tox`, forward slashes only — TD's
- * `Loader.LoadScene` splits it on `/` into folder + name.
+ * `Loader` splits it on `/` into folder + name.
  *
  * A scene's layout and color are deliberately not here: they are state, not
  * behaviour, so they ride {@link LoaderParams} as ordinary params.

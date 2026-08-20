@@ -91,8 +91,8 @@ def _load_scene(args):
     path = str((args or {}).get("path", ""))
     if not path:
         raise ValueError("loadScene needs a tox path")
-    # Forward slashes only: LoadScene splits on '/' to derive folder and name.
-    opex(LOADER).LoadScene(path)
+    # Forward slashes only: the loader splits on '/' to derive folder and name.
+    opex(LOADER).LoadComp({"toxPath": path})
     return {"ok": True}
 
 
