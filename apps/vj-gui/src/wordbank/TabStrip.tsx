@@ -146,8 +146,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   aria-label={`Delete list "${tab.name}"`}
                   disabled={state.lists.length <= 1}
                   onClick={() => setConfirmDeleteId(tab.id)}
-                  // Hidden for now — re-enable by dropping `u-hidden`.
-                  class={`${styles.delete} u-hidden`}
+                  class={styles.delete}
                 >
                   ×
                 </button>
