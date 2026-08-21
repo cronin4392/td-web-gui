@@ -31,19 +31,17 @@
     display: grid;
     /* One per row in a narrow column, wrapping if the column ever gets wide —
        the swatch is a gradient bar, so it reads at any width. */
-    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
     align-content: start;
     overflow-y: auto;
   }
 
   .scheme {
     display: grid;
-    gap: var(--spacing-s);
     padding: var(--spacing-s);
     border: 1px solid transparent;
     border-radius: var(--radius);
     cursor: pointer;
-    text-align: left;
 
     &:hover {
       border-color: var(--color-border-hover);
@@ -66,20 +64,12 @@
   }
 
   .swatch {
-    height: var(--spacing-l);
+    height: 1.5rem;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     /* Shows through wherever a stop's alpha is under 1, so a transparent ramp
        reads as transparent rather than as whatever sits behind the panel. */
     background-color: var(--color-surface);
-  }
-
-  .name {
-    overflow: hidden;
-    font-size: var(--text-s);
-    color: var(--color-text-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .empty {

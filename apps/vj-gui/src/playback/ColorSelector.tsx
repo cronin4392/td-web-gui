@@ -84,6 +84,8 @@ export function ColorSelector(props: { class?: string }): JSX.Element {
           {(scheme) => (
             <button
               type="button"
+              aria-label={scheme.name}
+              title={scheme.name}
               aria-pressed={active.value() === scheme.path}
               disabled={active.readonly()}
               onClick={() => active.setValue(scheme.path)}
@@ -93,7 +95,6 @@ export function ColorSelector(props: { class?: string }): JSX.Element {
                 class={styles.swatch}
                 style={{ 'background-image': colorStopsGradient(scheme.stops) }}
               />
-              <span class={styles.name}>{scheme.name}</span>
             </button>
           )}
         </For>
