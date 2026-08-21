@@ -153,11 +153,31 @@
       var(--color-border);
   }
 
+  /* A grid rather than a row so the Clear button below can span both param
+     columns; `auto auto` keeps each column as wide as its codes. */
   .params {
-    display: flex;
+    display: grid;
     align-self: center;
     align-items: center;
+    grid-template-columns: auto auto;
     gap: var(--spacing-s);
+  }
+
+  .clear {
+    grid-column: 1 / -1;
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-canvas);
+    font-family: var(--font-mono);
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
   }
 
   .paramGroup {
@@ -165,6 +185,28 @@
     flex-direction: column;
     border-radius: var(--radius);
     overflow: hidden;
+  }
+
+  /* Where a full tile keeps its stream toggle: a Z tile has no stream, and the
+     other corners are spoken for by the stats and the scene name. */
+  .clearIcon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border-radius: var(--radius);
+    background: var(--color-overlay);
+    font-size: var(--text-l);
+    line-height: 1;
+    color: var(--color-text);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-danger);
+    }
   }
 
   .stats {

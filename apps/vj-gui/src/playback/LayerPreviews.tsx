@@ -101,6 +101,7 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           prefix="C"
           options={COLOR_OPTIONS}
         />
+        <ClearLayer layer={props.layer} />
       </div>
       <div class={styles.frame}>
         <button type="button" class={styles.tile} onClick={props.onSelect}>
@@ -183,6 +184,7 @@ function CompactLayerBody(props: {
           <SceneThumbnail scene={scene} />
           <SceneName path={scene.path()} />
         </button>
+        <ClearLayer layer={props.layer} icon />
         <PerformanceReadouts />
       </div>
       <div class={styles.level} style={levelStyle(level.value())} />
@@ -301,6 +303,47 @@ function ParamRadios(props: {
         )}
       </For>
     </fieldset>
+  );
+}
+
+/**
+ * Puts a layer back to nothing: the Loader swaps in its blank tox, and the
+ * captions, layout and color the operator laid over the last scene go with it.
+ * The Loader resets its own layout and color as it clears, but both are written
+ * from here too so the radios move on the press rather than on TD's echo.
+ *
+ * `icon` is the Z layers' version — the same clear, in the tile's top corner,
+ * because a compact tile has no param column to sit under. It still resets
+ * layout and color: they are not on the Z tile, but they are on its loader.
+ */
+function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
+  const connection = LoaderClient.useConnection();
+  const layout = LoaderClient.signal('layout');
+  const color = LoaderClient.signal('color');
+  const text1 = GuiClient.signal(layerTextParam(props.layer, 1));
+  const text2 = GuiClient.signal(layerTextParam(props.layer, 2));
+
+  function clear(): void {
+    // The params go regardless: a layer whose process is down still shows its
+    // captions over the thumbnail, and those are the GUI's to clear.
+    void connection
+      .call('clearScene')
+      .catch((error: unknown) => console.warn('[vj-gui] clear failed', error));
+    layout.setValue(LAYOUT_OPTIONS[0].value);
+    color.setValue(COLOR_OPTIONS[0].value);
+    text1.setValue('');
+    text2.setValue('');
+  }
+
+  return (
+    <button
+      type="button"
+      class={props.icon ? styles.clearIcon : styles.clear}
+      onClick={clear}
+      aria-label={`Clear layer ${props.layer}`}
+    >
+      {props.icon ? '×' : 'Clear'}
+    </button>
   );
 }
 
