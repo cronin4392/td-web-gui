@@ -1,6 +1,6 @@
 # vj-gui
 
-The author's real VJ rig: ten scene layers driven from the web, SQLite
+The author's real VJ rig: twelve scene layers driven from the web, SQLite
 catalogs of scenes and effects, and a wordbank of phrases pushed to a layer's
 text params. Not published — but maintained and tested, not a scratchpad.
 
@@ -49,7 +49,7 @@ thing. They read SQLite through `node:sqlite`.
 ## The TouchDesigner side
 
 `td/gui-config.py` is the GUI project's config (port 8765). `td/scene-config.py`
-is shared by **all ten** scene processes — same file, ten `WebGuiServer`
+is shared by **all twelve** scene processes — same file, twelve `WebGuiServer`
 components, differing only in their `Identifier` and `Port` parameters. That's
 why no wire name in it is scene-prefixed: a name is scoped to its instance.
 `td/input-config.py` is the Input project's config (port 8766) — the rig's MIDI

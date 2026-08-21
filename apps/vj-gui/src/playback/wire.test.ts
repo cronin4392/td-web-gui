@@ -149,7 +149,7 @@ describe('layerIdForLoader', () => {
 });
 
 describe('isZLayer', () => {
-  it('splits the ten layers into the eight stacked and the two Z', () => {
-    expect(layerIds.filter(isZLayer)).toEqual(['Z1', 'Z2']);
+  it('splits the twelve layers into the eight stacked and the four Z', () => {
+    expect(layerIds.filter(isZLayer)).toEqual(['Z1', 'Z2', 'Z3', 'Z4']);
   });
 });

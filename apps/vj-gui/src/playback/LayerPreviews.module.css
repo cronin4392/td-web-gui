@@ -8,12 +8,19 @@
     padding: var(--spacing-m);
   }
 
-  /* Fixed above the stack: the Z layers stay put while the eight below scroll. */
+  /* Fixed above the stack: the Z layers stay put while the eight below scroll.
+     `wrap-reverse` flips the rows without flipping either row's contents, so
+     Z3/Z4 sit above Z1/Z2 — higher layers higher, as the stack below reads. */
   .zGrid {
-    display: grid;
+    display: flex;
     flex-shrink: 0;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-wrap: wrap-reverse;
     gap: var(--spacing-s);
+
+    & > * {
+      flex: 0 0 calc((100% - var(--spacing-s)) / 2);
+      min-width: 0;
+    }
   }
 
   .grid {

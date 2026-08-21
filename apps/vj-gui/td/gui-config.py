@@ -2,7 +2,7 @@
 Config for the GUI instance — the scene-loader control surface, on port 8765.
 
 Backing operators this project expects:
-        /GUI/ExternalScenes/SceneA … SceneH   custom pars `Text`, `Text2`
+        /GUI/ExternalScenes/SceneA … SceneZ4  custom pars `Text`, `Text2`
         the Colors tool named by COLOR_TOOL below, and its color scheme COMPs
         the status bar's beat-period radio, named by BEAT_PERIOD_RADIO below
 
@@ -26,10 +26,10 @@ The scenes are separate processes with their own config: td/scene-config.py.
 
 CALLBACKS = "webserver1_callbacks"
 
-# The ten external scene loaders, matching SCENE_KEYS in Tools/ExternalPorts.
-# Each exposes the same pair of text pars. A tuple rather than a string: Z1 and
-# Z2 are two characters, so iterating a string would split them.
-SCENE_IDS = ("A", "B", "C", "D", "E", "F", "G", "H", "Z1", "Z2")
+# The twelve external scene loaders, matching SCENE_KEYS in Tools/ExternalPorts.
+# Each exposes the same pair of text pars. A tuple rather than a string: the Z
+# keys are two characters, so iterating a string would split them.
+SCENE_IDS = ("A", "B", "C", "D", "E", "F", "G", "H", "Z1", "Z2", "Z3", "Z4")
 SCENE_PATH = "/GUI/ExternalScenes/Scene%s"
 
 # The Colors tool: owner of the active-scheme par, and the COMP the color groups
@@ -70,7 +70,7 @@ REGISTRY = {
     },
 }
 
-# sceneAText1 / sceneAText2 … sceneZ2Text1 / sceneZ2Text2. The web app derives
+# sceneAText1 / sceneAText2 … sceneZ4Text1 / sceneZ4Text2. The web app derives
 # these same names from its scene id, so the two sides must agree on the spelling.
 for _scene in SCENE_IDS:
     REGISTRY["scene%sText1" % _scene] = {"op": SCENE_PATH % _scene, "par": "Text", "type": "string"}
