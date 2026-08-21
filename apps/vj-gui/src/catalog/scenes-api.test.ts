@@ -99,7 +99,7 @@ describe('setSceneHidden', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/scenes/hidden', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'AudioSpectrum', hidden: true }),
+      body: JSON.stringify({ name: 'AudioSpectrum', value: true }),
     });
   });
 

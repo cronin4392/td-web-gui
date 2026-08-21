@@ -6,14 +6,20 @@ import { callHandler, callHandlerWithBody } from './api-plugin.test-helpers';
 
 const DB = { tag: 'db' } as unknown as DatabaseSync;
 
-function handler(overrides: Partial<Parameters<typeof catalogApiHandler>[0]> = {}) {
+function handler(
+  overrides: { read?: () => unknown; sync?: () => void; setHidden?: () => void } = {},
+) {
   const config = {
     read: vi.fn().mockReturnValue({ catalog: 'read' }),
     sync: vi.fn(),
     setHidden: vi.fn(),
     ...overrides,
   };
-  const middleware = catalogApiHandler(config)(() => DB);
+  const middleware = catalogApiHandler({
+    read: config.read,
+    sync: config.sync,
+    flags: { hidden: config.setHidden },
+  })(() => DB);
   return {
     ...config,
     call: (method: string, url: string) => callHandler(middleware, method, url),
@@ -91,11 +97,7 @@ describe('catalogApiHandler', () => {
       }),
     });
 
-    const res = await callWithBody(
-      'POST',
-      '/hidden',
-      JSON.stringify({ name: 'One', hidden: true }),
-    );
+    const res = await callWithBody('POST', '/hidden', JSON.stringify({ name: 'One', value: true }));
 
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body)).toEqual({ catalog: 'after' });
@@ -107,9 +109,25 @@ describe('catalogApiHandler', () => {
   it('carries a false flag through as an unhide', async () => {
     const { callWithBody, setHidden } = handler();
 
-    await callWithBody('POST', '/hidden', JSON.stringify({ name: 'One', hidden: false }));
+    await callWithBody('POST', '/hidden', JSON.stringify({ name: 'One', value: false }));
 
     expect(setHidden).toHaveBeenCalledWith(DB, 'One', false);
+  });
+
+  it('routes each declared flag to its own setter', async () => {
+    const setHidden = vi.fn();
+    const setFavorite = vi.fn();
+    const middleware = catalogApiHandler({
+      read: vi.fn().mockReturnValue({ catalog: 'read' }),
+      sync: vi.fn(),
+      flags: { hidden: setHidden, favorite: setFavorite },
+    })(() => DB);
+
+    const body = JSON.stringify({ name: 'One', value: true });
+    await callHandlerWithBody(middleware, 'POST', '/favorite', body);
+
+    expect(setFavorite).toHaveBeenCalledWith(DB, 'One', true);
+    expect(setHidden).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed or ill-shaped body as a 400, without touching the database', async () => {
@@ -117,8 +135,8 @@ describe('catalogApiHandler', () => {
       '{not json',
       '{}',
       JSON.stringify({ name: 'One' }),
-      JSON.stringify({ name: '', hidden: true }),
-      JSON.stringify({ name: 'One', hidden: 'yes' }),
+      JSON.stringify({ name: '', value: true }),
+      JSON.stringify({ name: 'One', value: 'yes' }),
       JSON.stringify(['One', true]),
     ]) {
       const { callWithBody, setHidden } = handler();
@@ -137,11 +155,7 @@ describe('catalogApiHandler', () => {
       }),
     });
 
-    const res = await callWithBody(
-      'POST',
-      '/hidden',
-      JSON.stringify({ name: 'One', hidden: true }),
-    );
+    const res = await callWithBody('POST', '/hidden', JSON.stringify({ name: 'One', value: true }));
 
     expect(res.status).toBe(500);
     expect(res.body).toContain('database is locked');
@@ -156,6 +170,11 @@ describe('catalogApiHandler', () => {
       ['POST', ''],
       ['DELETE', ''],
       ['GET', '/unknown'],
+      ['POST', '/unknown'],
+      ['POST', '/favorite'],
+      // A route named after an Object.prototype member must not resolve to one.
+      ['POST', '/toString'],
+      ['POST', '/constructor'],
     ] as const) {
       expect(call(method, url).nexted, `${method} ${url}`).toBe(true);
     }

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchEffectCatalog, setEffectHidden, syncEffectCatalog } from './effects-api';
+import {
+  fetchEffectCatalog,
+  setEffectFavorite,
+  setEffectHidden,
+  syncEffectCatalog,
+} from './effects-api';
 import type { EffectCatalog } from '@domain/catalog/effect';
 
 const CATALOG: EffectCatalog = [
-  { name: 'Blur', hidden: false, path: 'C:/Effects/3 Effect/Blur/Blur.tox' },
+  { name: 'Blur', hidden: false, favorite: false, path: 'C:/Effects/3 Effect/Blur/Blur.tox' },
 ];
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -92,7 +97,7 @@ describe('setEffectHidden', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/effects/hidden', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Blur', hidden: true }),
+      body: JSON.stringify({ name: 'Blur', value: true }),
     });
   });
 
@@ -107,5 +112,27 @@ describe('setEffectHidden', () => {
       vi.fn().mockResolvedValue(new Response('no such effect', { status: 400 })),
     );
     await expect(setEffectHidden('Gone', true)).rejects.toThrow('no such effect');
+  });
+});
+
+describe('setEffectFavorite', () => {
+  it('posts to the favorite route and returns the catalog that resulted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(CATALOG));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(setEffectFavorite('Blur', true)).resolves.toEqual(CATALOG);
+    expect(fetchMock).toHaveBeenCalledWith('/api/effects/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Blur', value: true }),
+    });
+  });
+
+  it('rejects with the server message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('no such effect', { status: 400 })),
+    );
+    await expect(setEffectFavorite('Gone', true)).rejects.toThrow('no such effect');
   });
 });

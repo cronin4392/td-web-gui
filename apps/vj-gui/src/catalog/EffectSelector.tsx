@@ -1,6 +1,11 @@
-import { For, Show, createMemo, type JSX } from 'solid-js';
-import { fetchEffectCatalog, setEffectHidden, syncEffectCatalog } from './effects-api';
-import type { EffectCatalog } from '@domain/catalog/effect';
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import {
+  fetchEffectCatalog,
+  setEffectFavorite,
+  setEffectHidden,
+  syncEffectCatalog,
+} from './effects-api';
+import type { Effect, EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
@@ -13,12 +18,65 @@ export function EffectSelector(): JSX.Element {
     sync: syncEffectCatalog,
     initialValue: [],
     load: loadTox,
-    setHidden: setEffectHidden,
   });
 
-  const visibleEffects = createMemo(() =>
-    picker.editing() ? picker.catalog() : picker.catalog().filter((effect) => !effect.hidden),
+  const [search, setSearch] = createSignal('');
+  const query = createMemo(() => search().trim().toLowerCase());
+
+  const visibleEffects = createMemo(() => {
+    const needle = query();
+    const editing = picker.editing();
+    return picker
+      .catalog()
+      .filter(
+        (effect) => (editing || !effect.hidden) && effect.name.toLowerCase().includes(needle),
+      );
+  });
+
+  /** Favorites are a second view of the same effects, not a slice taken out of
+   * the list — an effect stays where the muscle memory left it. The search
+   * never touches them: they are the shortcut you reach for instead of typing. */
+  const favorites = createMemo(() =>
+    picker.catalog().filter((effect) => effect.favorite && (picker.editing() || !effect.hidden)),
   );
+
+  function row(effect: Effect): JSX.Element {
+    return (
+      <div class={styles.row} data-hidden={effect.hidden}>
+        <button
+          type="button"
+          class={styles.effect}
+          title={effect.name}
+          disabled={!effect.path}
+          onClick={() => {
+            setSearch('');
+            void picker.loadTox(effect.path);
+          }}
+        >
+          {effect.name}
+        </button>
+
+        <Show when={picker.editing()}>
+          <button
+            type="button"
+            class={styles.favorite}
+            aria-pressed={effect.favorite}
+            title={effect.favorite ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={() => void picker.edit(() => setEffectFavorite(effect.name, !effect.favorite))}
+          >
+            {effect.favorite ? '★' : '☆'}
+          </button>
+          <button
+            type="button"
+            class={styles.hide}
+            onClick={() => void picker.edit(() => setEffectHidden(effect.name, !effect.hidden))}
+          >
+            {effect.hidden ? 'Show' : 'Hide'}
+          </button>
+        </Show>
+      </div>
+    );
+  }
 
   return (
     <section class={styles.selector}>
@@ -30,31 +88,27 @@ export function EffectSelector(): JSX.Element {
         onToggleEditing={() => picker.toggleEditing()}
       />
 
-      <div class={styles.list}>
-        <For each={visibleEffects()} fallback={<p class={styles.empty}>No effects yet.</p>}>
-          {(effect) => (
-            <div class={styles.row} data-hidden={effect.hidden}>
-              <button
-                type="button"
-                class={styles.effect}
-                title={effect.name}
-                disabled={!effect.path}
-                onClick={() => void picker.loadTox(effect.path)}
-              >
-                {effect.name}
-              </button>
+      <Show when={favorites().length > 0}>
+        <div class={`${styles.list} ${styles.favorites}`}>
+          <For each={favorites()}>{row}</For>
+        </div>
+      </Show>
 
-              <Show when={picker.editing()}>
-                <button
-                  type="button"
-                  class={styles.hide}
-                  onClick={() => void picker.setHidden(effect.name, !effect.hidden)}
-                >
-                  {effect.hidden ? 'Show' : 'Hide'}
-                </button>
-              </Show>
-            </div>
-          )}
+      <input
+        type="search"
+        class={styles.search}
+        placeholder="Search"
+        aria-label="Search effects"
+        value={search()}
+        onInput={(event) => setSearch(event.currentTarget.value)}
+      />
+
+      <div class={styles.list}>
+        <For
+          each={visibleEffects()}
+          fallback={<p class={styles.empty}>{query() ? 'No effects match.' : 'No effects yet.'}</p>}
+        >
+          {row}
         </For>
       </div>
     </section>

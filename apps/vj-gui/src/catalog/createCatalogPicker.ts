@@ -9,7 +9,7 @@ export interface CatalogPicker<T> {
   toggleEditing: () => void;
   refresh: () => Promise<void>;
   loadTox: (path: string) => Promise<void>;
-  setHidden: (name: string, hidden: boolean) => Promise<void>;
+  edit: (work: () => Promise<T>) => Promise<void>;
 }
 
 function reason(error: unknown): string {
@@ -22,7 +22,8 @@ function reason(error: unknown): string {
  * swaps in the server's result, an edit mode, and a load the caller has already
  * aimed at the right destination. The catalog is served by the dev/preview
  * server, but `config.load` goes straight to TD — the GUI is not in that path.
- * `setHidden` only flips the flag: filtering on it needs the catalog's shape,
+ * `edit` runs any catalog-returning mutation the caller names: which flag it
+ * sets, and what the result means for the view, needs the catalog's shape —
  * which only the caller knows.
  */
 export function createCatalogPicker<T>(config: {
@@ -30,7 +31,6 @@ export function createCatalogPicker<T>(config: {
   sync: () => Promise<T>;
   initialValue: T;
   load: (path: string) => Promise<void>;
-  setHidden: (name: string, hidden: boolean) => Promise<T>;
 }): CatalogPicker<T> {
   const [catalog, { mutate }] = createResource(config.fetch, { initialValue: config.initialValue });
   const [error, setError] = createSignal<string | undefined>(undefined);
@@ -63,15 +63,15 @@ export function createCatalogPicker<T>(config: {
     }
   }
 
-  async function setHidden(name: string, hidden: boolean): Promise<void> {
+  async function edit(work: () => Promise<T>): Promise<void> {
     setError(undefined);
     try {
-      const updated = await config.setHidden(name, hidden);
+      const updated = await work();
       mutate(() => updated);
     } catch (err) {
       setError(`Edit failed: ${reason(err)}`);
     }
   }
 
-  return { catalog, error, refreshing, editing, toggleEditing, refresh, loadTox, setHidden };
+  return { catalog, error, refreshing, editing, toggleEditing, refresh, loadTox, edit };
 }

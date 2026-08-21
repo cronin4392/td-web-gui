@@ -4,6 +4,7 @@ import {
   effectsRoot,
   openEffectsDb,
   readEffects,
+  setEffectFavorite,
   setEffectHidden,
   syncEffects,
 } from './effects-db';
@@ -14,7 +15,7 @@ const ROUTE = '/api/effects';
 export const effectsApiHandler = catalogApiHandler({
   read: readEffects,
   sync: (db) => syncEffects(db, effectsRoot(process.env)),
-  setHidden: setEffectHidden,
+  flags: { hidden: setEffectHidden, favorite: setEffectFavorite },
 });
 
 /** Opened on the first request, not at config load — `pnpm db:effects` loads this

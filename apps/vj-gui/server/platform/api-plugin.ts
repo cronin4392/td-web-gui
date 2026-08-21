@@ -28,28 +28,31 @@ export function readBody(req: IncomingMessage): Promise<string> {
 }
 
 const SYNC_PATH = '/sync';
-const HIDDEN_PATH = '/hidden';
 
-interface HiddenRequest {
+interface FlagRequest {
   name: string;
-  hidden: boolean;
+  value: boolean;
 }
 
-function isHiddenRequest(x: unknown): x is HiddenRequest {
+function isFlagRequest(x: unknown): x is FlagRequest {
   if (typeof x !== 'object' || x === null) return false;
   const body = x as Record<string, unknown>;
-  return typeof body.name === 'string' && body.name !== '' && typeof body.hidden === 'boolean';
+  return typeof body.name === 'string' && body.name !== '' && typeof body.value === 'boolean';
 }
 
 /** `GET ''` reads the catalog, `POST /sync` reconciles it against disk, and
- * `POST /hidden` hides or unhides one entry by name; each of the two POSTs
- * answers with the catalog that resulted, so the client needs no second read.
- * Anything else falls through to the next middleware. */
+ * `POST /<flag>` sets one authored flag on one entry by name, for each flag the
+ * catalog declares; each POST answers with the catalog that resulted, so the
+ * client needs no second read. Anything else falls through to the next
+ * middleware. */
 export function catalogApiHandler(config: {
   read: (db: DatabaseSync) => unknown;
   sync: (db: DatabaseSync) => void;
-  setHidden: (db: DatabaseSync, name: string, hidden: boolean) => void;
+  flags: Record<string, (db: DatabaseSync, name: string, value: boolean) => void>;
 }): (getDb: () => DatabaseSync) => Connect.NextHandleFunction {
+  // A Map, so a route named after an Object.prototype member can't resolve.
+  const flags = new Map(Object.entries(config.flags));
+
   return (getDb) => async (req, res, next) => {
     function respond(work: (db: DatabaseSync) => unknown): void {
       try {
@@ -69,7 +72,8 @@ export function catalogApiHandler(config: {
       return;
     }
 
-    if (req.method === 'POST' && path === HIDDEN_PATH) {
+    const setFlag = req.method === 'POST' ? flags.get(path.replace(/^\//, '')) : undefined;
+    if (setFlag) {
       let body: unknown;
       try {
         body = JSON.parse(await readBody(req));
@@ -77,12 +81,12 @@ export function catalogApiHandler(config: {
         sendError(res, 400, 'malformed JSON');
         return;
       }
-      if (!isHiddenRequest(body)) {
-        sendError(res, 400, 'expected { name: string, hidden: boolean }');
+      if (!isFlagRequest(body)) {
+        sendError(res, 400, 'expected { name: string, value: boolean }');
         return;
       }
       respond((db) => {
-        config.setHidden(db, body.name, body.hidden);
+        setFlag(db, body.name, body.value);
         return config.read(db);
       });
       return;

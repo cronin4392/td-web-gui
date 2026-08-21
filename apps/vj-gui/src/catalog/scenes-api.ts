@@ -34,7 +34,7 @@ export async function setSceneHidden(name: string, hidden: boolean): Promise<Cat
   const res = await fetch(`${ENDPOINT}/hidden`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, hidden }),
+    body: JSON.stringify({ name, value: hidden }),
   });
   if (!res.ok) throw new Error((await res.text()) || `hide failed (${res.status})`);
   const body: unknown = await res.json();

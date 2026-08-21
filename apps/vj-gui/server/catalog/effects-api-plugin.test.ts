@@ -20,13 +20,21 @@ function call(method: string, url: string) {
   );
 }
 
-function hide(name: string, hidden: boolean) {
+function setFlag(flag: string, name: string, value: boolean) {
   return callHandlerWithBody(
     effectsApiHandler(() => db),
     'POST',
-    '/hidden',
-    JSON.stringify({ name, hidden }),
+    `/${flag}`,
+    JSON.stringify({ name, value }),
   );
+}
+
+function hide(name: string, hidden: boolean) {
+  return setFlag('hidden', name, hidden);
+}
+
+function favorite(name: string, value: boolean) {
+  return setFlag('favorite', name, value);
 }
 
 beforeEach(() => {
@@ -53,6 +61,7 @@ describe('effectsApiHandler', () => {
       {
         name: 'Blur',
         hidden: false,
+        favorite: false,
         path: `${root.replace(/\\/g, '/')}/3 Effect/Blur/Blur.tox`,
       },
     ]);
@@ -92,6 +101,28 @@ describe('effectsApiHandler', () => {
 
     expect(JSON.parse((await hide('Blur', false)).body)).toEqual([
       expect.objectContaining({ hidden: false }),
+    ]);
+  });
+
+  it('favorites an effect, and keeps it favorited across a sync', async () => {
+    call('POST', '/sync');
+
+    const favorited = await favorite('Blur', true);
+    expect(JSON.parse(favorited.body)).toEqual([
+      expect.objectContaining({ name: 'Blur', favorite: true }),
+    ]);
+
+    expect(JSON.parse(call('POST', '/sync').body)).toEqual([
+      expect.objectContaining({ favorite: true }),
+    ]);
+  });
+
+  it('unfavorites again', async () => {
+    call('POST', '/sync');
+    await favorite('Blur', true);
+
+    expect(JSON.parse((await favorite('Blur', false)).body)).toEqual([
+      expect.objectContaining({ favorite: false }),
     ]);
   });
 

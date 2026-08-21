@@ -10,7 +10,6 @@ function picker(
     fetch?: () => Promise<Catalog>;
     sync?: () => Promise<Catalog>;
     load?: (path: string) => Promise<void>;
-    setHidden?: (name: string, hidden: boolean) => Promise<Catalog>;
   } = {},
 ) {
   return createRoot(() =>
@@ -19,7 +18,6 @@ function picker(
       sync: overrides.sync ?? (() => Promise.resolve(['synced'])),
       initialValue: [],
       load: overrides.load ?? (() => Promise.resolve()),
-      setHidden: overrides.setHidden ?? (() => Promise.resolve(['hidden'])),
     }),
   );
 }
@@ -113,26 +111,33 @@ describe('editing', () => {
   });
 });
 
-describe('setHidden', () => {
-  it('replaces the catalog with the one the server answered with', async () => {
-    const setHidden = vi.fn().mockResolvedValue(['after']);
-    const p = picker({ setHidden });
+describe('edit', () => {
+  it('replaces the catalog with the one the edit answered with', async () => {
+    const p = picker();
 
-    await p.setHidden('Blur', true);
+    await p.edit(() => Promise.resolve(['after']));
 
-    expect(setHidden).toHaveBeenCalledWith('Blur', true);
     expect(p.catalog()).toEqual(['after']);
     expect(p.error()).toBeUndefined();
   });
 
   it('reports a failure and leaves the previous catalog serving', async () => {
-    const p = picker({ setHidden: () => Promise.reject(new Error('db is locked')) });
+    const p = picker();
     await p.refresh();
     const afterRefresh = p.catalog();
 
-    await p.setHidden('Blur', true);
+    await p.edit(() => Promise.reject(new Error('db is locked')));
 
     expect(p.error()).toBe('Edit failed: db is locked');
     expect(p.catalog()).toBe(afterRefresh);
+  });
+
+  it('clears a stale error on the next successful edit', async () => {
+    const p = picker();
+    await p.edit(() => Promise.reject(new Error('boom')));
+    expect(p.error()).toBeDefined();
+
+    await p.edit(() => Promise.resolve(['after']));
+    expect(p.error()).toBeUndefined();
   });
 });

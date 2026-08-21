@@ -8,6 +8,7 @@ import {
   openEffectsDb,
   readEffects,
   scanEffectFolders,
+  setEffectFavorite,
   setEffectHidden,
   syncEffects,
 } from './effects-db';
@@ -51,7 +52,7 @@ describe('scanEffectFolders', () => {
     effect('3 Effect', 'Blur');
 
     expect(scanEffectFolders(root)).toEqual([
-      { name: 'Blur', hidden: false, path: toxPathOf('3 Effect', 'Blur') },
+      { name: 'Blur', hidden: false, favorite: false, path: toxPathOf('3 Effect', 'Blur') },
     ]);
   });
 
@@ -312,5 +313,75 @@ describe('setEffectHidden', () => {
     const db = open();
 
     expect(readEffects(db)).toEqual([expect.objectContaining({ name: 'Kept', hidden: false })]);
+  });
+});
+
+describe('setEffectFavorite', () => {
+  function favoriteNames(db: DatabaseSync): string[] {
+    return readEffects(db)
+      .filter((entry) => entry.favorite)
+      .map((entry) => entry.name);
+  }
+
+  it('reads back on the effect it names, and on no other', () => {
+    effect('3 Effect', 'Blur');
+    effect('4 3D', 'Tube');
+    const db = open();
+    syncEffects(db, root);
+
+    setEffectFavorite(db, 'Blur', true);
+
+    expect(favoriteNames(db)).toEqual(['Blur']);
+  });
+
+  it('unfavorites again', () => {
+    effect('3 Effect', 'Blur');
+    const db = open();
+    syncEffects(db, root);
+
+    setEffectFavorite(db, 'Blur', true);
+    setEffectFavorite(db, 'Blur', false);
+
+    expect(favoriteNames(db)).toEqual([]);
+  });
+
+  it('throws on a name no effect carries', () => {
+    const db = open();
+    syncEffects(db, root);
+
+    expect(() => setEffectFavorite(db, 'Ghost', true)).toThrow(/Ghost/);
+  });
+
+  it('leaves hidden alone, and survives a sync alongside it', () => {
+    effect('3 Effect', 'Blur');
+    const db = open();
+    syncEffects(db, root);
+
+    setEffectFavorite(db, 'Blur', true);
+    setEffectHidden(db, 'Blur', true);
+    syncEffects(db, root);
+
+    expect(readEffects(db)).toEqual([
+      expect.objectContaining({ name: 'Blur', hidden: true, favorite: true }),
+    ]);
+  });
+
+  it('is added to a file that predates the column, hidden intact', () => {
+    const old = new DatabaseSync(dbPath);
+    old.exec(`
+      CREATE TABLE effects (
+        name   TEXT PRIMARY KEY NOT NULL,
+        folder TEXT NOT NULL,
+        hidden INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO effects VALUES ('Kept', '/effects/3 Effect/Kept', 1);
+    `);
+    old.close();
+
+    const db = open();
+
+    expect(readEffects(db)).toEqual([
+      expect.objectContaining({ name: 'Kept', hidden: true, favorite: false }),
+    ]);
   });
 });

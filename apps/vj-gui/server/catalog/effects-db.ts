@@ -23,6 +23,7 @@ const TABLE_COLUMNS: TableColumns = {
     name: 'TEXT PRIMARY KEY NOT NULL',
     folder: 'TEXT NOT NULL',
     hidden: 'INTEGER NOT NULL DEFAULT 0',
+    favorite: 'INTEGER NOT NULL DEFAULT 0',
   },
 };
 
@@ -33,8 +34,9 @@ const DDL = `
     -- KEY column hold NULL, and any number of them.
     name   TEXT PRIMARY KEY NOT NULL,
     folder TEXT NOT NULL,
-    -- Authored in the GUI, which is why the sync's upsert never names it.
-    hidden INTEGER NOT NULL DEFAULT 0
+    -- Authored in the GUI, which is why the sync's upsert never names them.
+    hidden   INTEGER NOT NULL DEFAULT 0,
+    favorite INTEGER NOT NULL DEFAULT 0
   );
 `;
 
@@ -98,8 +100,8 @@ export function syncEffects(db: DatabaseSync, root: string): { effects: number }
 
   return transaction(db, () => {
     // Naming every scanned column and no authored one is what carries `hidden`
-    // through a sync: an effect that is still on disk keeps the row it had, even
-    // when it moved to another group.
+    // and `favorite` through a sync: an effect that is still on disk keeps the
+    // row it had, even when it moved to another group.
     const upsert = db.prepare(`
       INSERT INTO effects (name, folder) VALUES (?, ?)
       ON CONFLICT(name) DO UPDATE SET folder = excluded.folder
@@ -111,19 +113,38 @@ export function syncEffects(db: DatabaseSync, root: string): { effects: number }
 }
 
 /** Throws on a name no effect carries: the picker only ever names an effect it
- * just rendered, so a miss means the catalog moved under it — worth surfacing. */
-export function setEffectHidden(db: DatabaseSync, name: string, hidden: boolean): void {
+ * just rendered, so a miss means the catalog moved under it — worth surfacing.
+ * The column is interpolated, so it must never come from a request. */
+function setEffectFlag(
+  db: DatabaseSync,
+  column: 'hidden' | 'favorite',
+  name: string,
+  value: boolean,
+): void {
   const { changes } = db
-    .prepare('UPDATE effects SET hidden = ? WHERE name = ?')
-    .run(hidden ? 1 : 0, name);
+    .prepare(`UPDATE effects SET ${column} = ? WHERE name = ?`)
+    .run(value ? 1 : 0, name);
   if (changes === 0) throw new Error(`no such effect "${name}"`);
 }
 
+export function setEffectHidden(db: DatabaseSync, name: string, hidden: boolean): void {
+  setEffectFlag(db, 'hidden', name, hidden);
+}
+
+export function setEffectFavorite(db: DatabaseSync, name: string, favorite: boolean): void {
+  setEffectFlag(db, 'favorite', name, favorite);
+}
+
 export function readEffects(db: DatabaseSync): EffectCatalog {
-  const rows = db.prepare('SELECT name, folder, hidden FROM effects').all() as {
+  const rows = db.prepare('SELECT name, folder, hidden, favorite FROM effects').all() as {
     name: string;
     folder: string;
     hidden: number;
+    favorite: number;
   }[];
-  return rows.map((row): Effect => effectFrom({ ...row, hidden: row.hidden !== 0 })).sort(byName);
+  return rows
+    .map((row): Effect =>
+      effectFrom({ ...row, hidden: row.hidden !== 0, favorite: row.favorite !== 0 }),
+    )
+    .sort(byName);
 }

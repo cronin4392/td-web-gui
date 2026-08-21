@@ -3,15 +3,47 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-s);
-    overflow-y: auto;
+    overflow: hidden;
     padding: var(--spacing-m);
   }
 
+  .search {
+    flex-shrink: 0;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &:focus-visible {
+      border-color: var(--color-border-hover);
+    }
+
+    /* The search filters the list below it and not the favorites above, so it
+       sits with the list rather than midway between the two. */
+    .favorites + & {
+      margin-top: var(--spacing-l);
+    }
+  }
+
+  /* The one scrolling region: the toolbar, the favorites and the search stay
+     put above it. */
   .list {
     display: flex;
+    flex: 1;
     flex-direction: column;
     align-content: start;
     gap: var(--spacing-s);
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Pinned above the search, so it takes only the room its rows need — and
+     scrolls within itself rather than crowding the list out. */
+  .favorites {
+    flex: 0 1 auto;
+    max-height: 40%;
   }
 
   .empty {
@@ -49,6 +81,25 @@
 
     .row[data-hidden='true'] & {
       opacity: 0.35;
+    }
+  }
+
+  .favorite {
+    flex-shrink: 0;
+    padding-inline: var(--spacing-m);
+    border: 1px solid var(--color-border-hover);
+    border-radius: var(--radius);
+    font-size: var(--text-m);
+    line-height: 1;
+    color: var(--color-text-faint);
+
+    &:hover {
+      color: var(--color-text);
+    }
+
+    &[aria-pressed='true'] {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
     }
   }
 

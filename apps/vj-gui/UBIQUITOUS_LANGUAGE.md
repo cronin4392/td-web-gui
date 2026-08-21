@@ -18,16 +18,17 @@ relative to `apps/vj-gui`.
 
 ## Catalogs
 
-| Term               | Definition                                                                  | Aliases to avoid            |
-| ------------------ | --------------------------------------------------------------------------- | --------------------------- |
-| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                | Scene library, scene list   |
-| **Effect catalog** | Every Effect the GUI can offer, in name order                               | Effect library, effect list |
-| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned | Refresh, reindex, import    |
-| **Scan**           | Reading the folders on disk into catalog rows, without touching a database  | Crawl, walk, discover       |
-| **Tag**            | A label a Scene carries, used to filter the Scene picker                    | Category, genre, keyword    |
-| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last         | Priority, order, weight     |
-| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned | Disabled, archived, deleted |
-| **Edit mode**      | The picker state that reveals Hidden entries and offers the hide toggle     | Manage mode, admin, unlock  |
+| Term               | Definition                                                                            | Aliases to avoid            |
+| ------------------ | ------------------------------------------------------------------------------------- | --------------------------- |
+| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                          | Scene library, scene list   |
+| **Effect catalog** | Every Effect the GUI can offer, in name order                                         | Effect library, effect list |
+| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned           | Refresh, reindex, import    |
+| **Scan**           | Reading the folders on disk into catalog rows, without touching a database            | Crawl, walk, discover       |
+| **Tag**            | A label a Scene carries, used to filter the Scene picker                              | Category, genre, keyword    |
+| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                   | Priority, order, weight     |
+| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned           | Disabled, archived, deleted |
+| **Favorite**       | An Effect the picker also lists up top; authored in the GUI, never scanned            | Starred, pinned, bookmarked |
+| **Edit mode**      | The picker state that reveals Hidden entries and offers the hide and favorite toggles | Manage mode, admin, unlock  |
 
 ## Playback
 
@@ -36,7 +37,7 @@ relative to `apps/vj-gui`.
 | **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process  | Channel, deck, slot, output |
 | **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing          | Player, host, container     |
 | **Selected layer** | The Layer that a pick in the GUI acts on                                                 | Active deck, current output |
-| **Z layer**        | One of the two Layers above the eight-deep stack — `Z1`, `Z2`; held, not performed       | Overlay, aux, extra layer   |
+| **Z layer**        | One of the four Layers above the eight-deep stack — `Z1`–`Z4`; held, not performed       | Overlay, aux, extra layer   |
 | **Load**           | Telling a Layer's Loader to play a given Tox path                                        | Play, fire, trigger, cue    |
 | **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project     | MIDI project, controllers   |
 | **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web | Tempo, beat, rate, speed    |
@@ -72,7 +73,8 @@ relative to `apps/vj-gui`.
 - A **Z layer** is a **Layer** in every respect the wire can see — same process, same schema, same **Loader**. Only the GUI treats it apart, giving it a compact tile with no video and no layout or color.
 - A **Scene** carries zero or more **Tags** and at most one **Rank**; an **Effect** carries neither.
 - A **Sync** reconciles one catalog against one root folder — the **Scene catalog** and the **Effect catalog** never mix.
-- **Hidden** is the one piece of catalog state a **Sync** leaves alone: it is authored rather than scanned, so only **Edit mode** can undo it. It lives on the row, so it dies with it — a **Scene** deleted from disk does not come back hidden.
+- **Hidden** and **Favorite** are the catalog state a **Sync** leaves alone: they are authored rather than scanned, so only **Edit mode** can undo them. They live on the row, so they die with it — a **Scene** deleted from disk does not come back hidden.
+- A **Favorite** is a second listing of an **Effect**, not a move: the same **Effect** stays in the full list too, in name order.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.

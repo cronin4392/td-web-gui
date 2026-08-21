@@ -25,7 +25,7 @@ function hide(name: string, hidden: boolean) {
     scenesApiHandler(() => db),
     'POST',
     '/hidden',
-    JSON.stringify({ name, hidden }),
+    JSON.stringify({ name, value: hidden }),
   );
 }
 

@@ -14,7 +14,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     sync: syncCatalog,
     initialValue: emptyCatalog(),
     load: loadTox,
-    setHidden: setSceneHidden,
   });
 
   const scenes = () => picker.catalog().scenes;
@@ -103,7 +102,9 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                   <button
                     type="button"
                     class={styles.hide}
-                    onClick={() => void picker.setHidden(scene.name, !scene.hidden)}
+                    onClick={() =>
+                      void picker.edit(() => setSceneHidden(scene.name, !scene.hidden))
+                    }
                   >
                     {scene.hidden ? 'Show' : 'Hide'}
                   </button>

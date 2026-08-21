@@ -14,7 +14,7 @@ const ROUTE = '/api/scenes';
 export const scenesApiHandler = catalogApiHandler({
   read: readCatalog,
   sync: (db) => syncScenes(db, scenesRoot(process.env)),
-  setHidden: setSceneHidden,
+  flags: { hidden: setSceneHidden },
 });
 
 /** Opened on the first request, not at config load — `pnpm db:scenes` loads this

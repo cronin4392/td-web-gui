@@ -28,16 +28,28 @@ export async function syncEffectCatalog(): Promise<EffectCatalog> {
   return body;
 }
 
-/** Rejects rather than falling back — hiding is an explicit request, so the
- * user needs to see why it failed. */
-export async function setEffectHidden(name: string, hidden: boolean): Promise<EffectCatalog> {
-  const res = await fetch(`${ENDPOINT}/hidden`, {
+/** Rejects rather than falling back — setting a flag is an explicit request, so
+ * the user needs to see why it failed. */
+async function setEffectFlag(
+  flag: 'hidden' | 'favorite',
+  name: string,
+  value: boolean,
+): Promise<EffectCatalog> {
+  const res = await fetch(`${ENDPOINT}/${flag}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, hidden }),
+    body: JSON.stringify({ name, value }),
   });
-  if (!res.ok) throw new Error((await res.text()) || `hide failed (${res.status})`);
+  if (!res.ok) throw new Error((await res.text()) || `${flag} failed (${res.status})`);
   const body: unknown = await res.json();
-  if (!isEffectCatalog(body)) throw new Error('hide response failed shape validation');
+  if (!isEffectCatalog(body)) throw new Error(`${flag} response failed shape validation`);
   return body;
+}
+
+export function setEffectHidden(name: string, hidden: boolean): Promise<EffectCatalog> {
+  return setEffectFlag('hidden', name, hidden);
+}
+
+export function setEffectFavorite(name: string, favorite: boolean): Promise<EffectCatalog> {
+  return setEffectFlag('favorite', name, favorite);
 }
