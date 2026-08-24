@@ -24,9 +24,9 @@
     --spacing-m: 0.5rem;
     --spacing-l: 1rem;
 
-    --text-s: 0.75rem;
-    --text-m: 0.875rem;
-    --text-l: 1.25rem;
+    --text-s: 0.875rem;
+    --text-m: 1rem;
+    --text-l: 1.5rem;
 
     --font-weight-bold: 600;
     --font-mono: ui-monospace, monospace;
