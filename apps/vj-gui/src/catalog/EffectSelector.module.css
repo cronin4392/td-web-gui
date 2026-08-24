@@ -43,7 +43,7 @@
      scrolls within itself rather than crowding the list out. */
   .favorites {
     flex: 0 1 auto;
-    max-height: 40%;
+    max-height: 25%;
   }
 
   .empty {
