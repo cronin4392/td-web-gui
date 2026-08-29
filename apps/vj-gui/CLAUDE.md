@@ -34,6 +34,16 @@ only typechecks under one of them is broken.
 
 Imports use `@/*` for `src/` and `@domain/*` for `domain/`.
 
+## The browser is the latest Chrome
+
+One machine, one browser, kept current. Target the latest stable Chrome: no
+polyfills, no vendor prefixes, no fallbacks for older engines. A platform
+feature is fair game the day Chrome ships it — `text-box`, `color-mix()`,
+`:has()`, native nesting and `@layer` are already load-bearing here.
+
+This stops at this directory. `packages/td-core` and `apps/example` are
+published, and what they support is not this app's call.
+
 ## The server is Vite plugins, not a separate service
 
 `server/*/**-api-plugin.ts` mount as Vite middleware (see `vite.config.ts`), so
