@@ -18,6 +18,9 @@
     --color-border: var(--gray-700);
     --color-border-hover: var(--gray-500);
     --color-accent: var(--blue-400);
+    /* Tinted surface, not a fill: the selected panel is the largest coloured area in
+       the GUI, and it carries the accent-coloured level bar and radios on top. */
+    --color-selected: color-mix(in oklab, var(--color-accent) 30%, var(--color-surface));
     --color-danger: var(--red-400);
 
     --spacing-s: 0.25rem;

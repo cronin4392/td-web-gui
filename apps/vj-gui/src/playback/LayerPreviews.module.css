@@ -39,7 +39,7 @@
     padding: var(--spacing-s);
 
     &[data-active='true'] {
-      background-color: var(--color-border);
+      background-color: var(--color-selected);
     }
   }
 
