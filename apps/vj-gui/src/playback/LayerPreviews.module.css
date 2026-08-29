@@ -116,6 +116,7 @@
     right: 0;
     width: var(--spacing-l);
     height: var(--spacing-l);
+    display: none;
   }
 
   .sceneName {
