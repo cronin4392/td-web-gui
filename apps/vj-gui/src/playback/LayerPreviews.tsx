@@ -116,7 +116,9 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
-          <div class={styles.layerKey}>{layerNumber(props.layer)}</div>
+          <div class={styles.layerKey}>
+            <span>{layerNumber(props.layer)}</span>
+          </div>
           <LayerTexts layer={props.layer} />
           <SceneName path={scene.path()} />
         </button>
