@@ -126,7 +126,7 @@
     overflow: hidden;
     padding: var(--spacing-s);
     background: var(--color-overlay);
-    font-size: var(--text-s);
+    font-size: var(--text-m);
     color: var(--color-text);
     text-overflow: ellipsis;
     white-space: nowrap;
