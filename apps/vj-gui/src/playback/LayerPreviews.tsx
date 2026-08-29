@@ -2,7 +2,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from '
 import { unescapeNewlines, type SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
-import { isZLayer, type LayerId } from './layers';
+import { isZLayer, layerNumber, type LayerId } from './layers';
 import {
   activeSceneFolder,
   activeSceneName,
@@ -116,6 +116,7 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
           </Show>
+          <div class={styles.layerKey}>{layerNumber(props.layer)}</div>
           <LayerTexts layer={props.layer} />
           <SceneName path={scene.path()} />
         </button>

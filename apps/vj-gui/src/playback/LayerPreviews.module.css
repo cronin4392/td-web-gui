@@ -99,6 +99,15 @@
     color: var(--color-text);
   }
 
+  .layerKey {
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: var(--spacing-m);
+  }
+
   /* Top-right, out of the caption's way, where the scene picker keeps its own
      tile-corner button. */
   .streamToggle {

@@ -77,6 +77,13 @@ export function isZLayer(layer: LayerId): layer is ZLayerId {
   return (zLayerIds as readonly LayerId[]).includes(layer);
 }
 
+/** The number a layer wears on its tile: its place in the authored
+ * {@link layerIds} order, not its position in a column that renders them
+ * reversed and without the Z layers. */
+export function layerNumber(layer: LayerId): number {
+  return layerIds.indexOf(layer) + 1;
+}
+
 /** The loader a freshly-opened page targets. A layer is always selected — every
  * `selectedLayer` in the app is a `LayerId`, never `undefined`. */
 export const defaultLayer: LayerId = 'A';
