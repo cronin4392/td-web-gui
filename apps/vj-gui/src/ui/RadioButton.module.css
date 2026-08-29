@@ -1,7 +1,7 @@
 @layer components {
   .button {
-    /* Containing block for the `u-sr-only` input, which would otherwise resolve
-       against the viewport and stop scrolling with the list it sits in. */
+    /* Containing block for the `u-sr-only` input, so the focusable control sits
+       at its own label rather than at the app's top-left corner. */
     position: relative;
     cursor: pointer;
     user-select: none;

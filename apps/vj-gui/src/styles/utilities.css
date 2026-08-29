@@ -3,8 +3,13 @@
     display: none;
   }
 
+  /* Pinned rather than left at its static position: an unpositioned wrapper
+     hands the box to a distant ancestor, where its static offset becomes
+     phantom scrollable overflow on that ancestor. */
   .u-sr-only {
     position: absolute;
+    top: 0;
+    left: 0;
     width: 1px;
     height: 1px;
     padding: 0;
