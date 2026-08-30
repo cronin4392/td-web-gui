@@ -63,7 +63,8 @@ Prefer these over re-deriving from source:
 | What a vj-gui domain term means   | `apps/vj-gui/UBIQUITOUS_LANGUAGE.md`           |
 | What's known-broken / next        | `TODO.md`                                      |
 
-`prds/` is historical and superseded — don't treat it as current design.
+`prds/` is mostly historical and superseded — don't treat a PRD as current
+design unless it describes work still in flight.
 
 `td/` at the repo root holds no project source: it is the venv the Envoy MCP
 bridge runs on plus TouchDesigner's logs, both untracked. Don't put files there
