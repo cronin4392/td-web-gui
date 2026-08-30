@@ -59,12 +59,14 @@ relative to `apps/vj-gui`.
 
 ## Wordbank
 
-| Term            | Definition                                                                                      | Aliases to avoid                    |
-| --------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`    | Library, phrase library, text state |
-| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                  | Tab, phrase tab, list               |
-| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick        | Line, entry, saved text             |
-| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged | History, recents                    |
+| Term            | Definition                                                                                       | Aliases to avoid                    |
+| --------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`     | Library, phrase library, text state |
+| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                   | Tab, phrase tab, list               |
+| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick         | Line, entry, saved text             |
+| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged  | History, recents                    |
+| **Text field**  | One line of text pushed to a Layer — a Default, and a per-Layer typed override                   | Slot, text input, text param, row   |
+| **Default**     | What a Text field sends when nothing is typed into it, and what its input shows as a placeholder | Fallback, preset, initial value     |
 
 ## Relationships
 
@@ -79,6 +81,8 @@ relative to `apps/vj-gui`.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
 - Applying a **Phrase** writes it to the **Selected layer**'s text param and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
+- A **Text field** is global to the rig: its **Default** is the same for every **Layer**, and only the typed override is per-**Layer**. A **Text field** has no name — its **Default** is how it is recognised, in the input's placeholder and in **Edit mode** alike. **Edit mode** is where the set of **Text fields** and their **Defaults** are authored, the way it reveals **Hidden** and **Favorite** in the pickers.
+- A **Layer** carrying no override carries its **Text field**'s **Default** — "empty" is a state of the input, not a second place text can live. A **Text field** whose **Default** is itself blank sends nothing, and that is the only way a **Layer**'s text goes empty.
 
 ## Example dialogue
 

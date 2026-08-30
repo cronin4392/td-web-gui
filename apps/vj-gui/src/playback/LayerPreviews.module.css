@@ -161,8 +161,8 @@
     pointer-events: none;
   }
 
-  /* A slot per param, each on its own line — the two are separate captions, not
-     one sentence, so neither should wrap into the other. */
+  /* One line per param — the two are separate captions, not one sentence, so
+     neither should wrap into the other. */
   .textLine {
     display: block;
     overflow: hidden;

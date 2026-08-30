@@ -1,5 +1,5 @@
 /**
- * Store tests (TEXT_SELECTOR.md § "Testing"). Runs against the store module
+ * Store tests. Runs against the store module
  * only — no DOM, no components. Recent/lists/phrases assertions are
  * persistence-agnostic; the persistence block below exercises the
  * wordbank-write / `selectedListId`-to-`localStorage` split directly.
@@ -47,6 +47,56 @@ afterEach(() => {
   for (const s of stores) s.dispose();
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+// ---- text fields -----------------------------------------------------
+
+describe('text fields', () => {
+  it('starts with the pair the wire already carries, neither with a default', () => {
+    const store = makeStore();
+    expect(store.state.fields).toHaveLength(2);
+    expect(store.state.fields.every((f) => f.defaultValue === '')).toBe(true);
+  });
+
+  it('appends a field with no default', () => {
+    const store = makeStore();
+    const id = store.addField();
+    expect(store.state.fields).toHaveLength(3);
+    expect(store.state.fields[2]).toEqual({ id, defaultValue: '' });
+  });
+
+  it('sets a default verbatim — whitespace is a legitimate default', () => {
+    const store = makeStore();
+    store.setFieldDefault(store.state.fields[0]!.id, ' SOME ARTIST ');
+    expect(store.state.fields[0]?.defaultValue).toBe(' SOME ARTIST ');
+  });
+
+  it('deletes a field, but never below the two the wire carries', () => {
+    const store = makeStore();
+    const added = store.addField();
+    store.deleteField(added);
+    expect(store.state.fields).toHaveLength(2);
+
+    for (const field of [...store.state.fields]) store.deleteField(field.id);
+    expect(store.state.fields).toHaveLength(2);
+  });
+
+  it('ignores an unknown id', () => {
+    const store = makeStore();
+    store.setFieldDefault('nope', 'x');
+    store.deleteField('nope');
+    expect(store.state.fields).toHaveLength(2);
+  });
+
+  it('persists fields alongside lists and recent', async () => {
+    vi.useFakeTimers();
+    const save = vi.fn();
+    const store = makeStore({ persistence: { save } });
+    store.setFieldDefault(store.state.fields[0]!.id, 'SOME ARTIST');
+    await vi.advanceTimersByTimeAsync(30);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]?.[0].fields[0].defaultValue).toBe('SOME ARTIST');
+  });
 });
 
 // ---- recent list -----------------------------------------------------
@@ -360,7 +410,11 @@ describe('persistence', () => {
     const idB = first.addList();
     await vi.advanceTimersByTimeAsync(30);
 
-    const wordbank = { lists: first.state.lists, recent: first.state.recent };
+    const wordbank = {
+      fields: first.state.fields,
+      lists: first.state.lists,
+      recent: first.state.recent,
+    };
     const second = makeStore({ uiStorage, initial: wordbank });
     expect(second.state.selectedListId).toBe(idB);
   });

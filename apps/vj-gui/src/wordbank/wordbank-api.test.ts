@@ -1,7 +1,7 @@
 /**
  * `wordbank-api.ts` tests. `fetchWordbank()`'s fallback-on-failure behavior is
  * what used to be `store.ts`'s corrupt-JSON / unknown-version handling
- * (TEXT_SELECTOR.md §5) — moved here because the failure now comes from the
+ * Moved here because the failure now comes from the
  * `/api/wordbank` response, not a raw `localStorage` read.
  */
 
@@ -17,6 +17,10 @@ afterEach(() => {
 describe('fetchWordbank', () => {
   it('returns the parsed wordbank on success', async () => {
     const wordbank: Wordbank = {
+      fields: [
+        { id: 'f1', defaultValue: '' },
+        { id: 'f2', defaultValue: '' },
+      ],
       lists: [{ id: 'a', name: 'Cues', phrases: ['hi'] }],
       recent: ['hi'],
     };

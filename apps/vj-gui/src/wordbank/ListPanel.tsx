@@ -1,17 +1,17 @@
 /**
- * Active tab's phrase list body (TEXT_SELECTOR.md §3 "List body"): inline add
+ * Active tab's phrase list body: inline add
  * form, draggable/reorderable phrase rows with a drop-indicator line, and the
  * one-shot A→Z sort. Filtering comes from the text fields above it.
  */
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import type { PhraseList, WordbankStore } from './store';
+import type { PhraseList } from './store';
+import { useWordbank } from './WordbankProvider';
 import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from './dnd';
 import { PhraseChip } from './PhraseChip';
 import styles from './ListPanel.module.css';
 
 export interface ListPanelProps {
-  store: WordbankStore;
   list: PhraseList;
   /** Live text of whichever field is being typed in. */
   filter: string;
@@ -19,6 +19,7 @@ export interface ListPanelProps {
 }
 
 export function ListPanel(props: ListPanelProps): JSX.Element {
+  const store = useWordbank();
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
   let addInputRef: HTMLTextAreaElement | undefined;
@@ -53,7 +54,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
       <div class={styles.toolbar}>
         <button
           type="button"
-          onClick={() => props.store.sortPhrases(props.list.id)}
+          onClick={() => store.sortPhrases(props.list.id)}
           class={styles.action}
           title="Sort A→Z (one-time, persists as the new order)"
         >
@@ -76,7 +77,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
           onSubmit={(event) => {
             event.preventDefault();
             const value = addInputRef?.value ?? '';
-            props.store.addPhrase(props.list.id, value);
+            store.addPhrase(props.list.id, value);
             if (addInputRef) addInputRef.value = '';
             addInputRef?.focus();
           }}
@@ -129,7 +130,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                 )
                   return;
                 const to = dropIndexForRow(event, event.currentTarget, row.index);
-                props.store.reorderPhrase(
+                store.reorderPhrase(
                   props.list.id,
                   payload.index,
                   adjustReorderTarget(payload.index, to),
@@ -145,7 +146,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                 tabId={props.list.id}
                 index={row.index}
                 onApply={props.onApply}
-                onDelete={() => props.store.deletePhrase(props.list.id, row.index)}
+                onDelete={() => store.deletePhrase(props.list.id, row.index)}
               />
             </li>
           )}

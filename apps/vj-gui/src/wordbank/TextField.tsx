@@ -1,28 +1,35 @@
 /**
- * A single Text 1 / Text 2 field (TEXT_SELECTOR.md §1, §4): a `<form>`-wrapped
- * `commitOn="enter"` input, feeding the recent list on commit, and a drop
- * target for phrase chips (custom-mime only — plain text dragged in from
- * outside the app is not accepted). Typing also drives the phrase-list filter,
- * and focusing makes this the field a clicked phrase lands in.
+ * A single Text field: a textarea whose Default
+ * stands in for an empty input — shown as the placeholder, and sent in the
+ * input's place — feeding the recent list on commit, and a drop target for
+ * phrase chips (custom-mime only — plain text dragged in from outside the app
+ * is not accepted). Typing also drives the phrase-list filter, and focusing
+ * makes this the field a clicked phrase lands in.
  *
- * `multiline` makes it a textarea: Enter still commits, Shift+Enter inserts a
- * line break, and `td-core` carries the breaks to TD as `\n` escapes.
+ * Enter commits, Shift+Enter inserts a line break, Escape reverts, blur
+ * commits — `td-core`'s own `<TextInput commitOn="enter">` in all but one
+ * respect, which is why this is hand-rolled: that component's value *is* the
+ * bound param, and here the two differ. The param holds the effective value
+ * (typed text, or the Default), while the input shows the typed text only, so
+ * a field left alone reads as empty-with-a-placeholder rather than as text
+ * someone entered.
  */
 
-import type { JSX } from 'solid-js';
+import { createEffect, createSignal, type JSX } from 'solid-js';
+import { escapeNewlines } from 'td-core';
+import type { TextField as TextFieldDef } from '@domain/wordbank/wordbank';
 import { hasPhraseDragData, readPhraseDragData } from './dnd';
-import { GuiClient, type LayerTextParamName } from '@/playback/clients';
+import type { TextFieldBinding } from './fieldBinding';
+import { textOverride, wireDefault } from './textOverride';
 import styles from './TextField.module.css';
 
 export interface TextFieldProps {
-  /** Text param of the *selected* scene loader, e.g. `sceneAText1`. */
-  name: LayerTextParamName;
-  label: string;
+  field: TextFieldDef;
+  /** 1-based position, naming the field while its Default is still blank. */
+  position: number;
+  /** Where this field's value lives for the selected Layer. */
+  binding: TextFieldBinding;
   commitRecent: (phrase: string) => void;
-  /** Commit a phrase to a named TD text param and record it as recent — the single "apply" path shared with `RecentPanel`/`PhraseList`'s `onApply`. */
-  applyPhrase: (name: LayerTextParamName, phrase: string) => void;
-  /** Clear this field's TD text param. */
-  onClear: (name: LayerTextParamName) => void;
   /** Each keystroke's draft text, which filters the phrase lists below; `''` once the edit ends. */
   onFilter: (text: string) => void;
   onFocus: () => void;
@@ -30,40 +37,86 @@ export interface TextFieldProps {
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
+  const fieldDefault = () => wireDefault(props.field.defaultValue);
+  // A Text field has no name: its Default is how it is recognised, and the
+  // position is all that is left to call it when that Default is blank.
+  const label = () => props.field.defaultValue || `Text field ${props.position}`;
+  /** The typed override alone — blank whenever the param is just carrying the Default. */
+  const committed = () => textOverride(props.binding.value(), props.field.defaultValue) ?? '';
+
+  const [draft, setDraft] = createSignal(committed());
+  let fieldRef!: HTMLTextAreaElement;
+  let editing: TextFieldBinding | undefined;
+
+  createEffect(() => {
+    const value = committed();
+    if (document.activeElement !== fieldRef) setDraft(value);
+  });
+
+  function write(text: string): boolean {
+    const wire = text.trim() ? escapeNewlines(text) : fieldDefault();
+    if (wire === props.binding.value()) return false;
+    props.binding.setValue(wire);
+    return true;
+  }
+
+  function commit() {
+    const text = draft();
+    // Only a changed value reaches Recent: blur fires on every focus cycle, and
+    // an untouched field must not keep bumping its own text back to the top.
+    if (write(text) && text.trim()) props.commitRecent(text);
+  }
+
   return (
-    // No onSubmit here: <TextInput commitOn="enter"> already attaches its own
-    // submit listener directly to this ancestor form (preventDefault + commit).
-    <form class={styles.field}>
+    <div class={styles.field}>
       <button
         type="button"
         tabIndex={-1}
-        onClick={() => props.onClear(props.name)}
         class={styles.clear}
-        title={`Clear ${props.label}`}
+        title={`Clear ${label()}`}
+        aria-label={`Clear ${label()}`}
+        onClick={() => {
+          setDraft('');
+          write('');
+          props.onFilter('');
+        }}
       >
         Clear
       </button>
-      <GuiClient.TextInput
-        id={props.name}
-        name={props.name}
-        commitOn="enter"
-        multiline
-        rows={2}
-        onCommit={props.commitRecent}
-        placeholder={props.label}
-        aria-label={props.label}
+      <textarea
+        ref={fieldRef}
         class={styles.input}
-        onFocus={props.onFocus}
-        onBlur={props.onBlur}
-        onInput={(event) => props.onFilter(event.currentTarget.value)}
+        rows={2}
+        value={draft()}
+        disabled={props.binding.readonly()}
+        aria-label={label()}
+        placeholder={props.field.defaultValue}
+        onInput={(event) => {
+          setDraft(event.currentTarget.value);
+          props.onFilter(event.currentTarget.value);
+        }}
+        onFocus={() => {
+          editing = props.binding;
+          editing.beginEdit();
+          props.onFocus();
+        }}
+        onBlur={() => {
+          commit();
+          editing?.endEdit();
+          editing = undefined;
+          props.onBlur();
+        }}
         onKeyDown={(event) => {
-          // Enter commits, Escape reverts — either way the draft stops being a
-          // query. Shift+Enter is this textarea's line break, so it isn't one.
-          if (
-            event.key === 'Escape' ||
-            (event.key === 'Enter' && !event.shiftKey && !event.isComposing)
-          )
+          if (event.key === 'Escape') {
+            setDraft(committed());
             props.onFilter('');
+          } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+            // A textarea raises no implicit form submission, so Enter commits
+            // from here; Shift+Enter is its line break.
+            event.preventDefault();
+            commit();
+            props.onFilter('');
+          }
         }}
         onDragOver={(event) => {
           if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault();
@@ -72,9 +125,11 @@ export function TextField(props: TextFieldProps): JSX.Element {
           const payload = readPhraseDragData(event.dataTransfer!);
           if (!payload) return;
           event.preventDefault();
-          props.applyPhrase(props.name, payload.phrase);
+          setDraft(payload.phrase);
+          write(payload.phrase);
+          props.commitRecent(payload.phrase);
         }}
       />
-    </form>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
-import { unescapeNewlines, type SelectOption } from 'td-core';
+import { escapeNewlines, type SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
 import { isZLayer, layerNumber, type LayerId } from './layers';
@@ -26,6 +26,9 @@ import {
   type Health,
 } from './health';
 import { PanelHeader } from '@/ui/PanelHeader';
+import { useWordbank } from '@/wordbank/WordbankProvider';
+import { wiredFieldDefault } from '@/wordbank/fieldBinding';
+import { textOverride } from '@/wordbank/textOverride';
 import styles from './LayerPreviews.module.css';
 
 export function LayerPreviews(props: { class?: string }): JSX.Element {
@@ -142,6 +145,10 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
  * instance rather than the loader, so this reaches past `LoaderProvider` to the
  * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
  * shadow it.
+ *
+ * A Default reads on every layer at once, which says nothing about any of them,
+ * so only an override is captioned — the point of the overlay is to show where
+ * a layer has been given its own words.
  */
 function LayerTexts(props: { layer: LayerId }): JSX.Element {
   const text1 = layerText(props.layer, 1);
@@ -154,9 +161,10 @@ function LayerTexts(props: { layer: LayerId }): JSX.Element {
   );
 }
 
-function layerText(layer: LayerId, slot: 1 | 2): () => string | undefined {
-  const binding = GuiClient.signal(layerTextParam(layer, slot));
-  return () => unescapeNewlines(binding.value() ?? '').trim() || undefined;
+function layerText(layer: LayerId, position: 1 | 2): () => string | undefined {
+  const binding = GuiClient.signal(layerTextParam(layer, position));
+  const fieldDefault = wiredFieldDefault(useWordbank(), position);
+  return () => textOverride(binding.value() ?? '', fieldDefault())?.trim() || undefined;
 }
 
 /**
@@ -313,7 +321,9 @@ function ParamRadios(props: {
 
 /**
  * Puts a layer back to nothing: the Loader swaps in its blank tox, and the
- * captions, layout and color the operator laid over the last scene go with it.
+ * captions, layout and color the operator laid over the last scene go with it —
+ * the captions back to their Defaults, which is this app's "nothing" now that a
+ * text param is never empty.
  * The Loader resets its own layout and color as it clears, but both are written
  * from here too so the radios move on the press rather than on TD's echo.
  *
@@ -327,6 +337,9 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
   const color = LoaderClient.signal('color');
   const text1 = GuiClient.signal(layerTextParam(props.layer, 1));
   const text2 = GuiClient.signal(layerTextParam(props.layer, 2));
+  const store = useWordbank();
+  const default1 = wiredFieldDefault(store, 1);
+  const default2 = wiredFieldDefault(store, 2);
 
   function clear(): void {
     // The params go regardless: a layer whose process is down still shows its
@@ -336,8 +349,8 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
       .catch((error: unknown) => console.warn('[vj-gui] clear failed', error));
     layout.setValue(LAYOUT_OPTIONS[0].value);
     color.setValue(COLOR_OPTIONS[0].value);
-    text1.setValue('');
-    text2.setValue('');
+    text1.setValue(escapeNewlines(default1()));
+    text2.setValue(escapeNewlines(default2()));
   }
 
   return (

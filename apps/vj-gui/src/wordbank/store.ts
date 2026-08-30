@@ -1,12 +1,12 @@
 /**
- * App state + persistence (TEXT_SELECTOR.md §§2-3, 5).
+ * App state + persistence.
  *
  * `createWordbankStore()` is a factory (not a bare module singleton) so
  * tests can spin up isolated instances with a fake `persistence.save` /
  * `uiStorage`; the app itself owns exactly one instance for its lifetime.
  *
  * Persistence is split by what the data *is*, not stored in one blob:
- * `lists`/`recent` are wordbank content and go through `persistence.save` (the
+ * `fields`/`lists`/`recent` are wordbank content and go through `persistence.save` (the
  * SQLite-backed `/api/wordbank`, via `saveWordbank()` in `wordbank-api.ts`);
  * `selectedListId` is a per-browser UI preference and stays in `localStorage`.
  * Both share one debounce timer via two dirty flags, so switching lists
@@ -14,9 +14,15 @@
  */
 
 import { createStore, unwrap } from 'solid-js/store';
-import { defaultWordbank, type PhraseList, type Wordbank } from '@domain/wordbank/wordbank';
+import {
+  defaultWordbank,
+  WIRED_FIELDS,
+  type PhraseList,
+  type TextField,
+  type Wordbank,
+} from '@domain/wordbank/wordbank';
 
-export type { PhraseList };
+export type { PhraseList, TextField };
 
 const UI_STORAGE_KEY = 'td-web-gui:vj-gui:wordbank';
 const RECENT_LIMIT = 10;
@@ -26,6 +32,7 @@ const DEFAULT_DEBOUNCE_MS = 200;
 export const RECENT_LIST_ID = '__recent__';
 
 export interface WordbankState {
+  fields: TextField[];
   lists: PhraseList[];
   recent: string[];
   selectedListId: string;
@@ -35,6 +42,10 @@ export interface WordbankState {
 
 function makeList(name: string): PhraseList {
   return { id: crypto.randomUUID(), name, phrases: [] };
+}
+
+function makeField(): TextField {
+  return { id: crypto.randomUUID(), defaultValue: '' };
 }
 
 /** Splice `arr[from]` out and reinsert it at `to` (post-removal index), returning a new array. */
@@ -85,6 +96,11 @@ export interface CreateStoreOptions {
 export interface WordbankStore {
   state: WordbankState;
 
+  addField: () => string;
+  setFieldDefault: (id: string, defaultValue: string) => void;
+  /** Delete a field. False — and nothing done — once only {@link WIRED_FIELDS} remain. */
+  deleteField: (id: string) => boolean;
+
   /** Feed a committed phrase (from either text input) into the recent list. */
   commitRecent: (phrase: string) => void;
   /** Remove a phrase from the recent list. */
@@ -118,6 +134,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   const wordbank = options.initial ?? defaultWordbank();
 
   const [state, setState] = createStore<WordbankState>({
+    fields: wordbank.fields,
     lists: wordbank.lists,
     recent: wordbank.recent,
     selectedListId: loadSelectedListId(uiStorage, wordbank.lists),
@@ -159,7 +176,11 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   async function writeWordbank() {
     if (!options.persistence) return;
     try {
-      await options.persistence.save({ lists: unwrap(state.lists), recent: unwrap(state.recent) });
+      await options.persistence.save({
+        fields: unwrap(state.fields),
+        lists: unwrap(state.lists),
+        recent: unwrap(state.recent),
+      });
     } catch (err) {
       if (!warnedWriteFailure) {
         warnedWriteFailure = true;
@@ -178,8 +199,34 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     scheduleSave();
   }
 
+  function findFieldIndex(id: string): number {
+    return state.fields.findIndex((f) => f.id === id);
+  }
+
   function findListIndex(id: string): number {
     return state.lists.findIndex((l) => l.id === id);
+  }
+
+  function addField(): string {
+    const field = makeField();
+    setState('fields', (fields) => [...fields, field]);
+    markWordbankDirty();
+    return field.id;
+  }
+
+  function setFieldDefault(id: string, defaultValue: string): void {
+    const idx = findFieldIndex(id);
+    if (idx === -1) return;
+    setState('fields', idx, 'defaultValue', defaultValue);
+    markWordbankDirty();
+  }
+
+  function deleteField(id: string): boolean {
+    if (state.fields.length <= WIRED_FIELDS) return false;
+    if (findFieldIndex(id) === -1) return false;
+    setState('fields', (fields) => fields.filter((f) => f.id !== id));
+    markWordbankDirty();
+    return true;
   }
 
   function nextListName(): string {
@@ -311,6 +358,9 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
 
   return {
     state,
+    addField,
+    setFieldDefault,
+    deleteField,
     commitRecent,
     deleteRecent,
     addList,

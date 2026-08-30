@@ -1,8 +1,7 @@
-import { onCleanup, type JSX } from 'solid-js';
+import type { JSX } from 'solid-js';
 import { GuiProvider, InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
-import { createWordbankStore } from './wordbank/store';
-import { saveWordbank } from './wordbank/wordbank-api';
+import { WordbankProvider } from './wordbank/WordbankProvider';
 import type { Wordbank } from '@domain/wordbank/wordbank';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
@@ -17,23 +16,19 @@ export interface AppProps {
 }
 
 export function App(props: AppProps): JSX.Element {
-  const store = createWordbankStore({
-    initial: props.wordbank,
-    persistence: { save: saveWordbank },
-  });
-  onCleanup(() => store.dispose());
-
   return (
     <GuiProvider>
       <InputProvider>
         <PlaybackProvider>
-          <main class={styles.app}>
-            <LayerPreviews class={styles.previews} />
-            <SceneSelector class={styles.scenes} />
-            <TextSelector store={store} />
-            <EffectSelector />
-            <Tools />
-          </main>
+          <WordbankProvider wordbank={props.wordbank}>
+            <main class={styles.app}>
+              <LayerPreviews class={styles.previews} />
+              <SceneSelector class={styles.scenes} />
+              <TextSelector />
+              <EffectSelector />
+              <Tools />
+            </main>
+          </WordbankProvider>
         </PlaybackProvider>
       </InputProvider>
     </GuiProvider>

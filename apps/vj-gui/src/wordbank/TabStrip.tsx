@@ -1,5 +1,5 @@
 /**
- * Tab strip (TEXT_SELECTOR.md §3 "Tab strip"): a pinned "Recent" tab first,
+ * Tab strip: a pinned "Recent" tab first,
  * backed by `store.state.recent` rather than `store.state.lists` — no
  * rename/delete/drag-reorder for it — followed by the user's phrase-list
  * tabs: activate, add, inline rename, delete behind a confirm (disabled on
@@ -13,16 +13,14 @@
  */
 
 import { For, Show, createSignal, type JSX } from 'solid-js';
-import { RECENT_LIST_ID, type WordbankStore } from './store';
+import { RECENT_LIST_ID } from './store';
+import { useWordbank } from './WordbankProvider';
 import { TAB_MIME, adjustReorderTarget, hasDragMime } from './dnd';
 import styles from './TabStrip.module.css';
 
-export interface TabStripProps {
-  store: WordbankStore;
-}
-
-export function TabStrip(props: TabStripProps): JSX.Element {
-  const { state } = props.store;
+export function TabStrip(): JSX.Element {
+  const store = useWordbank();
+  const { state } = store;
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = createSignal<string | null>(null);
   const [dragIndex, setDragIndex] = createSignal<number | null>(null);
@@ -30,7 +28,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
 
   function commitRename(id: string, value: string) {
     const trimmed = value.trim();
-    if (trimmed) props.store.renameList(id, trimmed);
+    if (trimmed) store.renameList(id, trimmed);
     setRenamingId(null);
   }
 
@@ -43,7 +41,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
       event.key === 'ArrowRight' ? (index + 1) % ids.length : (index - 1 + ids.length) % ids.length;
     const next = ids[nextIndex];
     if (!next) return;
-    props.store.selectList(next);
+    store.selectList(next);
     tabRefs.get(next)?.focus();
   }
 
@@ -60,7 +58,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         aria-selected={state.selectedListId === RECENT_LIST_ID}
         aria-controls={`tabpanel-${RECENT_LIST_ID}`}
         tabIndex={state.selectedListId === RECENT_LIST_ID ? 0 : -1}
-        onClick={() => props.store.selectList(RECENT_LIST_ID)}
+        onClick={() => store.selectList(RECENT_LIST_ID)}
         onKeyDown={(event) => onTabKeyDown(event, RECENT_LIST_ID)}
         class={tabClass(RECENT_LIST_ID)}
       >
@@ -86,7 +84,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
               const from = dragIndex();
               setDragIndex(null);
               if (from === null) return;
-              props.store.reorderLists(from, adjustReorderTarget(from, i()));
+              store.reorderLists(from, adjustReorderTarget(from, i()));
             }}
             onDragEnd={() => setDragIndex(null)}
           >
@@ -101,7 +99,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   aria-selected={state.selectedListId === tab.id}
                   aria-controls={`tabpanel-${tab.id}`}
                   tabIndex={state.selectedListId === tab.id ? 0 : -1}
-                  onClick={() => props.store.selectList(tab.id)}
+                  onClick={() => store.selectList(tab.id)}
                   onDblClick={() => setRenamingId(tab.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab.id)}
                   class={tabClass(tab.id)}
@@ -159,7 +157,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   tabIndex={-1}
                   class={styles.confirmYes}
                   onClick={() => {
-                    props.store.deleteList(tab.id);
+                    store.deleteList(tab.id);
                     setConfirmDeleteId(null);
                   }}
                 >
@@ -176,7 +174,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
       <button
         type="button"
         aria-label="Add a new list"
-        onClick={() => props.store.addList()}
+        onClick={() => store.addList()}
         class={styles.add}
       >
         +

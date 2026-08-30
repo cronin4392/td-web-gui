@@ -1,5 +1,5 @@
 /**
- * SQLite persistence for the phrase wordbank (TEXT_SELECTOR.md §5).
+ * SQLite persistence for the phrase wordbank.
  *
  * Owns the schema, the `PRAGMA user_version` migration + seed, and the two
  * operations `/api/wordbank` needs. No HTTP awareness — `plugin.ts` is the
@@ -10,10 +10,17 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { defaultWordbank, type PhraseList, type Wordbank } from '../../domain/wordbank/wordbank';
+import {
+  defaultTextFields,
+  defaultWordbank,
+  WIRED_FIELDS,
+  type PhraseList,
+  type TextField,
+  type Wordbank,
+} from '../../domain/wordbank/wordbank';
 import { catalogDbPath } from '../platform/catalog-db';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3;
 
 export function wordbankDbPath(): string {
   return catalogDbPath('VJ_WORDBANK_DB', 'wordbank.db');
@@ -34,7 +41,16 @@ function migrate(db: DatabaseSync): void {
   };
   if (version >= SCHEMA_VERSION) return;
 
+  // v2 gave a Text field a label as well as a Default; v3 drops it — a field
+  // is its Default. No install outlived the pair, so there is nothing to keep.
+  if (version === 2) db.exec('DROP TABLE IF EXISTS text_fields');
+
   db.exec(`
+    CREATE TABLE IF NOT EXISTS text_fields (
+      id       TEXT PRIMARY KEY,
+      value    TEXT NOT NULL,
+      position INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS tabs (
       id       TEXT PRIMARY KEY,
       name     TEXT NOT NULL,
@@ -55,11 +71,31 @@ function migrate(db: DatabaseSync): void {
   // Always-at-least-one-list (§3's last-list guard) as a DB invariant: seed once, on first migration.
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM tabs').get() as { count: number };
   if (count === 0) writeWordbank(db, defaultWordbank());
+  else seedTextFields(db);
 
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
+/** Give a v1 database the pair of fields its two wire params already implied. */
+function seedTextFields(db: DatabaseSync): void {
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM text_fields').get() as {
+    count: number;
+  };
+  if (count > 0) return;
+  const insert = db.prepare('INSERT INTO text_fields (id, value, position) VALUES (?, ?, ?)');
+  for (const [index, field] of defaultTextFields().entries()) {
+    insert.run(field.id, field.defaultValue, index);
+  }
+}
+
 export function readWordbank(db: DatabaseSync): Wordbank {
+  const fields = (
+    db.prepare('SELECT id, value FROM text_fields ORDER BY position').all() as {
+      id: string;
+      value: string;
+    }[]
+  ).map((row) => ({ id: row.id, defaultValue: row.value }) satisfies TextField);
+
   const listRows = db.prepare('SELECT id, name FROM tabs ORDER BY position').all() as {
     id: string;
     name: string;
@@ -76,17 +112,30 @@ export function readWordbank(db: DatabaseSync): Wordbank {
     db.prepare('SELECT phrase FROM recent ORDER BY position').all() as { phrase: string }[]
   ).map((r) => r.phrase);
 
-  // Defensive only — the seed guarantees ≥1 list; an empty result would mean the file was edited by hand.
-  return lists.length > 0 ? { lists, recent } : defaultWordbank();
+  // Defensive only — the seed guarantees ≥1 list and the wired pair of fields;
+  // an empty result would mean the file was edited by hand. Each half falls
+  // back on its own, so a missing list doesn't re-id the fields that survived.
+  return {
+    fields: fields.length >= WIRED_FIELDS ? fields : defaultTextFields(),
+    ...(lists.length > 0 ? { lists, recent } : { lists: defaultWordbank().lists, recent: [] }),
+  };
 }
 
 /** Replace the whole wordbank in one transaction — mirrors the client's whole-document rewrite (§5). */
 export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
   db.exec('BEGIN');
   try {
+    db.exec('DELETE FROM text_fields');
     db.exec('DELETE FROM phrases');
     db.exec('DELETE FROM tabs');
     db.exec('DELETE FROM recent');
+
+    const insertField = db.prepare(
+      'INSERT INTO text_fields (id, value, position) VALUES (?, ?, ?)',
+    );
+    for (const [index, field] of wordbank.fields.entries()) {
+      insertField.run(field.id, field.defaultValue, index);
+    }
 
     const insertTab = db.prepare('INSERT INTO tabs (id, name, position) VALUES (?, ?, ?)');
     const insertPhrase = db.prepare(

@@ -57,13 +57,17 @@ describe('wordbankApiHandler', () => {
   });
 
   it('PUT a shape that fails isWordbank is a 400', async () => {
-    const res = await put(JSON.stringify({ lists: 'nope', recent: [] }));
+    const res = await put(JSON.stringify({ fields: [], lists: 'nope', recent: [] }));
     expect(res.status).toBe(400);
     expect(res.body).toContain('invalid wordbank shape');
   });
 
   it('PUT a valid wordbank writes it and returns 204', async () => {
     const wordbank: Wordbank = {
+      fields: [
+        { id: 'f1', defaultValue: '' },
+        { id: 'f2', defaultValue: '' },
+      ],
       lists: [{ id: 'tab-a', name: 'Cues', phrases: ['hello'] }],
       recent: ['hello'],
     };
@@ -75,9 +79,28 @@ describe('wordbankApiHandler', () => {
     expect(readWordbank(db).lists.map((l) => l.id)).toEqual(['tab-a']);
   });
 
+  it('PUT a field list shorter than the wire carries is a 400', async () => {
+    const res = await put(
+      JSON.stringify({
+        fields: [{ id: 'f1', defaultValue: '' }],
+        lists: [{ id: 'tab-a', name: 'Cues', phrases: [] }],
+        recent: [],
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toContain('invalid wordbank shape');
+  });
+
   it('PUT reports a write failure as a 500', async () => {
     db.close();
-    const wordbank: Wordbank = { lists: [{ id: 'x', name: 'X', phrases: [] }], recent: [] };
+    const wordbank: Wordbank = {
+      fields: [
+        { id: 'f1', defaultValue: '' },
+        { id: 'f2', defaultValue: '' },
+      ],
+      lists: [{ id: 'x', name: 'X', phrases: [] }],
+      recent: [],
+    };
 
     const res = await put(JSON.stringify(wordbank));
     expect(res.status).toBe(500);

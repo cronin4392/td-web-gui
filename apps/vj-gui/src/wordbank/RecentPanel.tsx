@@ -7,21 +7,22 @@
  */
 
 import { For, Show, createMemo, type JSX } from 'solid-js';
-import { RECENT_LIST_ID, type WordbankStore } from './store';
+import { RECENT_LIST_ID } from './store';
+import { useWordbank } from './WordbankProvider';
 import { PhraseChip } from './PhraseChip';
 import styles from './RecentPanel.module.css';
 
 export interface RecentPanelProps {
-  store: WordbankStore;
   /** Live text of whichever field is being typed in. */
   filter: string;
   onApply: (phrase: string) => void;
 }
 
 export function RecentPanel(props: RecentPanelProps): JSX.Element {
+  const store = useWordbank();
   const rows = createMemo(() => {
     const q = props.filter.trim().toLowerCase();
-    const recent = props.store.state.recent;
+    const recent = store.state.recent;
     return q ? recent.filter((phrase) => phrase.toLowerCase().includes(q)) : recent;
   });
 
@@ -42,7 +43,7 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
                 tabId={null}
                 index={null}
                 onApply={props.onApply}
-                onDelete={() => props.store.deleteRecent(phrase)}
+                onDelete={() => store.deleteRecent(phrase)}
               />
             </li>
           )}

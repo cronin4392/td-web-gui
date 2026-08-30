@@ -255,7 +255,7 @@ export const LOADER_STREAM = 'scene';
 /** Wire name of a scene's text param — the TS half of the naming contract above. */
 export function layerTextParam<N extends 1 | 2>(
   layer: LayerId,
-  slot: N,
+  position: N,
 ): `scene${LayerId}Text${N}` {
-  return `scene${layer}Text${slot}`;
+  return `scene${layer}Text${position}`;
 }
