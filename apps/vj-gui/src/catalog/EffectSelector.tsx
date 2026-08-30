@@ -9,6 +9,7 @@ import type { Effect, EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
+import { PanelHeader } from '@/ui/PanelHeader';
 import styles from './EffectSelector.module.css';
 
 export function EffectSelector(): JSX.Element {
@@ -80,13 +81,15 @@ export function EffectSelector(): JSX.Element {
 
   return (
     <section class={styles.selector}>
-      <PickerToolbar
-        refreshing={picker.refreshing()}
-        editing={picker.editing()}
-        error={picker.error()}
-        onRefresh={() => void picker.refresh()}
-        onToggleEditing={() => picker.toggleEditing()}
-      />
+      <PanelHeader title="Effects">
+        <PickerToolbar
+          refreshing={picker.refreshing()}
+          editing={picker.editing()}
+          error={picker.error()}
+          onRefresh={() => void picker.refresh()}
+          onToggleEditing={() => picker.toggleEditing()}
+        />
+      </PanelHeader>
 
       <Show when={favorites().length > 0}>
         <div class={`${styles.list} ${styles.favorites}`}>

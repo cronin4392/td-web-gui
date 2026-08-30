@@ -2,8 +2,13 @@
   .selector {
     display: grid;
     grid-template-columns: 7rem 1fr;
-    gap: var(--spacing-m);
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: var(--spacing-m);
     padding: var(--spacing-m);
+  }
+
+  .panelHeader {
+    grid-column: 1 / -1;
   }
 
   .tags {

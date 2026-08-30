@@ -25,6 +25,7 @@ import {
   GPU_MEMORY_LIMITS,
   type Health,
 } from './health';
+import { PanelHeader } from '@/ui/PanelHeader';
 import styles from './LayerPreviews.module.css';
 
 export function LayerPreviews(props: { class?: string }): JSX.Element {
@@ -37,6 +38,7 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
     .reverse();
   return (
     <div class={[styles.column, props.class].filter(Boolean).join(' ')}>
+      <PanelHeader title="Layers" />
       <div class={styles.zGrid}>
         <For each={zLoaders}>{(loader) => <LayerPanel loader={loader.id} compact />}</For>
       </div>

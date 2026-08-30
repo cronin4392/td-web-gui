@@ -4,6 +4,7 @@ import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
+import { PanelHeader } from '@/ui/PanelHeader';
 import { RadioButton } from '@/ui/RadioButton';
 import styles from './SceneSelector.module.css';
 
@@ -47,6 +48,16 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
 
   return (
     <section class={[styles.selector, props.class].filter(Boolean).join(' ')}>
+      <PanelHeader title="Scenes" class={styles.panelHeader}>
+        <PickerToolbar
+          refreshing={picker.refreshing()}
+          editing={picker.editing()}
+          error={picker.error()}
+          onRefresh={() => void picker.refresh()}
+          onToggleEditing={() => picker.toggleEditing()}
+        />
+      </PanelHeader>
+
       <Show when={tags().length > 0}>
         <fieldset class={styles.tags} aria-label="Scene tag">
           {/* For, not Index: a radio holds DOM state, so a reordered list must
@@ -66,14 +77,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
       </Show>
 
       <div class={styles.scenes}>
-        <PickerToolbar
-          refreshing={picker.refreshing()}
-          editing={picker.editing()}
-          error={picker.error()}
-          onRefresh={() => void picker.refresh()}
-          onToggleEditing={() => picker.toggleEditing()}
-        />
-
         {/* Faded while the selected layer is up: loading over a live layer cuts
             in front of the audience, so a tile has to be hovered to be read. */}
         <div class={styles.grid} data-live={selectedLevel() > 0}>
