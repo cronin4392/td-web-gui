@@ -13,14 +13,15 @@ import { dirname } from 'node:path';
 import {
   defaultTextFields,
   defaultWordbank,
-  WIRED_FIELDS,
+  MIN_TEXT_FIELDS,
+  type Overrides,
   type PhraseList,
   type TextField,
   type Wordbank,
 } from '../../domain/wordbank/wordbank';
 import { catalogDbPath } from '../platform/catalog-db';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export function wordbankDbPath(): string {
   return catalogDbPath('VJ_WORDBANK_DB', 'wordbank.db');
@@ -66,6 +67,12 @@ function migrate(db: DatabaseSync): void {
       phrase   TEXT PRIMARY KEY,
       position INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS overrides (
+      layer    TEXT NOT NULL,
+      field_id TEXT NOT NULL REFERENCES text_fields(id) ON DELETE CASCADE,
+      value    TEXT NOT NULL,
+      PRIMARY KEY (layer, field_id)
+    );
   `);
 
   // Always-at-least-one-list (§3's last-list guard) as a DB invariant: seed once, on first migration.
@@ -76,7 +83,7 @@ function migrate(db: DatabaseSync): void {
   db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
 }
 
-/** Give a v1 database the pair of fields its two wire params already implied. */
+/** Give a v1 database the minimum pair of fields the later schema requires. */
 function seedTextFields(db: DatabaseSync): void {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM text_fields').get() as {
     count: number;
@@ -112,11 +119,18 @@ export function readWordbank(db: DatabaseSync): Wordbank {
     db.prepare('SELECT phrase FROM recent ORDER BY position').all() as { phrase: string }[]
   ).map((r) => r.phrase);
 
-  // Defensive only — the seed guarantees ≥1 list and the wired pair of fields;
-  // an empty result would mean the file was edited by hand. Each half falls
+  const overrides: Overrides = {};
+  const overrideRows = db
+    .prepare('SELECT layer, field_id, value FROM overrides ORDER BY layer, field_id')
+    .all() as { layer: string; field_id: string; value: string }[];
+  for (const row of overrideRows) (overrides[row.layer] ??= {})[row.field_id] = row.value;
+
+  // Defensive only — the seed guarantees ≥1 list and the minimum pair of
+  // fields; an empty result would mean the file was edited by hand. Each half falls
   // back on its own, so a missing list doesn't re-id the fields that survived.
   return {
-    fields: fields.length >= WIRED_FIELDS ? fields : defaultTextFields(),
+    fields: fields.length >= MIN_TEXT_FIELDS ? fields : defaultTextFields(),
+    overrides,
     ...(lists.length > 0 ? { lists, recent } : { lists: defaultWordbank().lists, recent: [] }),
   };
 }
@@ -125,6 +139,7 @@ export function readWordbank(db: DatabaseSync): Wordbank {
 export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
   db.exec('BEGIN');
   try {
+    db.exec('DELETE FROM overrides');
     db.exec('DELETE FROM text_fields');
     db.exec('DELETE FROM phrases');
     db.exec('DELETE FROM tabs');
@@ -135,6 +150,18 @@ export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
     );
     for (const [index, field] of wordbank.fields.entries()) {
       insertField.run(field.id, field.defaultValue, index);
+    }
+
+    const known = new Set(wordbank.fields.map((f) => f.id));
+    const insertOverride = db.prepare(
+      'INSERT INTO overrides (layer, field_id, value) VALUES (?, ?, ?)',
+    );
+    for (const [layer, byField] of Object.entries(wordbank.overrides)) {
+      for (const [fieldId, value] of Object.entries(byField)) {
+        // A client that deleted a field but kept its override would otherwise
+        // fail the foreign key and roll the whole wordbank write back.
+        if (known.has(fieldId)) insertOverride.run(layer, fieldId, value);
+      }
     }
 
     const insertTab = db.prepare('INSERT INTO tabs (id, name, position) VALUES (?, ?, ?)');

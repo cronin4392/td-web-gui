@@ -6,6 +6,7 @@ import type { Wordbank } from '@domain/wordbank/wordbank';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
+import { TextPush } from './wordbank/TextPush';
 import { TextSelector } from './wordbank/TextSelector';
 import { Tools } from './playback/Tools';
 import styles from './App.module.css';
@@ -21,6 +22,7 @@ export function App(props: AppProps): JSX.Element {
       <InputProvider>
         <PlaybackProvider>
           <WordbankProvider wordbank={props.wordbank}>
+            <TextPush />
             <main class={styles.app}>
               <LayerPreviews class={styles.previews} />
               <SceneSelector class={styles.scenes} />

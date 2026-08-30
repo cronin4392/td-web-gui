@@ -1,15 +1,9 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { escapeNewlines } from 'td-core';
-import { layerTextParam } from '@/playback/wire';
-import { layerIds, type LayerId } from '@/playback/layers';
-import { GuiClient } from '@/playback/clients';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
-import { WIRED_FIELDS } from '@domain/wordbank/wordbank';
+import { MIN_TEXT_FIELDS } from '@domain/wordbank/wordbank';
 import { RECENT_LIST_ID } from './store';
 import { useWordbank } from './WordbankProvider';
-import { createUnwiredFieldValues, tdFieldBinding, type TextFieldBinding } from './fieldBinding';
-import { createFieldSync } from './fieldSync';
 import { TextField } from './TextField';
 import { TextFieldEditor } from './TextFieldEditor';
 import { RecentPanel } from './RecentPanel';
@@ -20,22 +14,6 @@ import styles from './TextSelector.module.css';
 export function TextSelector(): JSX.Element {
   const store = useWordbank();
   const { selectedLayer } = usePlayback();
-  // Resolved here, at render time: the phrase-apply path below runs from event
-  // handlers, where there is no reactive owner for the context lookup.
-  const connection = GuiClient.useConnection();
-  const unwired = createUnwiredFieldValues();
-
-  // Every wired param is bound up front, not when its field renders: an
-  // inbound `snapshot` drops names nothing has bound yet, and only the
-  // selected Layer's fields are ever on screen.
-  const wired = new Map(
-    layerIds.map((layer) => [
-      layer,
-      Array.from({ length: WIRED_FIELDS }, (_, i) =>
-        tdFieldBinding(connection.signal(layerTextParam(layer, (i + 1) as 1 | 2))),
-      ),
-    ]),
-  );
 
   const [editing, setEditing] = createSignal(false);
   // Typing in a text field filters the phrase lists below it, and a clicked
@@ -48,27 +26,14 @@ export function TextSelector(): JSX.Element {
   // click that follows.
   let pressedFieldId: string | null = null;
 
-  function bindingFor(layer: LayerId, index: number, fieldId: string): TextFieldBinding {
-    return index < WIRED_FIELDS ? wired.get(layer)![index]! : unwired.binding(layer, fieldId);
-  }
-
-  const sync = createFieldSync(store, bindingFor);
-
   // The one place that owns "commit a phrase to a Text field" — shared by
-  // TextField's own drop target and RecentPanel/ListPanel's click-to-apply.
-  // This writes the binding directly, so it owes the same newline escaping the
-  // textarea does on its own commits; stored phrases keep real newlines.
-  function applyPhrase(binding: TextFieldBinding, phrase: string) {
-    binding.setValue(escapeNewlines(phrase));
-    store.commitRecent(phrase);
-  }
-
+  // RecentPanel and ListPanel's click-to-apply.
   function applyToFocused(phrase: string) {
     const id = focusedFieldId() ?? pressedFieldId ?? store.state.fields[0]?.id;
     pressedFieldId = null;
-    const index = store.state.fields.findIndex((f) => f.id === id);
-    if (index === -1) return;
-    applyPhrase(bindingFor(selectedLayer(), index, id!), phrase);
+    if (!id || store.state.fields.every((f) => f.id !== id)) return;
+    store.setOverride(selectedLayer(), id, phrase);
+    store.commitRecent(phrase);
     setFilter('');
   }
 
@@ -108,8 +73,7 @@ export function TextSelector(): JSX.Element {
                 <TextField
                   field={field}
                   position={index() + 1}
-                  binding={bindingFor(selectedLayer(), index(), field.id)}
-                  commitRecent={store.commitRecent}
+                  layer={selectedLayer()}
                   onFilter={setFilter}
                   onFocus={() => setFocusedFieldId(field.id)}
                   onBlur={endEdit}
@@ -123,9 +87,9 @@ export function TextSelector(): JSX.Element {
               <TextFieldEditor
                 field={field}
                 position={index() + 1}
-                deletable={store.state.fields.length > WIRED_FIELDS}
-                onSetDefault={(value) => sync.setFieldDefault(field.id, value)}
-                onDelete={() => sync.deleteField(field.id)}
+                deletable={store.state.fields.length > MIN_TEXT_FIELDS}
+                onSetDefault={(value) => store.setFieldDefault(field.id, value)}
+                onDelete={() => store.deleteField(field.id)}
               />
             )}
           </For>

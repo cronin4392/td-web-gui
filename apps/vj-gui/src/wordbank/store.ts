@@ -6,23 +6,24 @@
  * `uiStorage`; the app itself owns exactly one instance for its lifetime.
  *
  * Persistence is split by what the data *is*, not stored in one blob:
- * `fields`/`lists`/`recent` are wordbank content and go through `persistence.save` (the
+ * `fields`/`overrides`/`lists`/`recent` are wordbank content and go through `persistence.save` (the
  * SQLite-backed `/api/wordbank`, via `saveWordbank()` in `wordbank-api.ts`);
  * `selectedListId` is a per-browser UI preference and stays in `localStorage`.
  * Both share one debounce timer via two dirty flags, so switching lists
  * writes `localStorage` without rewriting the wordbank.
  */
 
-import { createStore, unwrap } from 'solid-js/store';
+import { createStore, produce, unwrap } from 'solid-js/store';
 import {
   defaultWordbank,
-  WIRED_FIELDS,
+  MIN_TEXT_FIELDS,
+  type Overrides,
   type PhraseList,
   type TextField,
   type Wordbank,
 } from '@domain/wordbank/wordbank';
 
-export type { PhraseList, TextField };
+export type { Overrides, PhraseList, TextField };
 
 const UI_STORAGE_KEY = 'td-web-gui:vj-gui:wordbank';
 const RECENT_LIMIT = 10;
@@ -33,6 +34,7 @@ export const RECENT_LIST_ID = '__recent__';
 
 export interface WordbankState {
   fields: TextField[];
+  overrides: Overrides;
   lists: PhraseList[];
   recent: string[];
   selectedListId: string;
@@ -46,6 +48,14 @@ function makeList(name: string): PhraseList {
 
 function makeField(): TextField {
   return { id: crypto.randomUUID(), defaultValue: '' };
+}
+
+/** Mutates a `produce` draft — a spread would only merge. */
+function pruneOverride(draft: WordbankState, layer: string, fieldId: string): void {
+  const byField = draft.overrides[layer];
+  if (!byField || byField[fieldId] === undefined) return;
+  delete byField[fieldId];
+  if (Object.keys(byField).length === 0) delete draft.overrides[layer];
 }
 
 /** Splice `arr[from]` out and reinsert it at `to` (post-removal index), returning a new array. */
@@ -98,8 +108,13 @@ export interface WordbankStore {
 
   addField: () => string;
   setFieldDefault: (id: string, defaultValue: string) => void;
-  /** Delete a field. False — and nothing done — once only {@link WIRED_FIELDS} remain. */
+  /** Delete a field, and with it its override on every Layer. False — and
+   * nothing done — once only {@link MIN_TEXT_FIELDS} remain. */
   deleteField: (id: string) => boolean;
+
+  /** A blank value removes the override, so the field falls back to its Default. */
+  setOverride: (layer: string, fieldId: string, value: string) => void;
+  clearLayerOverrides: (layer: string) => void;
 
   /** Feed a committed phrase (from either text input) into the recent list. */
   commitRecent: (phrase: string) => void;
@@ -135,6 +150,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
 
   const [state, setState] = createStore<WordbankState>({
     fields: wordbank.fields,
+    overrides: wordbank.overrides,
     lists: wordbank.lists,
     recent: wordbank.recent,
     selectedListId: loadSelectedListId(uiStorage, wordbank.lists),
@@ -178,6 +194,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     try {
       await options.persistence.save({
         fields: unwrap(state.fields),
+        overrides: unwrap(state.overrides),
         lists: unwrap(state.lists),
         recent: unwrap(state.recent),
       });
@@ -222,11 +239,36 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   }
 
   function deleteField(id: string): boolean {
-    if (state.fields.length <= WIRED_FIELDS) return false;
+    if (state.fields.length <= MIN_TEXT_FIELDS) return false;
     if (findFieldIndex(id) === -1) return false;
     setState('fields', (fields) => fields.filter((f) => f.id !== id));
+    setState(
+      produce((draft) => {
+        for (const layer of Object.keys(draft.overrides)) pruneOverride(draft, layer, id);
+      }),
+    );
     markWordbankDirty();
     return true;
+  }
+
+  function setOverride(layer: string, fieldId: string, value: string): void {
+    if (value.trim()) {
+      setState('overrides', layer, (byField) => ({ ...byField, [fieldId]: value }));
+    } else {
+      if (state.overrides[layer]?.[fieldId] === undefined) return;
+      setState(produce((draft) => pruneOverride(draft, layer, fieldId)));
+    }
+    markWordbankDirty();
+  }
+
+  function clearLayerOverrides(layer: string): void {
+    if (state.overrides[layer] === undefined) return;
+    setState(
+      produce((draft) => {
+        delete draft.overrides[layer];
+      }),
+    );
+    markWordbankDirty();
   }
 
   function nextListName(): string {
@@ -361,6 +403,8 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     addField,
     setFieldDefault,
     deleteField,
+    setOverride,
+    clearLayerOverrides,
     commitRecent,
     deleteRecent,
     addList,

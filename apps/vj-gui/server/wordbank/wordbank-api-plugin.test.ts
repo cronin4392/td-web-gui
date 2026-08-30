@@ -57,7 +57,7 @@ describe('wordbankApiHandler', () => {
   });
 
   it('PUT a shape that fails isWordbank is a 400', async () => {
-    const res = await put(JSON.stringify({ fields: [], lists: 'nope', recent: [] }));
+    const res = await put(JSON.stringify({ fields: [], overrides: {}, lists: 'nope', recent: [] }));
     expect(res.status).toBe(400);
     expect(res.body).toContain('invalid wordbank shape');
   });
@@ -68,6 +68,7 @@ describe('wordbankApiHandler', () => {
         { id: 'f1', defaultValue: '' },
         { id: 'f2', defaultValue: '' },
       ],
+      overrides: { A: { f1: 'GUEST SET' } },
       lists: [{ id: 'tab-a', name: 'Cues', phrases: ['hello'] }],
       recent: ['hello'],
     };
@@ -76,13 +77,49 @@ describe('wordbankApiHandler', () => {
 
     expect(res.status).toBe(204);
     expect(res.body).toBe('');
-    expect(readWordbank(db).lists.map((l) => l.id)).toEqual(['tab-a']);
+    const stored = readWordbank(db);
+    expect(stored.lists.map((l) => l.id)).toEqual(['tab-a']);
+    expect(stored.overrides).toEqual({ A: { f1: 'GUEST SET' } });
   });
 
-  it('PUT a field list shorter than the wire carries is a 400', async () => {
+  it('GET carries the overrides back', async () => {
+    await put(
+      JSON.stringify({
+        fields: [
+          { id: 'f1', defaultValue: '' },
+          { id: 'f2', defaultValue: '' },
+        ],
+        overrides: { Z1: { f2: 'HELD' } },
+        lists: [{ id: 'tab-a', name: 'Cues', phrases: [] }],
+        recent: [],
+      } satisfies Wordbank),
+    );
+
+    const res = get();
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body).overrides).toEqual({ Z1: { f2: 'HELD' } });
+  });
+
+  it('PUT a payload with no overrides key is a 400', async () => {
+    const res = await put(
+      JSON.stringify({
+        fields: [
+          { id: 'f1', defaultValue: '' },
+          { id: 'f2', defaultValue: '' },
+        ],
+        lists: [{ id: 'tab-a', name: 'Cues', phrases: [] }],
+        recent: [],
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(res.body).toContain('invalid wordbank shape');
+  });
+
+  it('PUT a field list shorter than MIN_TEXT_FIELDS is a 400', async () => {
     const res = await put(
       JSON.stringify({
         fields: [{ id: 'f1', defaultValue: '' }],
+        overrides: {},
         lists: [{ id: 'tab-a', name: 'Cues', phrases: [] }],
         recent: [],
       }),
@@ -98,6 +135,7 @@ describe('wordbankApiHandler', () => {
         { id: 'f1', defaultValue: '' },
         { id: 'f2', defaultValue: '' },
       ],
+      overrides: {},
       lists: [{ id: 'x', name: 'X', phrases: [] }],
       recent: [],
     };

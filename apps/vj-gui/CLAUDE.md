@@ -2,7 +2,7 @@
 
 The author's real VJ rig: twelve scene layers driven from the web, SQLite
 catalogs of scenes and effects, and a wordbank of phrases pushed to a layer's
-text params. Not published — but maintained and tested, not a scratchpad.
+text. Not published — but maintained and tested, not a scratchpad.
 
 ## Speak the ubiquitous language
 
@@ -73,7 +73,10 @@ The TypeScript counterpart of all three is `src/playback/wire.ts`. Each pair
 must agree spelling-for-spelling; nothing checks it.
 
 Loading a scene bypasses parameters entirely — the web calls each SceneLoader
-process directly rather than going through the GUI project.
+process directly rather than going through the GUI project. So does its text:
+the web owns every Text field's Default and every Layer's override, resolves
+each Layer's finished lines itself, and pushes them with a `setTextList` call to
+that Layer's loader. Neither is a GUI param.
 
 ## Testing
 

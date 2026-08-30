@@ -21,6 +21,7 @@ describe('fetchWordbank', () => {
         { id: 'f1', defaultValue: '' },
         { id: 'f2', defaultValue: '' },
       ],
+      overrides: { A: { f1: 'GUEST SET' } },
       lists: [{ id: 'a', name: 'Cues', phrases: ['hi'] }],
       recent: ['hi'],
     };

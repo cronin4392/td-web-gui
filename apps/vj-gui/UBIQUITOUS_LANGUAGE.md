@@ -59,14 +59,15 @@ relative to `apps/vj-gui`.
 
 ## Wordbank
 
-| Term            | Definition                                                                                       | Aliases to avoid                    |
-| --------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`     | Library, phrase library, text state |
-| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                   | Tab, phrase tab, list               |
-| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick         | Line, entry, saved text             |
-| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged  | History, recents                    |
-| **Text field**  | One line of text pushed to a Layer — a Default, and a per-Layer typed override                   | Slot, text input, text param, row   |
-| **Default**     | What a Text field sends when nothing is typed into it, and what its input shows as a placeholder | Fallback, preset, initial value     |
+| Term            | Definition                                                                                                                        | Aliases to avoid                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Wordbank**    | The saved collection of Text fields and their Overrides, the Phrase lists, and the Recent list, persisted through `/api/wordbank` | Library, phrase library, text state |
+| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                                                    | Tab, phrase tab, list               |
+| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's Text field on pick                                          | Line, entry, saved text             |
+| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged                                   | History, recents                    |
+| **Text field**  | One line of text pushed to a Layer — a Default, and a per-Layer typed override                                                    | Slot, text input, text param, row   |
+| **Override**    | The text typed into one Text field for one Layer, outranking that field's Default on that Layer alone                             | Custom text, per-layer value        |
+| **Default**     | What a Text field sends when nothing is typed into it, and what its input shows as a placeholder                                  | Fallback, preset, initial value     |
 
 ## Relationships
 
@@ -78,11 +79,12 @@ relative to `apps/vj-gui`.
 - **Hidden** and **Favorite** are the catalog state a **Sync** leaves alone: they are authored rather than scanned, so only **Edit mode** can undo them. They live on the row, so they die with it — a **Scene** deleted from disk does not come back hidden.
 - A **Favorite** is a second listing of an **Effect**, not a move: the same **Effect** stays in the full list too, in name order.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
-- A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
+- A **Wordbank** holds two or more **Text fields** and their **Overrides**, one or more **Phrase lists**, and the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
-- Applying a **Phrase** writes it to the **Selected layer**'s text param and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
-- A **Text field** is global to the rig: its **Default** is the same for every **Layer**, and only the typed override is per-**Layer**. A **Text field** has no name — its **Default** is how it is recognised, in the input's placeholder and in **Edit mode** alike. **Edit mode** is where the set of **Text fields** and their **Defaults** are authored, the way it reveals **Hidden** and **Favorite** in the pickers.
-- A **Layer** carrying no override carries its **Text field**'s **Default** — "empty" is a state of the input, not a second place text can live. A **Text field** whose **Default** is itself blank sends nothing, and that is the only way a **Layer**'s text goes empty.
+- Applying a **Phrase** writes it as the **Selected layer**'s **Override** of the focused **Text field** and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
+- A **Text field** is global to the rig: its **Default** is the same for every **Layer**, and only the **Override** is per-**Layer**. A **Text field** has no name — its **Default** is how it is recognised, in the input's placeholder and in **Edit mode** alike. **Edit mode** is where the set of **Text fields** and their **Defaults** are authored, the way it reveals **Hidden** and **Favorite** in the pickers.
+- A **Layer** carrying no **Override** carries its **Text field**'s **Default** — "empty" is a state of the input, not a second place text can live. A **Text field** whose **Default** is itself blank sends nothing, and that is the only way a **Layer**'s text goes empty.
+- The web resolves each **Layer**'s **Text fields** into one finished list of lines and pushes that list to that **Layer**'s **Loader**; the wire carries no text params, and the **Loader** is never told which line was an **Override**. The web is the sole owner of both **Defaults** and **Overrides**, so nothing is read back.
 
 ## Example dialogue
 
@@ -104,7 +106,7 @@ relative to `apps/vj-gui`.
 
 ## Flagged ambiguities
 
-- **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene`, `sceneAText1`…`sceneHText2`, and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
+- **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene` and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
 - **"Effect" collides with the `3 Effect` group folder.** That folder is one **Group** among several; every folder under the **Effect** root is an **Effect** regardless of which **Group** it sits in.
 - **"Library" vs "catalog" — resolved on the GUI side.** What was `library.ts`'s saved text/phrase state is now the **Wordbank** (`domain/wordbank/wordbank.ts`), a name **Catalog** no longer has to share. `sceneLibrary` is still the TouchDesigner-side table this project no longer reads; neither it nor the **Wordbank** is a **catalog** — use **catalog** only for the synced set of **Scenes** or **Effects**.
 - **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` reconcile a database against disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.

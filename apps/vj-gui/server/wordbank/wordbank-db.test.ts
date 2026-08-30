@@ -99,6 +99,37 @@ describe('schema + seed', () => {
     expect(wordbank.fields.every((f) => f.defaultValue === '')).toBe(true);
   });
 
+  it('gives a v3 database the overrides table, keeping its fields and lists', () => {
+    const legacy = new DatabaseSync(dbPath);
+    legacy.exec(`
+      CREATE TABLE text_fields (
+        id TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        position INTEGER NOT NULL
+      );
+      CREATE TABLE tabs (id TEXT PRIMARY KEY, name TEXT NOT NULL, position INTEGER NOT NULL);
+      CREATE TABLE phrases (
+        tab_id TEXT NOT NULL REFERENCES tabs(id) ON DELETE CASCADE,
+        phrase TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        PRIMARY KEY (tab_id, phrase)
+      );
+      CREATE TABLE recent (phrase TEXT PRIMARY KEY, position INTEGER NOT NULL);
+      INSERT INTO text_fields VALUES ('f1', 'SOME ARTIST', 0);
+      INSERT INTO text_fields VALUES ('f2', '', 1);
+      INSERT INTO tabs VALUES ('kept', 'Kept', 0);
+      INSERT INTO phrases VALUES ('kept', 'survivor', 0);
+      PRAGMA user_version = 3;
+    `);
+    legacy.close();
+
+    const wordbank = readWordbank(open());
+    expect(wordbank.fields.map((f) => f.id)).toEqual(['f1', 'f2']);
+    expect(wordbank.fields[0]?.defaultValue).toBe('SOME ARTIST');
+    expect(wordbank.lists[0]?.phrases).toEqual(['survivor']);
+    expect(wordbank.overrides).toEqual({});
+  });
+
   it('migration is idempotent on reopen — no reseed, no duplication', () => {
     const first = open();
     const seededId = readWordbank(first).lists[0]!.id;
@@ -120,6 +151,7 @@ describe('round-trip', () => {
         { id: 'f2', defaultValue: 'warehouse' },
         { id: 'f1', defaultValue: '' },
       ],
+      overrides: {},
       lists: [
         { id: 'tab-b', name: 'Titles', phrases: ['zeta', 'alpha'] },
         { id: 'tab-a', name: 'Cues', phrases: ['intermission', 'hello world'] },
@@ -144,6 +176,7 @@ describe('round-trip', () => {
         { id: 'gone', defaultValue: '' },
         { id: 'gone2', defaultValue: '' },
       ],
+      overrides: { A: { gone: 'stale override' } },
       lists: [{ id: 'old', name: 'Old', phrases: ['stale'] }],
       recent: ['stale recent'],
     });
@@ -152,6 +185,7 @@ describe('round-trip', () => {
         { id: 'kept', defaultValue: '' },
         { id: 'kept2', defaultValue: '' },
       ],
+      overrides: {},
       lists: [{ id: 'new', name: 'New', phrases: ['fresh'] }],
       recent: ['fresh recent'],
     });
@@ -160,6 +194,7 @@ describe('round-trip', () => {
     expect(read.lists.map((l) => l.id)).toEqual(['new']);
     expect(read.recent).toEqual(['fresh recent']);
     expect(read.fields.map((f) => f.id)).toEqual(['kept', 'kept2']);
+    expect(read.overrides).toEqual({});
 
     const orphanPhrases = db
       .prepare('SELECT COUNT(*) AS n FROM phrases WHERE tab_id = ?')
@@ -170,11 +205,69 @@ describe('round-trip', () => {
   });
 });
 
+describe('overrides', () => {
+  const fields = [
+    { id: 'f1', defaultValue: 'SOME ARTIST' },
+    { id: 'f2', defaultValue: '' },
+  ];
+  const lists = [{ id: 'tab-a', name: 'Cues', phrases: [] }];
+
+  it('round-trips the nested layer/field map', () => {
+    const db = open();
+    writeWordbank(db, {
+      fields,
+      overrides: { A: { f1: 'GUEST SET', f2: 'WAREHOUSE' }, Z1: { f2: 'HELD' } },
+      lists,
+      recent: [],
+    });
+
+    expect(readWordbank(db).overrides).toEqual({
+      A: { f1: 'GUEST SET', f2: 'WAREHOUSE' },
+      Z1: { f2: 'HELD' },
+    });
+  });
+
+  it('reads back an empty map when nothing is overridden', () => {
+    const db = open();
+    writeWordbank(db, { fields, overrides: {}, lists, recent: [] });
+    expect(readWordbank(db).overrides).toEqual({});
+  });
+
+  it("ON DELETE CASCADE removes a dropped field's overrides", () => {
+    const db = open();
+    writeWordbank(db, {
+      fields,
+      overrides: { A: { f1: 'GUEST SET', f2: 'WAREHOUSE' } },
+      lists,
+      recent: [],
+    });
+
+    db.exec("DELETE FROM text_fields WHERE id = 'f1'");
+
+    expect(readWordbank(db).overrides).toEqual({ A: { f2: 'WAREHOUSE' } });
+  });
+
+  it('drops an override naming a field the payload no longer has, rather than failing the write', () => {
+    const db = open();
+    writeWordbank(db, {
+      fields,
+      overrides: { A: { f1: 'GUEST SET', ghost: 'STALE' } },
+      lists,
+      recent: [],
+    });
+
+    const read = readWordbank(db);
+    expect(read.overrides).toEqual({ A: { f1: 'GUEST SET' } });
+    expect(read.lists.map((l) => l.id)).toEqual(['tab-a']);
+  });
+});
+
 describe('integrity', () => {
   it("ON DELETE CASCADE removes a dropped list's phrases", () => {
     const db = open();
     writeWordbank(db, {
       fields: [],
+      overrides: {},
       lists: [{ id: 'doomed', name: 'Doomed', phrases: ['a', 'b'] }],
       recent: [],
     });
@@ -193,6 +286,7 @@ describe('integrity', () => {
     const db = open();
     writeWordbank(db, {
       fields: [],
+      overrides: {},
       lists: [{ id: 'tab-a', name: 'Cues', phrases: ['keeper'] }],
       recent: [],
     });
@@ -200,6 +294,7 @@ describe('integrity', () => {
     expect(() =>
       writeWordbank(db, {
         fields: [],
+        overrides: {},
         lists: [{ id: 'tab-a', name: 'Cues', phrases: ['dup', 'dup'] }],
         recent: [],
       }),

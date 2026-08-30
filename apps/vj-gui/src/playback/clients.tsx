@@ -30,12 +30,12 @@ import {
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the twelve loaders' text params, the color ramp, the Color
- * scheme catalog, and the MIDI select button's `selectLayer`. */
+/** The GUI project: the color ramp, the Color scheme catalog, and the MIDI
+ * select button's `selectLayer`. */
 export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
 
 /** Every scene project: performance readouts, the video stream, and the
- * `loadScene` call. */
+ * `loadScene` / `clearScene` / `setTextList` calls. */
 export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
 export const InputClient = createTDClient<InputParams>();
@@ -49,7 +49,6 @@ export type LayerConnections = Partial<Record<LayerId, LoaderConnection>>;
 
 export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
-export type { LayerTextParamName } from './wire';
 
 /**
  * Resolves `layer` to its live connection and loads `path` on it — the one

@@ -28,6 +28,11 @@ CALLBACKS = "webserver1_callbacks"
 
 LOADER = "/Scene1/Loader"
 
+# The DAT the scenes read through iop.Inputs.TextVars. It lives in the loader
+# shell rather than in the loaded tox, so a loadScene swap leaves it standing
+# and the web has nothing to re-push afterwards.
+TEXT_LIST = "/Scene1/Inputs/text_list"
+
 # `activeScene` is read-only because loading a scene is behaviour, not state, so
 # it goes through HANDLERS at the bottom of this file instead.
 #
@@ -102,4 +107,20 @@ def _clear_scene(args):
     return {"ok": True}
 
 
-HANDLERS = {"loadScene": _load_scene, "clearScene": _clear_scene}
+# Nothing is read back: this DAT is a cache of the web's last push.
+def _set_text_list(args):
+    lines = (args or {}).get("lines", [])
+    if not isinstance(lines, list):
+        raise ValueError("setTextList needs a lines array")
+    dat = opex(TEXT_LIST)
+    dat.clear()
+    for line in lines:
+        dat.appendRow([str(line)])
+    return {"ok": True}
+
+
+HANDLERS = {
+    "loadScene": _load_scene,
+    "clearScene": _clear_scene,
+    "setTextList": _set_text_list,
+}

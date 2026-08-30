@@ -71,7 +71,7 @@ describe('text fields', () => {
     expect(store.state.fields[0]?.defaultValue).toBe(' SOME ARTIST ');
   });
 
-  it('deletes a field, but never below the two the wire carries', () => {
+  it('deletes a field, but never below the minimum two', () => {
     const store = makeStore();
     const added = store.addField();
     store.deleteField(added);
@@ -88,14 +88,125 @@ describe('text fields', () => {
     expect(store.state.fields).toHaveLength(2);
   });
 
-  it('persists fields alongside lists and recent', async () => {
+  it('persists fields alongside overrides, lists and recent', async () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });
     store.setFieldDefault(store.state.fields[0]!.id, 'SOME ARTIST');
+    store.setOverride('A', store.state.fields[1]!.id, 'GUEST SET');
     await vi.advanceTimersByTimeAsync(30);
     expect(save).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0].fields[0].defaultValue).toBe('SOME ARTIST');
+    expect(save.mock.calls[0]?.[0].overrides).toEqual({
+      A: { [store.state.fields[1]!.id]: 'GUEST SET' },
+    });
+  });
+});
+
+describe('overrides', () => {
+  it('starts with none', () => {
+    expect(makeStore().state.overrides).toEqual({});
+  });
+
+  it("sets a Layer's own text for one field, verbatim", () => {
+    const store = makeStore();
+    const id = store.state.fields[0]!.id;
+    store.setOverride('A', id, ' GUEST SET ');
+    expect(store.state.overrides).toEqual({ A: { [id]: ' GUEST SET ' } });
+  });
+
+  it('keeps each Layer apart', () => {
+    const store = makeStore();
+    const id = store.state.fields[0]!.id;
+    store.setOverride('A', id, 'GUEST SET');
+    store.setOverride('Z1', id, 'HELD');
+    expect(store.state.overrides).toEqual({ A: { [id]: 'GUEST SET' }, Z1: { [id]: 'HELD' } });
+  });
+
+  it('a blank value removes the override, and the Layer record with the last of them', () => {
+    const store = makeStore();
+    const [a, b] = [store.state.fields[0]!.id, store.state.fields[1]!.id];
+    store.setOverride('A', a, 'GUEST SET');
+    store.setOverride('A', b, 'WAREHOUSE');
+
+    store.setOverride('A', a, '   ');
+    expect(store.state.overrides).toEqual({ A: { [b]: 'WAREHOUSE' } });
+
+    store.setOverride('A', b, '');
+    expect(store.state.overrides).toEqual({});
+  });
+
+  it('clearLayerOverrides drops that Layer alone', () => {
+    const store = makeStore();
+    const id = store.state.fields[0]!.id;
+    store.setOverride('A', id, 'GUEST SET');
+    store.setOverride('B', id, 'RESIDENT');
+
+    store.clearLayerOverrides('A');
+    expect(store.state.overrides).toEqual({ B: { [id]: 'RESIDENT' } });
+  });
+
+  it('clearLayerOverrides on a Layer with none is a no-op', () => {
+    const store = makeStore();
+    store.clearLayerOverrides('A');
+    expect(store.state.overrides).toEqual({});
+  });
+
+  it('deleting a field drops its overrides on every Layer', () => {
+    const store = makeStore();
+    const doomed = store.addField();
+    const kept = store.state.fields[0]!.id;
+    store.setOverride('A', doomed, 'GUEST SET');
+    store.setOverride('B', doomed, 'RESIDENT');
+    store.setOverride('B', kept, 'WAREHOUSE');
+
+    store.deleteField(doomed);
+
+    expect(store.state.overrides).toEqual({ B: { [kept]: 'WAREHOUSE' } });
+  });
+
+  it('deleting a different field leaves an override alone — keys are field ids, not positions', () => {
+    const store = makeStore();
+    const doomed = store.addField();
+    const kept = store.state.fields[1]!.id;
+    store.setOverride('A', kept, 'GUEST SET');
+
+    store.deleteField(doomed);
+
+    expect(store.state.overrides).toEqual({ A: { [kept]: 'GUEST SET' } });
+  });
+
+  it('a refused delete leaves the overrides untouched', () => {
+    const store = makeStore();
+    const id = store.state.fields[0]!.id;
+    store.setOverride('A', id, 'GUEST SET');
+
+    expect(store.deleteField(id)).toBe(false);
+    expect(store.state.overrides).toEqual({ A: { [id]: 'GUEST SET' } });
+  });
+
+  it('an override write schedules a wordbank save', async () => {
+    vi.useFakeTimers();
+    const save = vi.fn();
+    const store = makeStore({ persistence: { save } });
+    store.setOverride('A', store.state.fields[0]!.id, 'GUEST SET');
+    await vi.advanceTimersByTimeAsync(30);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates from the wordbank it was given', () => {
+    const store = makeStore({
+      initial: {
+        fields: [
+          { id: 'f1', defaultValue: '' },
+          { id: 'f2', defaultValue: '' },
+        ],
+        overrides: { A: { f1: 'GUEST SET' } },
+        lists: [{ id: 'l1', name: 'List 1', phrases: [] }],
+        recent: [],
+      },
+    });
+    expect(store.state.overrides).toEqual({ A: { f1: 'GUEST SET' } });
   });
 });
 
@@ -412,6 +523,7 @@ describe('persistence', () => {
 
     const wordbank = {
       fields: first.state.fields,
+      overrides: first.state.overrides,
       lists: first.state.lists,
       recent: first.state.recent,
     };
