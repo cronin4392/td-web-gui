@@ -15,6 +15,7 @@
 
 import { createStore, unwrap } from 'solid-js/store';
 import { defaultWordbank, type PhraseList, type Wordbank } from '@domain/wordbank/wordbank';
+import { moveItem } from '@/ui/dnd';
 
 export type { PhraseList };
 
@@ -35,14 +36,6 @@ export interface WordbankState {
 
 function makeList(name: string): PhraseList {
   return { id: crypto.randomUUID(), name, phrases: [] };
-}
-
-/** Splice `arr[from]` out and reinsert it at `to` (post-removal index), returning a new array. */
-function moveItem<T>(arr: readonly T[], from: number, to: number): T[] {
-  const next = [...arr];
-  const [moved] = next.splice(from, 1) as [T];
-  next.splice(to, 0, moved);
-  return next;
 }
 
 /** Move `item` to the front, deduping any existing match; `limit` caps the result (e.g. the recent list). */

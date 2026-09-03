@@ -14,7 +14,8 @@
 
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
-import { TAB_MIME, adjustReorderTarget, hasDragMime } from './dnd';
+import { TAB_MIME } from './dnd';
+import { adjustReorderTarget, hasDragMime } from '@/ui/dnd';
 import styles from './TabStrip.module.css';
 
 export interface TabStripProps {

@@ -6,7 +6,8 @@
 
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { PhraseList, WordbankStore } from './store';
-import { adjustReorderTarget, dropIndexForRow, hasPhraseDragData, readPhraseDragData } from './dnd';
+import { hasPhraseDragData, readPhraseDragData } from './dnd';
+import { adjustReorderTarget, dropIndexForRow } from '@/ui/dnd';
 import { PhraseChip } from './PhraseChip';
 import styles from './ListPanel.module.css';
 
