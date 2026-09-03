@@ -128,6 +128,22 @@
     min-width: 0;
   }
 
+  /* A dark scene's thumbnail is near-black on transparency; the checkerboard
+     behind it (the tile goes transparent) makes the artwork readable, the way
+     Photoshop shows an alpha channel. */
+  .cell[data-dark='true'] {
+    border-radius: var(--radius);
+    background: repeating-conic-gradient(
+        var(--color-surface) 0deg 90deg,
+        var(--color-border) 90deg 180deg
+      )
+      0 0 / 16px 16px;
+  }
+
+  .cell[data-dark='true'] .tile {
+    background-color: transparent;
+  }
+
   .tile {
     position: relative;
     display: flex;

@@ -144,7 +144,15 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
               <div
                 class={styles.cell}
                 data-hidden={scene.hidden}
-                draggable={picker.editing()}
+                data-dark={scene.dark}
+                // Filing a scene is not an edit-mode job: it is the one tag
+                // action worth doing mid-set, and Chrome suppresses the click
+                // that follows a drag, so the tile stays a load target.
+                //
+                // `={true}`, never a bare `draggable`: it is an enumerated
+                // attribute, not a boolean one, and JSX renders the bare form as
+                // `draggable=""` — invalid, so it falls back to not draggable.
+                draggable={true}
                 onDragStart={(event) => event.dataTransfer?.setData(SCENE_MIME, scene.name)}
               >
                 <button
