@@ -268,6 +268,50 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                       >
                         {tag}
                       </span>
+
+                      {/* Interactive content inside a label, so a click here
+                          deletes without also toggling the radio. */}
+                      <Show when={picker.editing()}>
+                        <Show
+                          when={confirming() === tag}
+                          fallback={
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              class={styles.tagDelete}
+                              aria-label={`Delete tag "${tag}"`}
+                              // A tag no scene carries is nothing to lose; one
+                              // that is in use takes its filing with it, so it
+                              // asks first.
+                              onClick={() =>
+                                carriers(tag) === 0 ? removeTag(tag) : setConfirming(tag)
+                              }
+                            >
+                              ×
+                            </button>
+                          }
+                        >
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            class={styles.tagConfirm}
+                            aria-label={`Delete tag "${tag}", removing it from ${carriers(tag)} scenes`}
+                            title={`Remove from ${carriers(tag)} scenes`}
+                            onClick={() => removeTag(tag)}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            class={styles.tagDelete}
+                            aria-label="Keep the tag"
+                            onClick={() => setConfirming(null)}
+                          >
+                            ✕
+                          </button>
+                        </Show>
+                      </Show>
                     </RadioButton>
                   }
                 >
@@ -297,45 +341,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                       }}
                     />
                   </form>
-                </Show>
-
-                <Show when={picker.editing() && renaming() !== tag}>
-                  <Show
-                    when={confirming() === tag}
-                    fallback={
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        class={styles.tagDelete}
-                        aria-label={`Delete tag "${tag}"`}
-                        // A tag no scene carries is nothing to lose; one that is
-                        // in use takes its filing with it, so it asks first.
-                        onClick={() => (carriers(tag) === 0 ? removeTag(tag) : setConfirming(tag))}
-                      >
-                        ×
-                      </button>
-                    }
-                  >
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      class={styles.tagConfirm}
-                      aria-label={`Delete tag "${tag}", removing it from ${carriers(tag)} scenes`}
-                      title={`Remove from ${carriers(tag)} scenes`}
-                      onClick={() => removeTag(tag)}
-                    >
-                      ✓
-                    </button>
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      class={styles.tagDelete}
-                      aria-label="Keep the tag"
-                      onClick={() => setConfirming(null)}
-                    >
-                      ✕
-                    </button>
-                  </Show>
                 </Show>
               </div>
             )}

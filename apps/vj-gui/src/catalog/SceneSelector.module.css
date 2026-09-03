@@ -27,6 +27,14 @@
     align-items: center;
     min-width: 0;
 
+    /* The delete button now lives inside the tag, so the label is a row. */
+    & > label {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-s);
+      min-width: 0;
+    }
+
     &[data-dragging='true'] {
       opacity: 0.4;
     }
@@ -40,6 +48,7 @@
 
   .tagName {
     display: block;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
