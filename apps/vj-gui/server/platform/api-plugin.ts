@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Connect, Plugin, PreviewServer, ViteDevServer } from 'vite';
+import { checkpointWal } from './catalog-db';
 
 export function sendJson(res: ServerResponse, body: unknown): void {
   res.setHeader('Content-Type', 'application/json');
@@ -87,13 +88,21 @@ export function catalogApiHandler(config: {
       }
     }
 
+    /** The one path every mutation takes, so the checkpoint and the
+     * answer-with-the-resulting-catalog promise cannot be forgotten by whoever
+     * adds the next route. */
+    function respondAfterWrite(write: (db: DatabaseSync) => void): void {
+      respond((db) => {
+        write(db);
+        checkpointWal(db);
+        return config.read(db);
+      });
+    }
+
     const path = routePath(req);
 
     if (req.method === 'POST' && path === SYNC_PATH) {
-      respond((db) => {
-        config.sync(db);
-        return config.read(db);
-      });
+      respondAfterWrite(config.sync);
       return;
     }
 
@@ -106,10 +115,7 @@ export function catalogApiHandler(config: {
         sendError(res, 400, err instanceof SyntaxError ? 'malformed JSON' : err);
         return;
       }
-      respond((db) => {
-        mutate(db);
-        return config.read(db);
-      });
+      respondAfterWrite(mutate);
       return;
     }
 

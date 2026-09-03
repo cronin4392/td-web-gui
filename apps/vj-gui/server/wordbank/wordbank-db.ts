@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { defaultWordbank, type PhraseList, type Wordbank } from '../../domain/wordbank/wordbank';
-import { catalogDbPath } from '../platform/catalog-db';
+import { catalogDbPath, checkpointWal } from '../platform/catalog-db';
 
 const SCHEMA_VERSION = 1;
 
@@ -107,4 +107,7 @@ export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
     db.exec('ROLLBACK');
     throw err;
   }
+  // Outside the transaction, and after it: this file is tracked, and a commit
+  // that only lives in the -wal is one `git status` cannot see.
+  checkpointWal(db);
 }

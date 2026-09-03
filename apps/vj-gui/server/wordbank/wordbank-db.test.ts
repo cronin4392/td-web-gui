@@ -6,7 +6,7 @@
  * docblock above opts this file into the `node` environment instead.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -136,5 +136,31 @@ describe('integrity', () => {
     // Rolled back — the prior good state is untouched, not half-applied.
     const read = readWordbank(db);
     expect(read.lists[0]?.phrases).toEqual(['keeper']);
+  });
+});
+
+describe('durability of a write', () => {
+  it('lands the wordbank in the file itself, not just the write-ahead log', () => {
+    const db = open();
+    writeWordbank(db, {
+      lists: [{ id: 'a', name: 'Set', phrases: ['one', 'two'] }],
+      recent: ['one'],
+    });
+
+    // The `.db` without its journals — what `git status` compares and what a
+    // commit stages. A write left in the WAL is missing from this copy.
+    const copy = join(dir, 'snapshot.db');
+    copyFileSync(dbPath, copy);
+    const snapshot = new DatabaseSync(copy);
+    const lists = (
+      snapshot.prepare('SELECT name FROM tabs ORDER BY position').all() as {
+        name: string;
+      }[]
+    ).map((row) => row.name);
+    const { n } = snapshot.prepare('SELECT COUNT(*) AS n FROM phrases').get() as { n: number };
+    snapshot.close();
+
+    expect(lists).toEqual(['Set']);
+    expect(n).toBe(2);
   });
 });

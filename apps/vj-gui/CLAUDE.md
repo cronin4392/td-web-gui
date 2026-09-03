@@ -53,13 +53,19 @@ thing. They read SQLite through `node:sqlite`.
 - `data/*.db` is **tracked**; its `-wal`/`-shm` journals are not. A catalog holds
   authored state a Sync cannot rederive, so the file is the only copy of it —
   `pnpm db:scenes` / `pnpm db:effects` rebuild the scanned columns around it.
-- **The `.db` is only committable once its WAL is checkpointed.** In WAL mode
-  recent writes sit in `data/*.db-wal`, and a `.db` staged without them opens
-  cleanly, passes `integrity_check`, and is quietly missing them. The pre-commit
-  hook runs `scripts/checkpoint-sqlite.mjs` on any staged `.db` and fails the
-  commit if it cannot get a clean checkpoint; `pnpm db:checkpoint` does it by
-  hand. Nothing else in the repo makes this class of mistake loud, so don't
-  route around the hook.
+- **A write only counts once its WAL is checkpointed**, which is why every write
+  path calls `checkpointWal`. In WAL mode a committed transaction sits in
+  `data/*.db-wal`, where nothing outside SQLite can see it: the `.db` staged
+  without it opens cleanly, passes `integrity_check`, and is quietly missing it,
+  and `git status` calls a database whose every tag just changed unmodified.
+  Checkpointing on each write is what keeps `git status` honest; the pre-commit
+  hook re-runs `scripts/checkpoint-sqlite.mjs` on any staged `.db` and fails the
+  commit if it cannot get a clean one, and `pnpm db:checkpoint` does it by hand.
+  Nothing else in the repo makes this class of mistake loud, so don't route
+  around either.
+- A tracked `.db` shows as modified more often than its contents change —
+  SQLite reuses pages, so a round trip that ends where it started still rewrites
+  the file. Check what actually moved before committing one; the diff cannot.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes

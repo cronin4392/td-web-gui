@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openScenesDb } from './scenes-db';
 import { scenesApiHandler } from './scenes-api-plugin';
@@ -171,5 +171,54 @@ describe('scenesApiHandler tag routes', () => {
     const ghost = await post('/tags/delete', { name: 'ghost' });
     expect(ghost.status).toBe(500);
     expect(ghost.body).toContain('ghost');
+  });
+});
+
+describe('durability of a write', () => {
+  /** The `.db` without its journals — what `git status` compares and what a
+   * commit stages. A write left in the WAL reads back fine through the live
+   * connection and is missing from this copy entirely. */
+  function fileOnDisk(): DatabaseSync {
+    const copy = join(dir, `snapshot-${Math.random().toString(36).slice(2)}.db`);
+    copyFileSync(join(dir, 'scenes.db'), copy);
+    return new DatabaseSync(copy);
+  }
+
+  function tagsOnDisk(): string[] {
+    const snapshot = fileOnDisk();
+    try {
+      return (snapshot.prepare('SELECT name FROM tags').all() as { name: string }[]).map(
+        (row) => row.name,
+      );
+    } finally {
+      snapshot.close();
+    }
+  }
+
+  it('lands a mutation in the file itself, not just the write-ahead log', async () => {
+    call('POST', '/sync');
+
+    await post('/tags/create', { name: 'durable' });
+    expect(tagsOnDisk()).toContain('durable');
+
+    await post('/tags/rename', { name: 'durable', to: 'renamed' });
+    expect(tagsOnDisk()).toContain('renamed');
+
+    await post('/tags/delete', { name: 'renamed' });
+    expect(tagsOnDisk()).not.toContain('renamed');
+  });
+
+  it('lands a scene-tag link and a sync too', async () => {
+    call('POST', '/sync');
+    await post('/tags/create', { name: 'neon' });
+    await post('/tagged', { scene: 'AudioSpectrum', tag: 'neon', value: true });
+
+    const snapshot = fileOnDisk();
+    const { n } = snapshot.prepare('SELECT COUNT(*) AS n FROM scene_tags').get() as { n: number };
+    const scenes = snapshot.prepare('SELECT COUNT(*) AS n FROM scenes').get() as { n: number };
+    snapshot.close();
+
+    expect(n).toBe(1);
+    expect(scenes.n).toBe(1);
   });
 });
