@@ -50,7 +50,16 @@ published, and what they support is not this app's call.
 there is no server to start separately — `pnpm --filter vj-gui dev` is the whole
 thing. They read SQLite through `node:sqlite`.
 
-- `data/*.db` is **gitignored** and rebuilt by `pnpm db:scenes` / `pnpm db:effects`.
+- `data/*.db` is **tracked**; its `-wal`/`-shm` journals are not. A catalog holds
+  authored state a Sync cannot rederive, so the file is the only copy of it —
+  `pnpm db:scenes` / `pnpm db:effects` rebuild the scanned columns around it.
+- **The `.db` is only committable once its WAL is checkpointed.** In WAL mode
+  recent writes sit in `data/*.db-wal`, and a `.db` staged without them opens
+  cleanly, passes `integrity_check`, and is quietly missing them. The pre-commit
+  hook runs `scripts/checkpoint-sqlite.mjs` on any staged `.db` and fails the
+  commit if it cannot get a clean checkpoint; `pnpm db:checkpoint` does it by
+  hand. Nothing else in the repo makes this class of mistake loud, so don't
+  route around the hook.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes
