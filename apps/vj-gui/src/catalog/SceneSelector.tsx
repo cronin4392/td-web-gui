@@ -123,7 +123,7 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
 
   return (
     <section class={[styles.selector, props.class].filter(Boolean).join(' ')}>
-      <PanelHeader title="Scenes" class={styles.panelHeader}>
+      <PanelHeader title="Scenes">
         <PickerToolbar
           refreshing={picker.refreshing()}
           editing={picker.editing()}
@@ -133,10 +133,88 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
         />
       </PanelHeader>
 
+      <div class={styles.scenes}>
+        {/* Faded while the selected layer is up: loading over a live layer cuts
+            in front of the audience, so a tile has to be hovered to be read. */}
+        <div class={styles.grid} data-live={selectedLevel() > 0}>
+          <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
+            {(scene) => (
+              // The buttons can't nest inside the tile — a button inside a
+              // button is invalid, and the tile is the load target.
+              <div
+                class={styles.cell}
+                data-hidden={scene.hidden}
+                draggable={picker.editing()}
+                onDragStart={(event) => event.dataTransfer?.setData(SCENE_MIME, scene.name)}
+              >
+                <button
+                  type="button"
+                  class={styles.tile}
+                  style={
+                    scene.thumbnail
+                      ? { 'background-image': `url("${scene.thumbnail}")` }
+                      : undefined
+                  }
+                  title={scene.name}
+                  disabled={!scene.path}
+                  onClick={() => void picker.loadTox(scene.path)}
+                >
+                  {/* Scrim — the label sits over arbitrary artwork. */}
+                  <span class={styles.caption}>{scene.name}</span>
+                </button>
+
+                <Show when={picker.editing()}>
+                  <div class={styles.cellActions}>
+                    <button
+                      type="button"
+                      class={styles.action}
+                      onClick={() =>
+                        void picker.edit(() => setSceneHidden(scene.name, !scene.hidden))
+                      }
+                    >
+                      {scene.hidden ? 'Show' : 'Hide'}
+                    </button>
+
+                    {/* Only inside a tag tab: "remove from this tag" has no
+                        meaning in All, where no one tag is in view. */}
+                    <Show when={selectedTag()}>
+                      {(tag) => (
+                        <button
+                          type="button"
+                          class={styles.action}
+                          aria-label={`Remove "${scene.name}" from "${tag()}"`}
+                          title={`Remove from "${tag()}"`}
+                          onClick={() =>
+                            void picker.edit(() => setSceneTag(scene.name, tag(), false))
+                          }
+                        >
+                          ×
+                        </button>
+                      )}
+                    </Show>
+                  </div>
+                </Show>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+
       {/* Editing keeps the rail even with no tags left — the `+` lives in it, so
           deleting the last tag would otherwise remove the way to make another. */}
       <Show when={picker.editing() || tags().length > 0}>
-        <fieldset class={styles.tags} aria-label="Scene tag" data-editing={picker.editing()}>
+        <fieldset
+          class={styles.tags}
+          aria-label="Scene tag"
+          data-editing={picker.editing()}
+          // No native way to scroll a horizontal overflow with a vertical wheel;
+          // map it here. Non-passive in Solid, so preventDefault holds.
+          onWheel={(event) => {
+            if (!event.deltaY) return;
+            event.preventDefault();
+            event.currentTarget.scrollLeft += event.deltaY;
+          }}
+        >
           <RadioButton
             name="scene-tag"
             checked={selectedTag() === null}
@@ -301,73 +379,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
           </Show>
         </fieldset>
       </Show>
-
-      <div class={styles.scenes}>
-        {/* Faded while the selected layer is up: loading over a live layer cuts
-            in front of the audience, so a tile has to be hovered to be read. */}
-        <div class={styles.grid} data-live={selectedLevel() > 0}>
-          <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
-            {(scene) => (
-              // The buttons can't nest inside the tile — a button inside a
-              // button is invalid, and the tile is the load target.
-              <div
-                class={styles.cell}
-                data-hidden={scene.hidden}
-                draggable={picker.editing()}
-                onDragStart={(event) => event.dataTransfer?.setData(SCENE_MIME, scene.name)}
-              >
-                <button
-                  type="button"
-                  class={styles.tile}
-                  style={
-                    scene.thumbnail
-                      ? { 'background-image': `url("${scene.thumbnail}")` }
-                      : undefined
-                  }
-                  title={scene.name}
-                  disabled={!scene.path}
-                  onClick={() => void picker.loadTox(scene.path)}
-                >
-                  {/* Scrim — the label sits over arbitrary artwork. */}
-                  <span class={styles.caption}>{scene.name}</span>
-                </button>
-
-                <Show when={picker.editing()}>
-                  <div class={styles.cellActions}>
-                    <button
-                      type="button"
-                      class={styles.action}
-                      onClick={() =>
-                        void picker.edit(() => setSceneHidden(scene.name, !scene.hidden))
-                      }
-                    >
-                      {scene.hidden ? 'Show' : 'Hide'}
-                    </button>
-
-                    {/* Only inside a tag tab: "remove from this tag" has no
-                        meaning in All, where no one tag is in view. */}
-                    <Show when={selectedTag()}>
-                      {(tag) => (
-                        <button
-                          type="button"
-                          class={styles.action}
-                          aria-label={`Remove "${scene.name}" from "${tag()}"`}
-                          title={`Remove from "${tag()}"`}
-                          onClick={() =>
-                            void picker.edit(() => setSceneTag(scene.name, tag(), false))
-                          }
-                        >
-                          ×
-                        </button>
-                      )}
-                    </Show>
-                  </div>
-                </Show>
-              </div>
-            )}
-          </For>
-        </div>
-      </div>
     </section>
   );
 }
