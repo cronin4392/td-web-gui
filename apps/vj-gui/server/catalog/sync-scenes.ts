@@ -8,8 +8,8 @@ const root = scenesRoot(process.env);
 
 const db = openScenesDb(dbPath);
 try {
-  const { scenes, tags } = syncScenes(db, root);
-  console.log(`synced ${scenes} scenes (${tags} tag rows) from ${root} -> ${dbPath}`);
+  const { scenes } = syncScenes(db, root);
+  console.log(`synced ${scenes} scenes from ${root} -> ${dbPath}`);
 } finally {
   db.close();
 }

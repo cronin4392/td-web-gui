@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchCatalog, setSceneHidden, syncCatalog } from './scenes-api';
+import {
+  createTag,
+  deleteTag,
+  fetchCatalog,
+  renameTag,
+  setSceneHidden,
+  setSceneTag,
+  setTagOrder,
+  syncCatalog,
+} from './scenes-api';
 import type { Catalog, Scene } from '@domain/catalog/scene';
 
 const SCENE: Scene = {
@@ -114,5 +123,66 @@ describe('setSceneHidden', () => {
       vi.fn().mockResolvedValue(new Response('no such scene', { status: 400 })),
     );
     await expect(setSceneHidden('Gone', true)).rejects.toThrow('no such scene');
+  });
+});
+
+describe('tag mutations', () => {
+  function posted(): { url: string; body: unknown } {
+    const fetchMock = vi.mocked(fetch);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    return { url, body: JSON.parse(init.body as string) };
+  }
+
+  function stub(): void {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(CATALOG)));
+  }
+
+  it('posts a create to its own route', async () => {
+    stub();
+    await expect(createTag('neon')).resolves.toEqual(CATALOG);
+    expect(posted()).toEqual({ url: '/api/scenes/tags/create', body: { name: 'neon' } });
+  });
+
+  it('posts a rename with both names', async () => {
+    stub();
+    await renameTag('neon', 'glow');
+    expect(posted()).toEqual({
+      url: '/api/scenes/tags/rename',
+      body: { name: 'neon', to: 'glow' },
+    });
+  });
+
+  it('posts a delete', async () => {
+    stub();
+    await deleteTag('neon');
+    expect(posted()).toEqual({ url: '/api/scenes/tags/delete', body: { name: 'neon' } });
+  });
+
+  it('posts the whole list to reorder', async () => {
+    stub();
+    await setTagOrder(['b', 'a']);
+    expect(posted()).toEqual({ url: '/api/scenes/tags/order', body: { names: ['b', 'a'] } });
+  });
+
+  it('posts a scene-tag membership like a flag', async () => {
+    stub();
+    await setSceneTag('AudioSpectrum', 'neon', true);
+    expect(posted()).toEqual({
+      url: '/api/scenes/tagged',
+      body: { scene: 'AudioSpectrum', tag: 'neon', value: true },
+    });
+  });
+
+  it('rejects with the server message rather than falling back', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('tag "neon" already exists', { status: 500 })),
+    );
+    await expect(createTag('neon')).rejects.toThrow('tag "neon" already exists');
+  });
+
+  it('rejects when the response fails shape validation', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ scenes: [{}], tags: [] })));
+    await expect(deleteTag('neon')).rejects.toThrow('shape validation');
   });
 });

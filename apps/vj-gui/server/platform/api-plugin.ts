@@ -29,6 +29,15 @@ export function readBody(req: IncomingMessage): Promise<string> {
 
 const SYNC_PATH = '/sync';
 
+/**
+ * One mutation route, in two phases. Reading the body is the caller's chance to
+ * reject it — throwing here is a 400 and the message reaches the client — and
+ * the thunk it returns is the mutation itself, where a throw is a 500. Splitting
+ * them is what keeps "you sent nonsense" and "the catalog moved under you"
+ * distinguishable on a route the handler knows nothing else about.
+ */
+export type CatalogAction = (body: unknown) => (db: DatabaseSync) => void;
+
 interface FlagRequest {
   name: string;
   value: boolean;
@@ -40,18 +49,34 @@ function isFlagRequest(x: unknown): x is FlagRequest {
   return typeof body.name === 'string' && body.name !== '' && typeof body.value === 'boolean';
 }
 
+function flagAction(set: (db: DatabaseSync, name: string, value: boolean) => void): CatalogAction {
+  return (body) => {
+    if (!isFlagRequest(body)) throw new Error('expected { name: string, value: boolean }');
+    return (db) => set(db, body.name, body.value);
+  };
+}
+
 /** `GET ''` reads the catalog, `POST /sync` reconciles it against disk, and
- * `POST /<flag>` sets one authored flag on one entry by name, for each flag the
- * catalog declares; each POST answers with the catalog that resulted, so the
- * client needs no second read. Anything else falls through to the next
- * middleware. */
+ * `POST /<flag>` or `POST /<action>` mutates it — flags being the special case of
+ * an action whose body is one named boolean. Each POST answers with the catalog
+ * that resulted, so the client needs no second read; that promise is the reason
+ * every route lands here rather than in a plugin of its own. Anything else falls
+ * through to the next middleware. */
 export function catalogApiHandler(config: {
   read: (db: DatabaseSync) => unknown;
   sync: (db: DatabaseSync) => void;
   flags: Record<string, (db: DatabaseSync, name: string, value: boolean) => void>;
+  actions?: Record<string, CatalogAction>;
 }): (getDb: () => DatabaseSync) => Connect.NextHandleFunction {
-  // A Map, so a route named after an Object.prototype member can't resolve.
-  const flags = new Map(Object.entries(config.flags));
+  // One Map, so two routes can never share a key and resolve by check order, and
+  // so a route named after an Object.prototype member can't resolve at all.
+  const routes = new Map<string, CatalogAction>([
+    ...Object.entries(config.flags).map(([name, set]): [string, CatalogAction] => [
+      name,
+      flagAction(set),
+    ]),
+    ...Object.entries(config.actions ?? {}),
+  ]);
 
   return (getDb) => async (req, res, next) => {
     function respond(work: (db: DatabaseSync) => unknown): void {
@@ -72,21 +97,17 @@ export function catalogApiHandler(config: {
       return;
     }
 
-    const setFlag = req.method === 'POST' ? flags.get(path.replace(/^\//, '')) : undefined;
-    if (setFlag) {
-      let body: unknown;
+    const action = req.method === 'POST' ? routes.get(path.replace(/^\//, '')) : undefined;
+    if (action) {
+      let mutate: (db: DatabaseSync) => void;
       try {
-        body = JSON.parse(await readBody(req));
-      } catch {
-        sendError(res, 400, 'malformed JSON');
-        return;
-      }
-      if (!isFlagRequest(body)) {
-        sendError(res, 400, 'expected { name: string, value: boolean }');
+        mutate = action(JSON.parse(await readBody(req)));
+      } catch (err) {
+        sendError(res, 400, err instanceof SyntaxError ? 'malformed JSON' : err);
         return;
       }
       respond((db) => {
-        setFlag(db, body.name, body.value);
+        mutate(db);
         return config.read(db);
       });
       return;

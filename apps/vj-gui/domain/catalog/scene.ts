@@ -15,14 +15,16 @@ export interface Scene {
 }
 
 /** `folder` never reaches the client — `path` and `thumbnail` are derived from
- * it here, and nothing downstream needs the raw location. `hidden` is optional
- * because a Scan has no way to know it; only a catalog read does. */
-export type SceneFields = Omit<Scene, 'path' | 'thumbnail' | 'hidden'> & {
+ * it here, and nothing downstream needs the raw location. `hidden` and `tags`
+ * are optional because a Scan has no way to know them: both are authored in the
+ * GUI, so only a catalog read carries them. */
+export type SceneFields = Omit<Scene, 'path' | 'thumbnail' | 'hidden' | 'tags'> & {
   folder: string;
   hidden?: boolean;
+  tags?: string[];
 };
 
-/** `tags` is every tag in use, already in picker order — the ordering lives in
+/** `tags` is every known tag, already in picker order — the ordering lives in
  * the `tags` table's rank, so the client renders the list as given. */
 export interface Catalog {
   scenes: Scene[];
@@ -31,9 +33,10 @@ export interface Catalog {
 
 /** The one place `path` and `thumbnail` are derived, so a scan and a DB read
  * can't disagree about them. */
-export function sceneFrom({ folder, hidden = false, ...fields }: SceneFields): Scene {
+export function sceneFrom({ folder, hidden = false, tags = [], ...fields }: SceneFields): Scene {
   return {
     ...fields,
+    tags,
     hidden,
     path: toxPath(folder, fields.name),
     thumbnail: sceneThumbnailUrl(folder),

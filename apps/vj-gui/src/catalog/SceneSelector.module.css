@@ -20,6 +20,87 @@
     overflow-y: scroll;
   }
 
+  /* Editing puts a delete button, and sometimes a text field, beside a label
+     the reading width was already tight for. */
+  .selector:has(.tags[data-editing='true']) {
+    grid-template-columns: 10rem 1fr;
+  }
+
+  .tagSlot {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+
+    /* The label is the tag; the buttons beside it are not, so it takes the room. */
+    & > label {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &[data-dragging='true'] {
+      opacity: 0.4;
+    }
+
+    /* A scene is hovering: this is the tag it would be filed under. */
+    &[data-dropping='true'] > label {
+      border-color: var(--color-accent);
+      background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+    }
+  }
+
+  .tagName {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tagForm {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tagInput {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-accent);
+    background: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: var(--text-m);
+    color: var(--color-text);
+  }
+
+  .tagDelete {
+    flex-shrink: 0;
+    padding-inline: var(--spacing-s);
+    font-size: var(--text-s);
+    color: var(--color-text-faint);
+
+    &:hover {
+      color: var(--color-danger);
+    }
+  }
+
+  .tagConfirm {
+    flex-shrink: 0;
+    padding-inline: var(--spacing-s);
+    font-size: var(--text-s);
+    color: var(--color-danger);
+  }
+
+  .tagAdd {
+    padding: var(--spacing-s);
+    font-size: var(--text-m);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text);
+    }
+  }
+
   .scenes {
     display: flex;
     min-width: 0;
@@ -88,10 +169,15 @@
     }
   }
 
-  .hide {
+  .cellActions {
     position: absolute;
     top: var(--spacing-s);
     right: var(--spacing-s);
+    display: flex;
+    gap: var(--spacing-s);
+  }
+
+  .action {
     padding: 0 var(--spacing-s);
     border: 1px solid var(--color-border-hover);
     border-radius: var(--radius);
