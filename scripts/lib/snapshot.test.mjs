@@ -270,6 +270,17 @@ describe('restoreDb', () => {
     expect(existsSync(`${path}.restoring`)).toBe(false);
   });
 
+  it('keeps the journal when the database cannot be deleted', () => {
+    const source = make(dbPath('source.db'), [...CATALOG]);
+    const path = dbPath();
+    mkdirSync(path, { recursive: true });
+    const target = writeSnapshot(path, exportSql(source).sql);
+    writeFileSync(`${path}-wal`, 'live', 'utf8');
+
+    expect(() => restoreDb(path, target)).toThrow();
+    expect(existsSync(`${path}-wal`)).toBe(true);
+  });
+
   it('discards a journal left beside the replaced database', () => {
     const path = make(dbPath(), [...CATALOG]);
     const target = writeSnapshot(path, exportSql(path).sql);
