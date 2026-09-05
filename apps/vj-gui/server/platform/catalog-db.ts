@@ -18,23 +18,8 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
   }
 }
 
-/**
- * Folds the write-ahead log back into the `.db` after a write, so the file on
- * disk keeps up with the database.
- *
- * A committed transaction sitting in the `-wal` is invisible to anything that
- * does not read through SQLite: the `.db` copied out on its own opens cleanly,
- * passes `integrity_check`, and is quietly missing the last edits. `db:export`
- * reads through SQLite and so never sees that, but it is manual — between runs
- * the live file is the only copy of authored state, and whatever backs it up
- * likely copies bytes. Writes here are a handful per edit, never a hot path, so
- * paying this each time is cheaper than the silence.
- *
- * PASSIVE, so a concurrent reader is never blocked and the response is never
- * delayed — a log this skips is folded in by the next write. Failure is ignored
- * for the same reason: the mutation already succeeded, and bookkeeping must not
- * turn a good write into a 500.
- */
+/** Keeps the `.db` whole for anything copying it without going through SQLite;
+ * PASSIVE and failure-ignoring because the write itself already succeeded. */
 export function checkpointWal(db: DatabaseSync): void {
   try {
     db.prepare('PRAGMA wal_checkpoint(PASSIVE)').get();
@@ -43,21 +28,15 @@ export function checkpointWal(db: DatabaseSync): void {
   }
 }
 
-/** `data/<filename>` under the package root, or `envVar` when set. Both `pnpm
- * dev` and the `db:*` scripts are run from `apps/vj-gui`, so cwd is the one
- * derivation — a second one could point a CLI at a different file.
- *
- * Which makes the wrong cwd the whole risk: `openDb` creates what is missing, so
- * running from the repo root used to seed an empty catalog there and serve it as
- * if it were yours. `data/snapshots/` is tracked, so its absence means cwd is
- * wrong rather than the catalog being new — the one case worth refusing. */
+/** `data/snapshots/` is tracked, so its absence means the cwd is wrong rather
+ * than the database being new — the one case worth refusing rather than seeding. */
 export function catalogDbPath(envVar: string, filename: string): string {
   const override = process.env[envVar];
   if (override) return resolve(override);
   const dir = resolve(process.cwd(), 'data');
   if (!existsSync(join(dir, 'snapshots'))) {
     throw new Error(
-      `No catalog directory at ${dir}. Run this from apps/vj-gui, or set ${envVar} to the database path.`,
+      `No snapshots directory under ${dir}. Run this from apps/vj-gui, or set ${envVar} to the database path.`,
     );
   }
   return join(dir, filename);

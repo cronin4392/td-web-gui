@@ -1,21 +1,7 @@
 /**
- * Folds each named SQLite database's write-ahead log back into the `.db` file,
- * so the file on its own is a complete, committable snapshot.
- *
- * These catalogs run in WAL mode, where a committed transaction lives in the
- * `-wal` until a checkpoint moves it. A `.db` copied out from under an
- * un-checkpointed WAL still opens cleanly and still passes an integrity check —
- * it is simply missing the most recent writes, with nothing to say so. That
- * silence is the reason this is enforced rather than documented. Committing the
- * `-wal` instead is not an option: it is machine-local, and a `.db`/`-wal` pair
- * captured at two different instants is a corrupt combination.
- *
- * Safe to run against a live dev server. WAL writers only ever append to the
- * `-wal`; the `.db` itself is touched during a checkpoint and at no other time,
- * so once this returns, the file is stable even as the server keeps writing.
- *
- * Exits non-zero rather than letting a torn snapshot through — see `pnpm
- * db:checkpoint` and the `lint-staged` entry that calls this on commit.
+ * A `.db` copied out from under an un-checkpointed WAL still opens cleanly and
+ * still passes an integrity check — it is simply missing the most recent writes,
+ * with nothing to say so. Exits non-zero rather than let that silence through.
  */
 
 import { DatabaseSync } from 'node:sqlite';

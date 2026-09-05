@@ -1,11 +1,3 @@
-/**
- * Rebuilds a live `.db` from its `data/snapshots/*.sql` counterpart — the other
- * half of `db-export.mjs`, and the reason that export can be trusted as a backup.
- *
- * Refuses to clobber an existing database without `--force`, because the live
- * file is usually the newer one.
- */
-
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { relative, sep } from 'node:path';
