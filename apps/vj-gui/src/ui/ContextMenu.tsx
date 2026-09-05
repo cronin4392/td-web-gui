@@ -1,4 +1,4 @@
-import { For, createSignal, type JSX } from 'solid-js';
+import { For, createSignal, onCleanup, type JSX } from 'solid-js';
 import { menuPosition, type MenuItems } from './menu';
 import styles from './ContextMenu.module.css';
 
@@ -22,8 +22,39 @@ export function createContextMenu(): ContextMenu {
   const [items, setItems] = createSignal<MenuItems>([]);
   let menu!: HTMLDivElement;
   let opener: HTMLElement | null = null;
+  /** The press that dismissed the menu is spent on the dismissal: clicking out
+   * through a scene tile closes the menu and does not also load the scene. */
+  let dismissing = false;
 
   const actions = () => [...menu.querySelectorAll<HTMLButtonElement>('button:not([disabled])')];
+
+  // `manual` rather than `auto` precisely because auto's light dismiss fires on
+  // pointerdown and lets the click through; owning the dismissal is what lets
+  // the click that caused it be swallowed below. The cost is Escape, which
+  // `onKeyDown` handles instead.
+  function dismissOnOutsidePress(event: PointerEvent): void {
+    dismissing = false;
+    if (!menu.matches(':popover-open') || event.composedPath().includes(menu)) return;
+    dismissing = true;
+    menu.hidePopover();
+  }
+
+  // Capture on the document, so it lands before Solid's delegated handlers and
+  // before the element's own. A press that never becomes a click — a drag —
+  // leaves the flag set, which the next press clears before its own click.
+  function swallowDismissingClick(event: MouseEvent): void {
+    if (!dismissing) return;
+    dismissing = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  document.addEventListener('pointerdown', dismissOnOutsidePress, true);
+  document.addEventListener('click', swallowDismissingClick, true);
+  onCleanup(() => {
+    document.removeEventListener('pointerdown', dismissOnOutsidePress, true);
+    document.removeEventListener('click', swallowDismissingClick, true);
+  });
 
   function open(event: MouseEvent, next: MenuItems): void {
     // An item with nothing to offer lets the event through to whatever menu the
@@ -47,10 +78,17 @@ export function createContextMenu(): ContextMenu {
     );
     menu.style.left = `${at.x}px`;
     menu.style.top = `${at.y}px`;
-    actions()[0]?.focus();
+    // Falls back to the menu itself so Escape has somewhere to land even when
+    // every item is disabled.
+    (actions()[0] ?? menu).focus();
   }
 
   function onKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      menu.hidePopover();
+      return;
+    }
     const list = actions();
     if (list.length === 0) return;
     const at = list.indexOf(document.activeElement as HTMLButtonElement);
@@ -85,7 +123,7 @@ export function createContextMenu(): ContextMenu {
           opener = null;
         });
       }}
-      popover="auto"
+      popover="manual"
       role="menu"
       tabIndex={-1}
       class={styles.menu}
