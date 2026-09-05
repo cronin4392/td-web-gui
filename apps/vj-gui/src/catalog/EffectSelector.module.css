@@ -59,11 +59,10 @@
   .effect {
     flex: 1;
     min-width: 0;
-    padding: var(--spacing-s) var(--spacing-m);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     background: var(--color-surface);
-    font-size: var(--text-m);
     text-align: left;
     color: var(--color-text);
 
@@ -86,7 +85,7 @@
 
   .favorite {
     flex-shrink: 0;
-    padding-inline: var(--spacing-m);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border-hover);
     border-radius: var(--radius);
     font-size: var(--text-m);
@@ -105,7 +104,7 @@
 
   .hide {
     flex-shrink: 0;
-    padding: var(--spacing-s) var(--spacing-m);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border-hover);
     border-radius: var(--radius);
     font-size: var(--text-s);

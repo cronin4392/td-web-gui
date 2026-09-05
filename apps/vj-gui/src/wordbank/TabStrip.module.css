@@ -43,7 +43,7 @@
   }
 
   .delete {
-    padding-inline: var(--spacing-s);
+    padding: var(--spacing-m);
     font-size: var(--text-s);
     color: var(--color-text-faint);
 

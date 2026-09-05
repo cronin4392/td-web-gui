@@ -11,7 +11,14 @@
   body {
     background: var(--color-canvas);
     color: var(--color-text);
-    font-family:
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-mono);
+    font-weight: var(--font-weight-normal);
+    /* letter-spacing: 0.08em; */
+    letter-spacing: 0.07em;
+  }
+
+  * {
+    text-transform: uppercase;
+    text-box: trim-both cap alphabetic;
   }
 }
