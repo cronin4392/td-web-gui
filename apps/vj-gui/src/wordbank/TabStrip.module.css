@@ -42,33 +42,6 @@
     color: var(--color-text);
   }
 
-  .delete {
-    padding-inline: var(--spacing-s);
-    font-size: var(--text-s);
-    color: var(--color-text-faint);
-
-    &:hover {
-      color: var(--color-danger);
-    }
-
-    &:disabled {
-      cursor: not-allowed;
-      opacity: 0.3;
-    }
-  }
-
-  .confirm {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-s);
-    padding-left: var(--spacing-s);
-    font-size: var(--text-s);
-  }
-
-  .confirmYes {
-    color: var(--color-danger);
-  }
-
   .add {
     padding: var(--spacing-s) var(--spacing-m);
     font-size: var(--text-m);

@@ -1,20 +1,7 @@
-/**
- * Tab strip (TEXT_SELECTOR.md §3 "Tab strip"): a pinned "Recent" tab first,
- * backed by `store.state.recent` rather than `store.state.lists` — no
- * rename/delete/drag-reorder for it — followed by the user's phrase-list
- * tabs: activate, add, inline rename, delete behind a confirm (disabled on
- * the last tab), and drag-reorder — a separate drag surface from phrase
- * reordering (keyed on a different custom mime, so a phrase dragged over the
- * strip is never a valid drop here and vice versa).
- *
- * Accessibility: `role="tablist"` / `role="tab"` / `aria-selected`, with
- * roving `tabIndex` and Left/Right arrow-key navigation across all tabs,
- * pinned one included.
- */
-
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { TAB_MIME } from './dnd';
+import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, hasDragMime } from '@/ui/dnd';
 import styles from './TabStrip.module.css';
 
@@ -25,14 +12,28 @@ export interface TabStripProps {
 export function TabStrip(props: TabStripProps): JSX.Element {
   const { state } = props.store;
   const [renamingId, setRenamingId] = createSignal<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = createSignal<string | null>(null);
   const [dragIndex, setDragIndex] = createSignal<number | null>(null);
   const tabRefs = new Map<string, HTMLButtonElement>();
+  const menu = createContextMenu();
 
   function commitRename(id: string, value: string) {
     const trimmed = value.trim();
     if (trimmed) props.store.renameList(id, trimmed);
     setRenamingId(null);
+  }
+
+  function tabMenu(id: string): MenuItems {
+    return [
+      { label: 'Rename', onSelect: () => setRenamingId(id) },
+      {
+        label: 'Delete',
+        danger: true,
+        // The store refuses to drop the last list; say so here rather than
+        // offering an action that quietly does nothing.
+        disabled: state.lists.length <= 1,
+        onSelect: () => props.store.deleteList(id),
+      },
+    ];
   }
 
   function onTabKeyDown(event: KeyboardEvent, id: string) {
@@ -90,6 +91,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
               props.store.reorderLists(from, adjustReorderTarget(from, i()));
             }}
             onDragEnd={() => setDragIndex(null)}
+            onContextMenu={(event) => menu.open(event, tabMenu(tab.id))}
           >
             <Show
               when={renamingId() === tab.id}
@@ -103,7 +105,6 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   aria-controls={`tabpanel-${tab.id}`}
                   tabIndex={state.selectedListId === tab.id ? 0 : -1}
                   onClick={() => props.store.selectList(tab.id)}
-                  onDblClick={() => setRenamingId(tab.id)}
                   onKeyDown={(event) => onTabKeyDown(event, tab.id)}
                   class={tabClass(tab.id)}
                 >
@@ -137,40 +138,6 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                 />
               </form>
             </Show>
-
-            <Show
-              when={confirmDeleteId() === tab.id}
-              fallback={
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-label={`Delete list "${tab.name}"`}
-                  disabled={state.lists.length <= 1}
-                  onClick={() => setConfirmDeleteId(tab.id)}
-                  class={styles.delete}
-                >
-                  ×
-                </button>
-              }
-            >
-              <span class={styles.confirm}>
-                Delete?
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  class={styles.confirmYes}
-                  onClick={() => {
-                    props.store.deleteList(tab.id);
-                    setConfirmDeleteId(null);
-                  }}
-                >
-                  Yes
-                </button>
-                <button type="button" onClick={() => setConfirmDeleteId(null)}>
-                  No
-                </button>
-              </span>
-            </Show>
           </div>
         )}
       </For>
@@ -182,6 +149,8 @@ export function TabStrip(props: TabStripProps): JSX.Element {
       >
         +
       </button>
+
+      {menu.element}
     </div>
   );
 }
