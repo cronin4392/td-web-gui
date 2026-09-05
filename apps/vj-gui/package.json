@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "pnpm -w db:import --if-missing",
+    "predev": "pnpm -w db:restore --if-missing",
     "dev": "vite",
     "build": "vite build",
+    "prepreview": "pnpm -w db:restore --if-missing",
     "preview": "vite preview",
     "db:scenes": "vite-node server/catalog/sync-scenes.ts",
     "db:effects": "vite-node server/catalog/sync-effects.ts",

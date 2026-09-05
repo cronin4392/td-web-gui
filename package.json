@@ -9,15 +9,15 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm -r test",
+    "test": "vitest run && pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write . && pnpm format:py",
     "format:check": "prettier --check . && pnpm format:py:check",
     "format:py": "ruff format .",
     "format:py:check": "ruff format --check .",
     "db:checkpoint": "node scripts/checkpoint-sqlite.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
-    "db:export": "node scripts/db-export.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
-    "db:import": "node scripts/db-import.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
+    "db:export": "node scripts/db-export.mjs --env apps/vj-gui/.env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
+    "db:restore": "node scripts/db-restore.mjs --env apps/vj-gui/.env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
     "prepare": "husky install"
   },
   "lint-staged": {
@@ -28,6 +28,7 @@
     "husky": "^8.0.0",
     "lint-staged": "^17.2.0",
     "prettier": "^3.9.6",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.6"
   }
 }
