@@ -6,10 +6,11 @@ import { snapshotPath } from './db-export.mjs';
 
 const argv = process.argv.slice(2);
 const force = argv.includes('--force');
-const paths = argv.filter((arg) => arg !== '--force');
+const ifMissing = argv.includes('--if-missing');
+const paths = argv.filter((arg) => arg !== '--force' && arg !== '--if-missing');
 
 if (paths.length === 0) {
-  console.error('usage: node scripts/db-import.mjs [--force] <db>...');
+  console.error('usage: node scripts/db-import.mjs [--force] [--if-missing] <db>...');
   process.exit(2);
 }
 
@@ -28,6 +29,9 @@ for (const path of paths) {
     failed = true;
     continue;
   }
+  // Quiet and successful, so `predev` can run this on every start without
+  // either failing on the second one or narrating three skips each time.
+  if (existsSync(path) && ifMissing) continue;
   if (existsSync(path) && !force) {
     console.error(`✗ ${show(path)}: already exists — pass --force to replace it`);
     failed = true;

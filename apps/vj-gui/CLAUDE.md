@@ -55,9 +55,11 @@ thing. They read SQLite through `node:sqlite`.
   rewritten as you work — tracking it left `git status` unable to separate an
   edit from a background write, and turned every stash and checkout into a fight
   with a moving, often reader-locked binary.
-- **A fresh clone has no `.db` at all — run `pnpm -w db:import` first.** Without
-  it the server seeds empty catalogs and an empty wordbank, silently, and the
-  tracked snapshots go unread.
+- **A fresh clone has no `.db` at all, so `dev` imports one.** `predev` runs
+  `db:import --if-missing`, which fills in absent databases and leaves existing
+  ones alone, quietly and without failing on the second run. Nothing else is
+  load-bearing enough to import for you: `catalogDbPath`'s guard can't catch this
+  case, because `data/snapshots/` is tracked and so is present in every clone.
 - **`pnpm -w db:export` is manual by design and stays that way.** Nothing runs it
   for you, so an unexported change is an unbacked-up one. It refuses twice rather
   than write nothing over a good snapshot: once for a database that isn't there,

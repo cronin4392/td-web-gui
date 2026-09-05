@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm -w db:import --if-missing",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
