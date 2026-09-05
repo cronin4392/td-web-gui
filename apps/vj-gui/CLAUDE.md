@@ -55,10 +55,14 @@ thing. They read SQLite through `node:sqlite`.
   rewritten as you work — tracking it left `git status` unable to separate an
   edit from a background write, and turned every stash and checkout into a fight
   with a moving, often reader-locked binary.
-- **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
-  for you, so an unexported change is an unbacked-up one. `pnpm db:import`
-  rebuilds a `.db` from its snapshot and will not overwrite an existing file
-  without `--force`.
+- **A fresh clone has no `.db` at all — run `pnpm -w db:import` first.** Without
+  it the server seeds empty catalogs and an empty wordbank, silently, and the
+  tracked snapshots go unread.
+- **`pnpm -w db:export` is manual by design and stays that way.** Nothing runs it
+  for you, so an unexported change is an unbacked-up one. It refuses a database
+  that isn't there rather than writing an empty one over a good snapshot.
+  `pnpm -w db:import` rebuilds a `.db` from its snapshot and will not overwrite
+  an existing file without `--force`. Both are root scripts — hence the `-w`.
 - Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
   key. A re-export with nothing changed produces no diff, which is the only
   reason the diffs are worth reading. Don't add anything per-run to them.
@@ -67,7 +71,8 @@ thing. They read SQLite through `node:sqlite`.
   whatever takes its place and silently undoes the import.
 - `checkpointWal` on every write path predates this and was justified by keeping
   `git status` honest. That reason is gone; it is now only about readers outside
-  SQLite seeing recent writes. `pnpm db:checkpoint` still folds a log by hand.
+  SQLite seeing recent writes. `pnpm -w db:checkpoint` still folds a log by hand,
+  and nothing enforces it on commit any more.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes

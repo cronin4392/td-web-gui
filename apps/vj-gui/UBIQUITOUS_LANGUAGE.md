@@ -24,6 +24,7 @@ relative to `apps/vj-gui`.
 | **Effect catalog** | Every Effect the GUI can offer, in name order                                          | Effect library, effect list |
 | **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned            | Refresh, reindex, import    |
 | **Scan**           | Reading the folders on disk into catalog rows, without touching a database             | Crawl, walk, discover       |
+| **Snapshot**       | The tracked `data/snapshots/*.sql` text a catalog or the Wordbank is exported to       | Dump, backup, fixture, seed |
 | **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned      | Category, genre, keyword    |
 | **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                    | Priority, order, weight     |
 | **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned            | Disabled, archived, deleted |
