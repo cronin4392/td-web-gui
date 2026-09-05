@@ -28,11 +28,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# SQLite journals. The catalogs themselves are tracked, but these two are not:
-# `-shm` is a shared-memory index meaningless outside the running process, and
-# `-wal` is machine-local — a `.db`/`-wal` pair captured at two different
-# instants is a corrupt combination. `scripts/checkpoint-sqlite.mjs` folds the
-# log back into the `.db` on commit so the tracked file stands alone.
+# SQLite catalogs. The live databases are untracked: the app rewrites them as you
+# work, so tracking them left `git status` unable to tell an edit from a
+# background write, and made every stash, checkout and branch switch a fight with
+# a moving — often reader-locked — binary. `pnpm db:export` writes the snapshot
+# under `apps/vj-gui/data/snapshots/`, and that text is what is tracked instead.
+apps/vj-gui/data/*.db
 *.db-shm
 *.db-wal
 

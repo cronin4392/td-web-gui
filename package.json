@@ -16,12 +16,13 @@
     "format:py": "ruff format .",
     "format:py:check": "ruff format --check .",
     "db:checkpoint": "node scripts/checkpoint-sqlite.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
+    "db:export": "node scripts/db-export.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
+    "db:import": "node scripts/db-import.mjs apps/vj-gui/data/scenes.db apps/vj-gui/data/effects.db apps/vj-gui/data/wordbank.db",
     "prepare": "husky install"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,css,md,yml,yaml}": "prettier --write",
-    "*.py": "ruff format",
-    "**/data/*.db": "node scripts/checkpoint-sqlite.mjs"
+    "*.py": "ruff format"
   },
   "devDependencies": {
     "husky": "^8.0.0",

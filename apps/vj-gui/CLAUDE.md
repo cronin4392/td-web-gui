@@ -50,22 +50,24 @@ published, and what they support is not this app's call.
 there is no server to start separately — `pnpm --filter vj-gui dev` is the whole
 thing. They read SQLite through `node:sqlite`.
 
-- `data/*.db` is **tracked**; its `-wal`/`-shm` journals are not. A catalog holds
-  authored state a Sync cannot rederive, so the file is the only copy of it —
-  `pnpm db:scenes` / `pnpm db:effects` rebuild the scanned columns around it.
-- **A write only counts once its WAL is checkpointed**, which is why every write
-  path calls `checkpointWal`. In WAL mode a committed transaction sits in
-  `data/*.db-wal`, where nothing outside SQLite can see it: the `.db` staged
-  without it opens cleanly, passes `integrity_check`, and is quietly missing it,
-  and `git status` calls a database whose every tag just changed unmodified.
-  Checkpointing on each write is what keeps `git status` honest; the pre-commit
-  hook re-runs `scripts/checkpoint-sqlite.mjs` on any staged `.db` and fails the
-  commit if it cannot get a clean one, and `pnpm db:checkpoint` does it by hand.
-  Nothing else in the repo makes this class of mistake loud, so don't route
-  around either.
-- A tracked `.db` shows as modified more often than its contents change —
-  SQLite reuses pages, so a round trip that ends where it started still rewrites
-  the file. Check what actually moved before committing one; the diff cannot.
+- `data/*.db` is **untracked**; `data/snapshots/*.sql` is the tracked copy. A
+  catalog holds authored state a Sync cannot rederive, but the live file is
+  rewritten as you work — tracking it left `git status` unable to separate an
+  edit from a background write, and turned every stash and checkout into a fight
+  with a moving, often reader-locked binary.
+- **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
+  for you, so an unexported change is an unbacked-up one. `pnpm db:import`
+  rebuilds a `.db` from its snapshot and will not overwrite an existing file
+  without `--force`.
+- Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
+  key. A re-export with nothing changed produces no diff, which is the only
+  reason the diffs are worth reading. Don't add anything per-run to them.
+- `-wal`/`-shm` are still machine-local and still ignored. `db:import` deletes
+  them when it replaces a file: a journal left from the old database replays into
+  whatever takes its place and silently undoes the import.
+- `checkpointWal` on every write path predates this and was justified by keeping
+  `git status` honest. That reason is gone; it is now only about readers outside
+  SQLite seeing recent writes. `pnpm db:checkpoint` still folds a log by hand.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes

@@ -22,17 +22,18 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
  * Folds the write-ahead log back into the `.db` after a write, so the file on
  * disk keeps up with the database.
  *
- * These files are tracked in git, and a committed transaction sitting in the
- * `-wal` is invisible from outside SQLite: `git status` reports a database whose
- * every tag just changed as unmodified, so there is nothing to stage and nothing
- * to warn you. Writes here are a handful per edit, never a hot path, so paying
- * this each time is cheaper than the silence.
+ * A committed transaction sitting in the `-wal` is invisible to anything that
+ * does not read through SQLite: the `.db` copied out on its own opens cleanly,
+ * passes `integrity_check`, and is quietly missing the last edits. `db:export`
+ * reads through SQLite and so never sees that, but it is manual — between runs
+ * the live file is the only copy of authored state, and whatever backs it up
+ * likely copies bytes. Writes here are a handful per edit, never a hot path, so
+ * paying this each time is cheaper than the silence.
  *
  * PASSIVE, so a concurrent reader is never blocked and the response is never
- * delayed — a log this skips is folded in by the next write, and the pre-commit
- * hook is what actually guarantees a commit is whole. Failure is ignored for the
- * same reason: the mutation already succeeded, and bookkeeping must not turn a
- * good write into a 500.
+ * delayed — a log this skips is folded in by the next write. Failure is ignored
+ * for the same reason: the mutation already succeeded, and bookkeeping must not
+ * turn a good write into a 500.
  */
 export function checkpointWal(db: DatabaseSync): void {
   try {
