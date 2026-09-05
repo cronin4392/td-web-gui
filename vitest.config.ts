@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitest/config';
 
-// The workspace root holds no source of its own — only the `scripts/` CLIs the
-// apps share, which run in Node and are written as plain `.mjs`.
+// The `scripts/` CLIs are workspace-root code, with no package of their own to run them.
 export default defineConfig({
   test: {
     environment: 'node',
