@@ -21,7 +21,7 @@
     "prepare": "husky install"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,css,md,yml,yaml}": "prettier --write",
+    "*.{js,mjs,jsx,ts,tsx,json,css,md,yml,yaml}": "prettier --write",
     "*.py": "ruff format"
   },
   "devDependencies": {
