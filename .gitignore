@@ -36,6 +36,7 @@ Thumbs.db
 apps/vj-gui/data/*.db
 *.db-shm
 *.db-wal
+*.importing
 
 # Embody / Envoy (auto-managed)
 Backup/
