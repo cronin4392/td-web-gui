@@ -73,7 +73,7 @@
 
   .tagDelete {
     flex-shrink: 0;
-    padding-inline: var(--spacing-s);
+    padding: var(--spacing-m);
     font-size: var(--text-s);
     color: var(--color-text-faint);
 
@@ -84,7 +84,7 @@
 
   .tagConfirm {
     flex-shrink: 0;
-    padding-inline: var(--spacing-s);
+    padding: var(--spacing-m);
     font-size: var(--text-s);
     color: var(--color-danger);
   }
@@ -195,7 +195,7 @@
   }
 
   .action {
-    padding: 0 var(--spacing-s);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border-hover);
     border-radius: var(--radius);
     background: var(--color-overlay);

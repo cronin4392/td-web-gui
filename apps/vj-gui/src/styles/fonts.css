@@ -1,0 +1,10 @@
+/* Weights are pulled in one file each: @fontsource's bare package entry ships
+   only 400. JetBrains Mono is the one face used across the whole UI. */
+@import '@fontsource/jetbrains-mono/200.css';
+@import '@fontsource/jetbrains-mono/300.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/400-italic.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+@import '@fontsource/jetbrains-mono/800.css';

@@ -18,12 +18,8 @@
 
   .title {
     min-width: 0;
-    text-box: trim-both cap alphabetic;
-    font-family: var(--font-mono);
     font-size: var(--text-s);
-    font-weight: 400;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    font-weight: var(--font-weight-normal);
     white-space: nowrap;
     color: var(--color-text-muted);
   }

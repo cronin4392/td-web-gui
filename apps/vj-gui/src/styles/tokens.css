@@ -20,7 +20,7 @@
     --color-accent: var(--blue-400);
     /* Tinted surface, not a fill: the selected panel is the largest coloured area in
        the GUI, and it carries the accent-coloured level bar and radios on top. */
-    --color-selected: color-mix(in oklab, var(--color-accent) 30%, var(--color-surface));
+    --color-selected: color-mix(in oklab, var(--color-accent) 70%, var(--color-surface));
     --color-danger: var(--red-400);
 
     --spacing-s: 0.25rem;
@@ -31,8 +31,9 @@
     --text-m: 1rem;
     --text-l: 1.5rem;
 
-    --font-weight-bold: 600;
-    --font-mono: ui-monospace, monospace;
+    --font-weight-normal: 200;
+    --font-weight-bold: 500;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --radius: 0.25rem;
   }
 }
