@@ -1,15 +1,11 @@
-/**
- * A `.db` copied out from under an un-checkpointed WAL still opens cleanly and
- * still passes an integrity check — it is simply missing the most recent writes,
- * with nothing to say so. Exits non-zero rather than let that silence through.
- */
+// A `.db` read under an un-checkpointed WAL opens cleanly and passes an integrity
+// check while missing recent writes, so this exits non-zero rather than stay quiet.
 
 import { DatabaseSync } from 'node:sqlite';
 import { statSync } from 'node:fs';
 import { relative } from 'node:path';
 
-/** SQLite answers a checkpoint on a non-WAL database with -1s, which is a pass:
- * there was no log to fold in. */
+// SQLite answers a checkpoint on a non-WAL database with -1s: a pass, no log to fold in.
 function checkpoint(path) {
   const db = new DatabaseSync(path);
   try {
@@ -36,9 +32,7 @@ if (paths.length === 0) {
 let failed = false;
 for (const path of paths) {
   const name = relative(process.cwd(), path).replace(/\\/g, '/');
-  // Measured up front: a successful TRUNCATE resets the pragma's own counters
-  // to zero, so its result cannot tell you whether it just moved 150KB or found
-  // nothing to do.
+  // Measured up front: a successful TRUNCATE zeroes the counters its own result reports.
   const before = walBytes(path);
   let result;
   try {
@@ -49,8 +43,7 @@ for (const path of paths) {
     continue;
   }
 
-  // `busy` is the blocker worth naming: another connection held a read the
-  // checkpoint could not get past, so frames are still stranded in the log.
+  // `busy` means a reader blocked the checkpoint, so frames are stranded in the log.
   const remaining = walBytes(path);
   if (result.busy !== 0 || remaining > 0) {
     console.error(

@@ -18,8 +18,7 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
   }
 }
 
-/** Keeps the `.db` whole for anything copying it without going through SQLite;
- * PASSIVE and failure-ignoring because the write itself already succeeded. */
+// PASSIVE and failure-ignoring: the write already succeeded; this only serves outside readers.
 export function checkpointWal(db: DatabaseSync): void {
   try {
     db.prepare('PRAGMA wal_checkpoint(PASSIVE)').get();
@@ -28,8 +27,7 @@ export function checkpointWal(db: DatabaseSync): void {
   }
 }
 
-/** `data/snapshots/` is tracked, so its absence means the cwd is wrong rather
- * than the database being new — the one case worth refusing rather than seeding. */
+// `data/snapshots/` is tracked, so its absence means a wrong cwd, not a new database.
 export function catalogDbPath(envVar: string, filename: string): string {
   const override = process.env[envVar];
   if (override) return resolve(override);
