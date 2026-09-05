@@ -99,15 +99,15 @@ describe('loadTox', () => {
   });
 });
 
-describe('editing', () => {
+describe('showHidden', () => {
   it('starts off and toggles', () => {
     const p = picker();
 
-    expect(p.editing()).toBe(false);
-    p.toggleEditing();
-    expect(p.editing()).toBe(true);
-    p.toggleEditing();
-    expect(p.editing()).toBe(false);
+    expect(p.showHidden()).toBe(false);
+    p.toggleShowHidden();
+    expect(p.showHidden()).toBe(true);
+    p.toggleShowHidden();
+    expect(p.showHidden()).toBe(false);
   });
 });
 

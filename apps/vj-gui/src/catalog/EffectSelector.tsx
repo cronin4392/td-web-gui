@@ -10,6 +10,7 @@ import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 import { PanelHeader } from '@/ui/PanelHeader';
+import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import styles from './EffectSelector.module.css';
 
 export function EffectSelector(): JSX.Element {
@@ -20,17 +21,18 @@ export function EffectSelector(): JSX.Element {
     initialValue: [],
     load: loadTox,
   });
+  const menu = createContextMenu();
 
   const [search, setSearch] = createSignal('');
   const query = createMemo(() => search().trim().toLowerCase());
 
   const visibleEffects = createMemo(() => {
     const needle = query();
-    const editing = picker.editing();
+    const showHidden = picker.showHidden();
     return picker
       .catalog()
       .filter(
-        (effect) => (editing || !effect.hidden) && effect.name.toLowerCase().includes(needle),
+        (effect) => (showHidden || !effect.hidden) && effect.name.toLowerCase().includes(needle),
       );
   });
 
@@ -38,12 +40,31 @@ export function EffectSelector(): JSX.Element {
    * the list — an effect stays where the muscle memory left it. The search
    * never touches them: they are the shortcut you reach for instead of typing. */
   const favorites = createMemo(() =>
-    picker.catalog().filter((effect) => effect.favorite && (picker.editing() || !effect.hidden)),
+    picker.catalog().filter((effect) => effect.favorite && (picker.showHidden() || !effect.hidden)),
   );
+
+  function effectMenu(effect: Effect): MenuItems {
+    return [
+      {
+        label: 'Favorite',
+        checked: effect.favorite,
+        onSelect: () => void picker.edit(() => setEffectFavorite(effect.name, !effect.favorite)),
+      },
+      {
+        label: effect.hidden ? 'Show' : 'Hide',
+        checked: effect.hidden,
+        onSelect: () => void picker.edit(() => setEffectHidden(effect.name, !effect.hidden)),
+      },
+    ];
+  }
 
   function row(effect: Effect): JSX.Element {
     return (
-      <div class={styles.row} data-hidden={effect.hidden}>
+      <div
+        class={styles.row}
+        data-hidden={effect.hidden}
+        onContextMenu={(event) => menu.open(event, effectMenu(effect))}
+      >
         <button
           type="button"
           class={styles.effect}
@@ -56,25 +77,6 @@ export function EffectSelector(): JSX.Element {
         >
           {effect.name}
         </button>
-
-        <Show when={picker.editing()}>
-          <button
-            type="button"
-            class={styles.favorite}
-            aria-pressed={effect.favorite}
-            title={effect.favorite ? 'Remove from favorites' : 'Add to favorites'}
-            onClick={() => void picker.edit(() => setEffectFavorite(effect.name, !effect.favorite))}
-          >
-            {effect.favorite ? '★' : '☆'}
-          </button>
-          <button
-            type="button"
-            class={styles.hide}
-            onClick={() => void picker.edit(() => setEffectHidden(effect.name, !effect.hidden))}
-          >
-            {effect.hidden ? 'Show' : 'Hide'}
-          </button>
-        </Show>
       </div>
     );
   }
@@ -84,10 +86,10 @@ export function EffectSelector(): JSX.Element {
       <PanelHeader title="Effects">
         <PickerToolbar
           refreshing={picker.refreshing()}
-          editing={picker.editing()}
+          showHidden={picker.showHidden()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
-          onToggleEditing={() => picker.toggleEditing()}
+          onToggleShowHidden={() => picker.toggleShowHidden()}
         />
       </PanelHeader>
 
@@ -114,6 +116,8 @@ export function EffectSelector(): JSX.Element {
           {row}
         </For>
       </div>
+
+      {menu.element}
     </section>
   );
 }

@@ -5,8 +5,8 @@ export interface CatalogPicker<T> {
   catalog: InitializedResource<T>;
   error: Accessor<string | undefined>;
   refreshing: Accessor<boolean>;
-  editing: Accessor<boolean>;
-  toggleEditing: () => void;
+  showHidden: Accessor<boolean>;
+  toggleShowHidden: () => void;
   refresh: () => Promise<void>;
   loadTox: (path: string) => Promise<void>;
   edit: (work: () => Promise<T>) => Promise<void>;
@@ -19,8 +19,8 @@ function reason(error: unknown): string {
 
 /**
  * The picker state every catalog shares: the fetched catalog, a sync that
- * swaps in the server's result, an edit mode, and a load the caller has already
- * aimed at the right destination. The catalog is served by the dev/preview
+ * swaps in the server's result, a hidden-items toggle, and a load the caller has
+ * already aimed at the right destination. The catalog is served by the dev/preview
  * server, but `config.load` goes straight to TD — the GUI is not in that path.
  * `edit` runs any catalog-returning mutation the caller names: which flag it
  * sets, and what the result means for the view, needs the catalog's shape —
@@ -35,7 +35,7 @@ export function createCatalogPicker<T>(config: {
   const [catalog, { mutate }] = createResource(config.fetch, { initialValue: config.initialValue });
   const [error, setError] = createSignal<string | undefined>(undefined);
   const [refreshing, setRefreshing] = createSignal(false);
-  const [editing, setEditing] = createSignal(false);
+  const [showHidden, setShowHidden] = createSignal(false);
 
   async function refresh(): Promise<void> {
     setError(undefined);
@@ -50,8 +50,8 @@ export function createCatalogPicker<T>(config: {
     }
   }
 
-  function toggleEditing(): void {
-    setEditing((on) => !on);
+  function toggleShowHidden(): void {
+    setShowHidden((on) => !on);
   }
 
   async function loadTox(path: string): Promise<void> {
@@ -73,5 +73,5 @@ export function createCatalogPicker<T>(config: {
     }
   }
 
-  return { catalog, error, refreshing, editing, toggleEditing, refresh, loadTox, edit };
+  return { catalog, error, refreshing, showHidden, toggleShowHidden, refresh, loadTox, edit };
 }

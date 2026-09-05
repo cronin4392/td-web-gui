@@ -18,18 +18,19 @@ relative to `apps/vj-gui`.
 
 ## Catalogs
 
-| Term               | Definition                                                                             | Aliases to avoid            |
-| ------------------ | -------------------------------------------------------------------------------------- | --------------------------- |
-| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                           | Scene library, scene list   |
-| **Effect catalog** | Every Effect the GUI can offer, in name order                                          | Effect library, effect list |
-| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned            | Refresh, reindex, import    |
-| **Scan**           | Reading the folders on disk into catalog rows, without touching a database             | Crawl, walk, discover       |
-| **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned      | Category, genre, keyword    |
-| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                    | Priority, order, weight     |
-| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned            | Disabled, archived, deleted |
-| **Favorite**       | An Effect the picker also lists up top; authored in the GUI, never scanned             | Starred, pinned, bookmarked |
-| **Edit mode**      | The picker state that reveals Hidden entries and offers every authored edit but filing | Manage mode, admin, unlock  |
-| **Tag rail**       | The Scene picker's row of Tags under the grid, in picker order, with All pinned first  | Tag list, sidebar, tabs     |
+| Term               | Definition                                                                                 | Aliases to avoid               |
+| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------ |
+| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                               | Scene library, scene list      |
+| **Effect catalog** | Every Effect the GUI can offer, in name order                                              | Effect library, effect list    |
+| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned                | Refresh, reindex, import       |
+| **Scan**           | Reading the folders on disk into catalog rows, without touching a database                 | Crawl, walk, discover          |
+| **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned          | Category, genre, keyword       |
+| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                        | Priority, order, weight        |
+| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned                | Disabled, archived, deleted    |
+| **Favorite**       | An Effect the picker also lists up top; authored in the GUI, never scanned                 | Starred, pinned, bookmarked    |
+| **Show hidden**    | The picker state that lists the Hidden entries beside the rest, the only way to unhide one | Edit mode, manage mode, unlock |
+| **Tag rail**       | The Scene picker's row of Tags under the grid, in picker order, with All pinned first      | Tag list, sidebar, tabs        |
+| **Context menu**   | The right-click menu on an item — every authored edit that item offers, and nowhere else   | Right-click menu, actions      |
 
 ## Playback
 
@@ -74,9 +75,9 @@ relative to `apps/vj-gui`.
 - A **Z layer** is a **Layer** in every respect the wire can see — same process, same schema, same **Loader**. Only the GUI treats it apart, giving it a compact tile with no video and no layout or color.
 - A **Scene** carries zero or more **Tags** and at most one **Rank**; an **Effect** carries neither. The **Tags** are authored, the **Rank** is scanned.
 - A **Sync** reconciles one catalog against one root folder — the **Scene catalog** and the **Effect catalog** never mix.
-- **Hidden**, **Favorite** and **Tags** are the catalog state a **Sync** leaves alone: they are authored rather than scanned, so only **Edit mode** can undo them. They live on the row, so they die with it — a **Scene** deleted from disk does not come back hidden, and does not come back tagged.
-- A **Tag** is authored end to end: created, renamed, reordered and deleted in **Edit mode**. A **Scan** never reports one — a Scene's `meta.json` may still list `tags`, but nothing reads it. Deleting a **Tag** keeps every **Scene** that carried it.
-- **Filing** a **Scene** under a **Tag** — dragging its tile onto the **Tag rail** — is the one authored edit that needs no **Edit mode**, because it is the one worth doing mid-set. Unfiling still does, and sits beside the scene's hide button.
+- **Hidden**, **Favorite** and **Tags** are the catalog state a **Sync** leaves alone: they are authored rather than scanned, and an entry's **Context menu** is what undoes them. They live on the row, so they die with it — a **Scene** deleted from disk does not come back hidden, and does not come back tagged.
+- A **Tag** is authored end to end: created from the **Tag rail**, renamed and deleted from its **Context menu**, reordered by dragging it along the rail. A **Scan** never reports one — a Scene's `meta.json` may still list `tags`, but nothing reads it. Deleting a **Tag** keeps every **Scene** that carried it.
+- **Filing** a **Scene** under a **Tag** is a drag of its tile onto the **Tag rail** — the one authored edit with no **Context menu** entry, because the drag names the destination and a menu would have to list every **Tag**. Unfiling has one: the **Scene**'s menu offers a removal per **Tag** it carries.
 - A **Tag**'s place in the **Tag rail** is authored too, which is what separates it from a **Rank**: a **Rank** is scanned from `meta.json` and orders **Scenes**, while the rail's order is dragged by hand and orders **Tags**.
 - A **Favorite** is a second listing of an **Effect**, not a move: the same **Effect** stays in the full list too, in name order.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.

@@ -1,0 +1,71 @@
+@layer components {
+  .menu {
+    /* Author `display` beats the UA's closed-popover `display: none`. */
+    &:not(:popover-open) {
+      display: none;
+    }
+
+    position: fixed;
+    /* Undoes the UA's `inset: 0; margin: auto` centring; the menu sits at the cursor. */
+    inset: auto;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 12rem;
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--text-s);
+    box-shadow: 0 0.5rem 1.5rem var(--color-overlay);
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-m);
+    padding: var(--spacing-s) var(--spacing-l);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--color-border);
+    }
+
+    &:focus-visible {
+      background: var(--color-border);
+      outline: 2px solid var(--color-text);
+      outline-offset: -2px;
+    }
+
+    &:disabled {
+      color: var(--color-text-faint);
+      cursor: default;
+    }
+
+    &[data-danger] {
+      color: var(--color-danger);
+    }
+  }
+
+  /* Carried by every item, checkbox or not, so a tick never indents its neighbours. */
+  .check {
+    flex: none;
+    width: 1ch;
+    color: var(--color-text-muted);
+  }
+
+  .separator {
+    margin: var(--spacing-s) 0;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+}
