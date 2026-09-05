@@ -59,10 +59,13 @@ thing. They read SQLite through `node:sqlite`.
   it the server seeds empty catalogs and an empty wordbank, silently, and the
   tracked snapshots go unread.
 - **`pnpm -w db:export` is manual by design and stays that way.** Nothing runs it
-  for you, so an unexported change is an unbacked-up one. It refuses a database
-  that isn't there rather than writing an empty one over a good snapshot.
-  `pnpm -w db:import` rebuilds a `.db` from its snapshot and will not overwrite
-  an existing file without `--force`. Both are root scripts — hence the `-w`.
+  for you, so an unexported change is an unbacked-up one. It refuses twice rather
+  than write nothing over a good snapshot: once for a database that isn't there,
+  and once for one that exists with no rows in it — the state the server leaves
+  when it seeds a catalog before anything was imported. `--force` overrides the
+  second when the emptying was deliberate. `pnpm -w db:import` rebuilds a `.db`
+  from its snapshot and will not overwrite an existing file without `--force`.
+  Both are root scripts — hence the `-w`.
 - Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
   key. A re-export with nothing changed produces no diff, which is the only
   reason the diffs are worth reading. Don't add anything per-run to them.

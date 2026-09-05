@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -98,9 +98,16 @@ export function snapshotPath(dbPath) {
 
 const show = (path) => relative(process.cwd(), path).split(sep).join('/');
 
-function main(paths) {
+function snapshotHasRows(target) {
+  if (!existsSync(target)) return false;
+  return /^INSERT INTO /m.test(readFileSync(target, 'utf8'));
+}
+
+function main(argv) {
+  const force = argv.includes('--force');
+  const paths = argv.filter((arg) => arg !== '--force');
   if (paths.length === 0) {
-    console.error('usage: node scripts/db-export.mjs <db>...');
+    console.error('usage: node scripts/db-export.mjs [--force] <db>...');
     process.exit(2);
   }
   let failed = false;
@@ -117,6 +124,17 @@ function main(paths) {
     }
     try {
       const { sql, tables, rows } = exportDb(path);
+      // A database the server seeded before anyone imported carries the schema
+      // but no rows, so the absent-file guard above lets it through. Overwriting
+      // a populated snapshot from it is the same loss, one step later.
+      if (rows === 0 && snapshotHasRows(target) && !force) {
+        console.error(
+          `✗ ${show(path)}: no rows, but ${show(target)} has some — ` +
+            '`pnpm db:import --force` restores the database, `--force` exports the empty one anyway',
+        );
+        failed = true;
+        continue;
+      }
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, sql, 'utf8');
       console.log(`✓ ${show(path)} -> ${show(target)}  (${tables} tables, ${rows} rows)`);
