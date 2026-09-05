@@ -26,7 +26,7 @@ relative to `apps/vj-gui`.
 | **Scan**           | Reading the folders on disk into catalog rows, without touching a database             | Crawl, walk, discover       |
 | **Snapshot**       | The tracked `data/snapshots/*.sql` text a catalog or the Wordbank is exported to       | Dump, backup, fixture, seed |
 | **Export**         | Writing a catalog or the Wordbank out to its Snapshot                                  | Save, dump, commit          |
-| **Restore**        | Rebuilding a `.db` from its Snapshot; leaves folders relative until a Sync             | Import, load, seed          |
+| **Restore**        | Rebuilding a `.db` from its Snapshot; the rows are ready to serve as they land         | Import, load, seed          |
 | **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned      | Category, genre, keyword    |
 | **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                    | Priority, order, weight     |
 | **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned            | Disabled, archived, deleted |

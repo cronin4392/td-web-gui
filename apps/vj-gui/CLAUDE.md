@@ -61,12 +61,13 @@ thing. They read SQLite through `node:sqlite`.
   Nothing else is load-bearing enough to restore for you: `catalogDbPath`'s guard
   can't catch this case, because `data/snapshots/` is tracked and so is present in
   every clone.
-- **A Snapshot holds folders relative to the content root, not absolute paths**,
-  so no machine's `.env` leaks into a tracked file. `db:export` strips the
-  `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` prefix; `db:restore` does not put it back.
-  A freshly restored catalog therefore needs a Sync (`pnpm --filter vj-gui
-db:scenes`, `db:effects`) before a picker can resolve a Tox — the Sync is what
-  rewrites `folder` against your own root.
+- **`folder` is stored relative to the content root, never absolute** — in the
+  `.db` as well as the Snapshot, so no machine's `.env` leaks into a tracked
+  file. The absolute path is derived, not stored: `readScenes` / `readEffects`
+  join the row against `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` from `.env`, and a
+  Scan writes only the part below the root. A restored catalog resolves a Tox
+  straight away; a Sync is for picking up what changed on disk, not for fixing
+  up paths. `db:export`'s `--strip` now only guards a `.db` written before this.
 - **`pnpm -w db:export` is manual by design and stays that way.** Nothing runs it
   for you, so an unexported change is an unbacked-up one. It refuses rather than
   write nothing over a good snapshot: once for a database that isn't there, and

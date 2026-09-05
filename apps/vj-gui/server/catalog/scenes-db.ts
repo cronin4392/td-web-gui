@@ -181,13 +181,16 @@ function scanSceneFields(root: string): SceneFields[] {
     const folder = `${base}/${name}`;
     const metaPath = join(folder, META_FILE);
     if (!isFile(metaPath) || !isFile(join(folder, `${name}.tox`))) continue;
-    fields.push({ name, folder, ...parseMeta(readFileSync(metaPath, 'utf8'), name) });
+    // Relative to the root: the absolute path is this machine's, and the catalog is tracked.
+    fields.push({ name, folder: name, ...parseMeta(readFileSync(metaPath, 'utf8'), name) });
   }
   return fields.sort(byRank);
 }
 
 export function scanSceneFolders(root: string): Scene[] {
-  return scanSceneFields(root).map(sceneFrom);
+  return scanSceneFields(root).map((fields) =>
+    sceneFrom({ ...fields, folder: resolve(root, fields.folder) }),
+  );
 }
 
 /**
@@ -229,7 +232,7 @@ export function setSceneHidden(db: DatabaseSync, name: string, hidden: boolean):
   if (changes === 0) throw new Error(`no such scene "${name}"`);
 }
 
-export function readScenes(db: DatabaseSync): Scene[] {
+export function readScenes(db: DatabaseSync, root: string): Scene[] {
   const rows = (
     db.prepare('SELECT name, folder, rank, dark, hidden FROM scenes').all() as {
       name: string;
@@ -253,7 +256,7 @@ export function readScenes(db: DatabaseSync): Scene[] {
   return rows.map((row) =>
     sceneFrom({
       name: row.name,
-      folder: row.folder,
+      folder: resolve(root, row.folder),
       tags: tags.get(row.name) ?? [],
       rank: row.rank,
       dark: row.dark !== 0,
@@ -369,6 +372,6 @@ export function setSceneTag(db: DatabaseSync, scene: string, tag: string, tagged
   });
 }
 
-export function readCatalog(db: DatabaseSync): Catalog {
-  return { scenes: readScenes(db), tags: readTagNames(db) };
+export function readCatalog(db: DatabaseSync, root: string): Catalog {
+  return { scenes: readScenes(db, root), tags: readTagNames(db) };
 }
