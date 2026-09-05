@@ -1,18 +1,5 @@
-/**
- * Writes each SQLite catalog out as a deterministic SQL snapshot under
- * `data/snapshots/`, so the tracked artifact is reviewable text and the live
- * `.db` can stay untracked and free to move under a running server.
- *
- * Run by hand — `pnpm db:export` — never on commit. The whole point is that the
- * snapshot changes when you say so, not when the app writes.
- *
- * Deliberately carries no timestamp or other per-run header: re-exporting
- * unchanged data must produce a byte-identical file, or the diffs stop meaning
- * anything and you stop reading them.
- */
-
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -119,6 +106,15 @@ function main(paths) {
   let failed = false;
   for (const path of paths) {
     const target = snapshotPath(path);
+    // An absent `.db` is not an empty one: opening it would create it, and the
+    // empty dump would then overwrite a good snapshot with nothing.
+    if (!existsSync(path)) {
+      console.error(
+        `✗ ${show(path)}: no database there — \`pnpm db:import\` rebuilds one from its snapshot`,
+      );
+      failed = true;
+      continue;
+    }
     try {
       const { sql, tables, rows } = exportDb(path);
       mkdirSync(dirname(target), { recursive: true });
@@ -132,6 +128,5 @@ function main(paths) {
   process.exit(failed ? 1 : 0);
 }
 
-// `db-import.mjs` imports `snapshotPath` from here; without this the CLI would
-// run on that import and exit the importing process.
+// Without this the CLI would run on `db-import.mjs`'s import and exit its process.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
