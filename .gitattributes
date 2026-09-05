@@ -18,6 +18,10 @@
 *.html text eol=lf
 *.yaml text eol=lf
 
+# Catalog snapshots -- `core.autocrlf` would otherwise check these out as CRLF
+# while `db:export` writes LF, so every export would rewrite all three in full.
+*.sql text eol=lf
+
 # SQLite catalogs -- tracked, and never to be touched as text. `core.autocrlf`
 # is on here, so this is what stops a stray CRLF rewrite corrupting the file.
 # `merge=binary` makes a conflict stop cleanly rather than splice two databases
