@@ -1,6 +1,6 @@
-import { mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 /** Each table's columns, mapped to the SQL that declares one — enough for the
  * schema check to add a missing column rather than rebuild the table. */
@@ -45,10 +45,22 @@ export function checkpointWal(db: DatabaseSync): void {
 
 /** `data/<filename>` under the package root, or `envVar` when set. Both `pnpm
  * dev` and the `db:*` scripts are run from `apps/vj-gui`, so cwd is the one
- * derivation — a second one could point a CLI at a different file. */
+ * derivation — a second one could point a CLI at a different file.
+ *
+ * Which makes the wrong cwd the whole risk: `openDb` creates what is missing, so
+ * running from the repo root used to seed an empty catalog there and serve it as
+ * if it were yours. `data/snapshots/` is tracked, so its absence means cwd is
+ * wrong rather than the catalog being new — the one case worth refusing. */
 export function catalogDbPath(envVar: string, filename: string): string {
   const override = process.env[envVar];
-  return override ? resolve(override) : resolve(process.cwd(), 'data', filename);
+  if (override) return resolve(override);
+  const dir = resolve(process.cwd(), 'data');
+  if (!existsSync(join(dir, 'snapshots'))) {
+    throw new Error(
+      `No catalog directory at ${dir}. Run this from apps/vj-gui, or set ${envVar} to the database path.`,
+    );
+  }
+  return join(dir, filename);
 }
 
 function columnsOf(db: DatabaseSync, table: string): string[] {
