@@ -71,8 +71,14 @@ function main(argv) {
           continue;
         }
       }
-      restoreDb(path, snapshot);
+      const left = restoreDb(path, snapshot);
       console.log(`✓ ${show(snapshot)} -> ${show(path)}`);
+      if (left.length > 0) {
+        console.error(
+          `  ! ${left.map(show).join(', ')} outlived the database they belonged to — ` +
+            'delete them before starting the dev server, or they replay into the new one',
+        );
+      }
     } catch (err) {
       const locked = err.code === 'EBUSY' || err.code === 'EPERM';
       console.error(

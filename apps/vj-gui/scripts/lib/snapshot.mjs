@@ -147,9 +147,18 @@ export function emptiedTables(rowCounts, snapshotSql) {
     .map(([table]) => table);
 }
 
+// Answers with what it could not remove rather than throwing: once the database has been
+// replaced, a journal held open by a viewer is a leftover to warn about, not a failed restore.
 export function discardJournals(path) {
-  rmSync(`${path}-wal`, { force: true });
-  rmSync(`${path}-shm`, { force: true });
+  const left = [];
+  for (const journal of [`${path}-wal`, `${path}-shm`]) {
+    try {
+      rmSync(journal, { force: true });
+    } catch {
+      left.push(journal);
+    }
+  }
+  return left;
 }
 
 export function restoreDb(path, snapshot) {
@@ -167,13 +176,14 @@ export function restoreDb(path, snapshot) {
     // Replaces the target in one step rather than unlinking it first: a rename that fails
     // on a locked file leaves the old database — and its own -wal — whole.
     renameSync(staging, path);
-    // A journal left from the replaced database would replay into its successor.
-    discardJournals(path);
   } catch (err) {
     rmSync(staging, { force: true });
     discardJournals(staging);
     throw err;
   }
+  // Past the rename, so a journal that resists deletion cannot report a replace that
+  // succeeded as failed. One left from the replaced database would replay into its successor.
+  return discardJournals(path);
 }
 
 export function hasUnexportedChanges(path, snapshot, { strip = [], stripColumns = [] } = {}) {
