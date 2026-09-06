@@ -35,7 +35,10 @@ export function createContextMenu(): ContextMenu {
   function dismissOnOutsidePress(event: PointerEvent): void {
     dismissing = false;
     if (!menu.matches(':popover-open') || event.composedPath().includes(menu)) return;
-    dismissing = true;
+    // Only a primary press goes on to fire `click`; arming the flag for a right
+    // press — which opens the next menu instead — would strand it set, and the
+    // next keyboard activation anywhere would be swallowed in its place.
+    dismissing = event.button === 0;
     menu.hidePopover();
   }
 
@@ -119,7 +122,10 @@ export function createContextMenu(): ContextMenu {
         menu = el;
         el.addEventListener('toggle', (event) => {
           if ((event as ToggleEvent).newState !== 'closed') return;
-          opener?.focus();
+          // Focus left stranded in the hidden menu is ours to restore; focus an
+          // action moved elsewhere (a rename box) was claimed on purpose.
+          const held = document.activeElement;
+          if (!held || held === document.body || el.contains(held)) opener?.focus();
           opener = null;
         });
       }}
