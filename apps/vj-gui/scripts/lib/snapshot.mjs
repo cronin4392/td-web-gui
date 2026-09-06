@@ -61,8 +61,12 @@ export function snapshotPath(dbPath) {
   return join(dirname(dbPath), 'snapshots', `${basename(dbPath).replace(/\.db$/, '')}.sql`);
 }
 
-export function exportSql(path, { strip = [] } = {}) {
+export function exportSql(path, { strip = [], stripColumns = [] } = {}) {
   const roots = sortRoots(strip);
+  // Restore writes the stripped value straight back and only the catalog read joins a root
+  // onto it again, so stripping a column no root is ever joined onto -- an authored phrase
+  // that happens to start with one -- truncates it for good. Empty names every column.
+  const strippable = new Set(stripColumns.map((name) => name.toLowerCase()));
   // Read-write: a read-only handle cannot create the `-shm` a WAL database needs.
   const db = new DatabaseSync(path);
   try {
@@ -90,7 +94,8 @@ export function exportSql(path, { strip = [] } = {}) {
         .all();
       for (const row of rows) {
         const values = names.map((name) => {
-          const value = relativise(row[name], roots);
+          const strip = strippable.size === 0 || strippable.has(name.toLowerCase());
+          const value = strip ? relativise(row[name], roots) : row[name];
           if (value !== row[name]) relativised += 1;
           return literal(value);
         });
@@ -171,7 +176,7 @@ export function restoreDb(path, snapshot) {
   }
 }
 
-export function hasUnexportedChanges(path, snapshot, { strip = [] } = {}) {
+export function hasUnexportedChanges(path, snapshot, { strip = [], stripColumns = [] } = {}) {
   if (!existsSync(snapshot)) return false;
-  return exportSql(path, { strip }).sql !== readFileSync(snapshot, 'utf8');
+  return exportSql(path, { strip, stripColumns }).sql !== readFileSync(snapshot, 'utf8');
 }

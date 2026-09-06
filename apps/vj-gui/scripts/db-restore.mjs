@@ -13,6 +13,8 @@ Rebuilds each database from data/snapshots/<name>.sql, its tracked text copy.
   --env <file>        load this .env before reading --strip variables (repeatable)
   --strip <VAR>       the variables the snapshot was exported with (repeatable),
                       so the unexported-changes check compares like with like
+  --strip-column <name>
+                      the columns it was exported with (repeatable), for the same reason
   --help              print this
 
 Stop the dev server first: Windows refuses the replace while the server holds the
@@ -24,7 +26,7 @@ function main(argv) {
   try {
     args = parseArgs(argv, {
       flags: ['--force', '--discard-changes', '--if-missing', '--help'],
-      options: ['--env', '--strip'],
+      options: ['--env', '--strip', '--strip-column'],
     });
   } catch (err) {
     console.error(`${err.message}\n\n${USAGE}`);
@@ -40,6 +42,7 @@ function main(argv) {
   }
 
   const strip = rootsFrom(args.all('--env'), args.all('--strip'));
+  const stripColumns = args.all('--strip-column');
   let failed = false;
   for (const path of args.paths) {
     const snapshot = snapshotPath(path);
@@ -59,7 +62,7 @@ function main(argv) {
     try {
       // Export is manual, so this file may hold the only copy of an authored Tag, Rank or phrase.
       if (existsSync(path) && !args.has('--discard-changes')) {
-        if (hasUnexportedChanges(path, snapshot, { strip })) {
+        if (hasUnexportedChanges(path, snapshot, { strip, stripColumns })) {
           console.error(
             `✗ ${show(path)}: has changes not in ${show(snapshot)} — ` +
               '`pnpm db:export` keeps them, `--discard-changes` throws them away',

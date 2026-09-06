@@ -12,12 +12,18 @@ Writes each database out to data/snapshots/<name>.sql, the tracked text copy.
   --env <file>     load this .env before reading --strip variables (repeatable)
   --strip <VAR>    rewrite paths under this variable's value as relative to it
                    (repeatable), so no machine's content root reaches the snapshot
+  --strip-column <name>
+                   confine --strip to columns of this name (repeatable); without one
+                   it rewrites every text column, authored prose included
   --help           print this`;
 
 function main(argv) {
   let args;
   try {
-    args = parseArgs(argv, { flags: ['--force', '--help'], options: ['--env', '--strip'] });
+    args = parseArgs(argv, {
+      flags: ['--force', '--help'],
+      options: ['--env', '--strip', '--strip-column'],
+    });
   } catch (err) {
     console.error(`${err.message}\n\n${USAGE}`);
     return 2;
@@ -32,6 +38,7 @@ function main(argv) {
   }
 
   const strip = rootsFrom(args.all('--env'), args.all('--strip'));
+  const stripColumns = args.all('--strip-column');
   let failed = false;
   for (const path of args.paths) {
     const target = snapshotPath(path);
@@ -44,7 +51,7 @@ function main(argv) {
       continue;
     }
     try {
-      const { sql, rowCounts, relativised } = exportSql(path, { strip });
+      const { sql, rowCounts, relativised } = exportSql(path, { strip, stripColumns });
       const emptied = existsSync(target)
         ? emptiedTables(rowCounts, readFileSync(target, 'utf8'))
         : [];

@@ -184,6 +184,15 @@ describe('exportSql strip', () => {
     expect(relativised).toBe(1);
   });
 
+  it('rewrites only the columns named by stripColumns', () => {
+    const path = make(dbPath(), [
+      ...CATALOG,
+      `INSERT INTO scenes VALUES ('${root}/Blur', '${root}/Blur', 0)`,
+    ]);
+    const { sql } = exportSql(path, { strip: [root], stripColumns: ['folder'] });
+    expect(sql).toContain(`'${root}/Blur', 'Blur'`);
+  });
+
   it('leaves a value outside every root alone', () => {
     const path = make(dbPath(), [
       ...CATALOG,

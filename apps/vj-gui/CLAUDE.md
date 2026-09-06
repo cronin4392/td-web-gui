@@ -71,7 +71,10 @@ thing. They read SQLite through `node:sqlite`.
   join the row against `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` from `.env`, and a
   Scan writes only the part below the root. A restored catalog resolves a Tox
   straight away; a Sync is for picking up what changed on disk, not for fixing
-  up paths. `db:export`'s `--strip` now only guards a `.db` written before this.
+  up paths. `db:export`'s `--strip` now only guards a `.db` written before this,
+  and `--strip-column folder` confines it to the one column a root is ever joined
+  back onto — restore writes the stripped value straight back, so stripping an
+  authored phrase that happened to start with a root would truncate it for good.
 - **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
   for you, so an unexported change is an unbacked-up one. It refuses rather than
   write nothing over a good snapshot: once for a database that isn't there, and
@@ -83,8 +86,8 @@ thing. They read SQLite through `node:sqlite`.
 - **The destructive direction is guarded too.** `pnpm db:restore` will not
   overwrite an existing `.db` without `--force`, and `--force` itself refuses one
   whose contents differ from its snapshot — export first, or say
-  `--discard-changes`. That comparison runs through the same `--strip` roots the
-  export used, which is why both scripts pass them.
+  `--discard-changes`. That comparison runs through the same `--strip` roots and
+  `--strip-column` names the export used, which is why both scripts pass them.
 - Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
   key. A re-export with nothing changed produces no diff, which is the only
   reason the diffs are worth reading. Don't add anything per-run to them.
