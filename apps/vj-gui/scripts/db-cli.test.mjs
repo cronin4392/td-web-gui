@@ -162,6 +162,14 @@ describe('db-restore', () => {
     expect(out).toBe('');
   });
 
+  it('leaves an existing database alone under --if-missing when no snapshot is there', () => {
+    seed(['Alpha']);
+    const { code, out, err } = run(RESTORE, ['--if-missing', 'data/scenes.db']);
+    expect(code).toBe(0);
+    expect(out).toBe('');
+    expect(err).toBe('');
+  });
+
   it('fills in an absent database under --if-missing', () => {
     snapshotOf(['Alpha']);
     expect(run(RESTORE, ['--if-missing', 'data/scenes.db']).code).toBe(0);

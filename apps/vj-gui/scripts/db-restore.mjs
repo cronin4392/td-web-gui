@@ -46,13 +46,14 @@ function main(argv) {
   let failed = false;
   for (const path of args.paths) {
     const snapshot = snapshotPath(path);
+    // Ahead of the missing-snapshot check: a database already there needs nothing from a
+    // snapshot, and `predev` runs this on every start. Quiet and successful, so it can.
+    if (existsSync(path) && args.has('--if-missing')) continue;
     if (!existsSync(snapshot)) {
       console.error(`✗ ${show(path)}: no snapshot at ${show(snapshot)}`);
       failed = true;
       continue;
     }
-    // Quiet and successful, so `predev` can run on every start without narrating three skips.
-    if (existsSync(path) && args.has('--if-missing')) continue;
     if (existsSync(path) && !args.has('--force')) {
       console.error(`✗ ${show(path)}: already exists — pass --force to replace it`);
       failed = true;
