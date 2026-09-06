@@ -51,7 +51,8 @@ function main(argv) {
       if (emptied.length > 0 && !args.has('--force')) {
         console.error(
           `✗ ${show(path)}: ${emptied.join(', ')} empty, but ${show(target)} has rows for ` +
-            'them — `pnpm db:restore --force` restores the database, `--force` exports it anyway',
+            'them — `pnpm db:restore --force --discard-changes` restores the database, ' +
+            '`--force` exports it anyway',
         );
         failed = true;
         continue;
