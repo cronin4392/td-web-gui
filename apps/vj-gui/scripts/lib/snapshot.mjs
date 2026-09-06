@@ -131,11 +131,11 @@ export function snapshotRowCounts(sql) {
   return counts;
 }
 
-// Tables the live database emptied while the snapshot still holds rows — the one lossy export.
+// Tables the live database emptied while the snapshot still holds rows — the one lossy
+// export. Walks the snapshot, so a table the rebuild dropped altogether counts as emptied.
 export function emptiedTables(rowCounts, snapshotSql) {
-  const snapshot = snapshotRowCounts(snapshotSql);
-  return [...rowCounts]
-    .filter(([table, count]) => count === 0 && (snapshot.get(table) ?? 0) > 0)
+  return [...snapshotRowCounts(snapshotSql)]
+    .filter(([table, count]) => count > 0 && (rowCounts.get(table) ?? 0) === 0)
     .map(([table]) => table);
 }
 

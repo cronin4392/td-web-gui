@@ -242,7 +242,16 @@ describe('emptiedTables', () => {
   });
 
   it('passes a table the snapshot never had rows for', () => {
-    expect(emptiedTables(new Map([['recent', 0]]), snapshot)).toEqual([]);
+    const counts = new Map([
+      ['scenes', 1],
+      ['tags', 1],
+      ['recent', 0],
+    ]);
+    expect(emptiedTables(counts, snapshot)).toEqual([]);
+  });
+
+  it('names a table the live database no longer has at all', () => {
+    expect(emptiedTables(new Map([['tags', 1]]), snapshot)).toEqual(['scenes']);
   });
 });
 
