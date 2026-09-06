@@ -1,12 +1,7 @@
-/**
- * Active tab's phrase list body (TEXT_SELECTOR.md §3 "List body"): inline add
- * form, draggable/reorderable phrase rows with a drop-indicator line, and the
- * one-shot A→Z sort. Filtering comes from the text fields above it.
- */
-
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { PhraseList, WordbankStore } from './store';
 import { hasPhraseDragData, readPhraseDragData } from './dnd';
+import { createContextMenu } from '@/ui/ContextMenu';
 import { adjustReorderTarget, dropIndexForRow } from '@/ui/dnd';
 import { PhraseChip } from './PhraseChip';
 import styles from './ListPanel.module.css';
@@ -22,6 +17,7 @@ export interface ListPanelProps {
 export function ListPanel(props: ListPanelProps): JSX.Element {
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
+  const menu = createContextMenu();
   let addInputRef: HTMLTextAreaElement | undefined;
 
   const isFiltered = createMemo(() => props.filter.trim().length > 0);
@@ -136,6 +132,15 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                   adjustReorderTarget(payload.index, to),
                 );
               }}
+              onContextMenu={(event) =>
+                menu.open(event, [
+                  {
+                    label: 'Delete',
+                    danger: true,
+                    onSelect: () => props.store.deletePhrase(props.list.id, row.index),
+                  },
+                ])
+              }
             >
               <Show when={dropIndex() === row.index}>
                 <div class={styles.dropIndicator} />
@@ -146,7 +151,6 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                 tabId={props.list.id}
                 index={row.index}
                 onApply={props.onApply}
-                onDelete={() => props.store.deletePhrase(props.list.id, row.index)}
               />
             </li>
           )}
@@ -157,6 +161,8 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
           </li>
         </Show>
       </ul>
+
+      {menu.element}
     </div>
   );
 }
