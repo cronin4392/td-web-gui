@@ -15,8 +15,13 @@ export function parseArgs(argv, { flags = [], options = [] } = {}) {
     }
     const option = options.find((name) => arg === name || arg.startsWith(`${name}=`));
     if (option) {
-      const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : argv[(i += 1)];
+      const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : argv[i + 1];
       if (value === undefined) throw new Error(`${option} needs a value`);
+      // A mistyped `--strip --force a.db` would otherwise eat the flag as the value.
+      if (!arg.includes('=')) {
+        if (value.startsWith('-')) throw new Error(`${option} needs a value, got ${value}`);
+        i += 1;
+      }
       values.set(option, [...(values.get(option) ?? []), value]);
       continue;
     }

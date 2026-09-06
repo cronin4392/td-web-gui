@@ -37,6 +37,16 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--strip'], SHAPE)).toThrow(/--strip needs a value/);
   });
 
+  it('rejects a following flag as the value rather than swallowing it', () => {
+    expect(() => parseArgs(['--strip', '--force', 'a.db'], SHAPE)).toThrow(
+      /--strip needs a value, got --force/,
+    );
+  });
+
+  it('takes a leading dash as the value in the --option=value form', () => {
+    expect(parseArgs(['--strip=--force'], SHAPE).all('--strip')).toEqual(['--force']);
+  });
+
   it('rejects an unknown option rather than treating it as a path', () => {
     expect(() => parseArgs(['--nope', 'a.db'], SHAPE)).toThrow(/unknown option --nope/);
   });
