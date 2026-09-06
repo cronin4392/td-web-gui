@@ -18,19 +18,19 @@ relative to `apps/vj-gui`.
 
 ## Catalogs
 
-| Term               | Definition                                                                                 | Aliases to avoid               |
-| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------ |
-| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                               | Scene library, scene list      |
-| **Effect catalog** | Every Effect the GUI can offer, in name order                                              | Effect library, effect list    |
-| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned                | Refresh, reindex, import       |
-| **Scan**           | Reading the folders on disk into catalog rows, without touching a database                 | Crawl, walk, discover          |
-| **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned          | Category, genre, keyword       |
-| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                        | Priority, order, weight        |
-| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned                | Disabled, archived, deleted    |
-| **Favorite**       | An Effect the picker also lists up top; authored in the GUI, never scanned                 | Starred, pinned, bookmarked    |
-| **Show hidden**    | The picker state that lists the Hidden entries beside the rest, the only way to unhide one | Edit mode, manage mode, unlock |
-| **Tag rail**       | The Scene picker's row of Tags under the grid, in picker order, with All pinned first      | Tag list, sidebar, tabs        |
-| **Context menu**   | The right-click menu on an item — every authored edit that item offers, and nowhere else   | Right-click menu, actions      |
+| Term               | Definition                                                                                                                                            | Aliases to avoid               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **Scene catalog**  | Every Scene the GUI can offer, plus the Tags in picker order                                                                                          | Scene library, scene list      |
+| **Effect catalog** | Every Effect the GUI can offer, in name order                                                                                                         | Effect library, effect list    |
+| **Sync**           | Reconciling a catalog with the folders on disk: rows added, updated, pruned                                                                           | Refresh, reindex, import       |
+| **Scan**           | Reading the folders on disk into catalog rows, without touching a database                                                                            | Crawl, walk, discover          |
+| **Tag**            | A label a Scene carries, used to filter the Scene picker; authored, never scanned                                                                     | Category, genre, keyword       |
+| **Rank**           | A Scene's manual sort weight; higher sorts first, absent sorts last                                                                                   | Priority, order, weight        |
+| **Hidden**         | A Scene or Effect the picker leaves out; authored in the GUI, never scanned                                                                           | Disabled, archived, deleted    |
+| **Favorite**       | An Effect the picker also lists up top; authored in the GUI, never scanned                                                                            | Starred, pinned, bookmarked    |
+| **Show hidden**    | The picker state that lists the Hidden entries beside the rest, the only way to unhide one                                                            | Edit mode, manage mode, unlock |
+| **Tag rail**       | The Scene picker's row of Tags under the grid, in picker order, with All pinned first — every authored Tag, including one whose Scenes are all Hidden | Tag list, sidebar, tabs        |
+| **Context menu**   | The right-click menu on an item — every authored edit that item offers, and nowhere else                                                              | Right-click menu, actions      |
 
 ## Playback
 
