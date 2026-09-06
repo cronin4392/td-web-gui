@@ -1,4 +1,3 @@
-import { requireRestoredDb } from '../platform/catalog-db';
 import { loadDotEnv } from '../platform/env';
 import { effectsDbPath, effectsRoot, openEffectsDb, syncEffects } from './effects-db';
 
@@ -6,8 +5,6 @@ loadDotEnv();
 
 const dbPath = effectsDbPath();
 const root = effectsRoot(process.env);
-
-requireRestoredDb(dbPath);
 
 const db = openEffectsDb(dbPath);
 try {

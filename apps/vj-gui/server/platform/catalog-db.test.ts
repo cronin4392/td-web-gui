@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { catalogDbPath, requireRestoredDb } from './catalog-db';
+import { catalogDbPath, openCatalogDb, requireRestoredDb } from './catalog-db';
 
 let dir: string;
 let previousCwd: string;
@@ -41,6 +41,16 @@ describe('catalogDbPath', () => {
     const elsewhere = join(dir, 'elsewhere', 'scenes.db');
     process.env.VJ_TEST_DB = elsewhere;
     expect(catalogDbPath('VJ_TEST_DB', 'scenes.db')).toBe(elsewhere);
+  });
+});
+
+describe('openCatalogDb', () => {
+  it('refuses to create a database its snapshot could still rebuild', () => {
+    const root = cwd(true);
+    writeFileSync(join(root, 'data', 'snapshots', 'scenes.sql'), '', 'utf8');
+    const path = join(root, 'data', 'scenes.db');
+    expect(() => openCatalogDb(path, {}, '')).toThrow(/db:restore/);
+    expect(existsSync(path)).toBe(false);
   });
 });
 

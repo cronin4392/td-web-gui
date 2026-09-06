@@ -91,6 +91,7 @@ function addMissingColumns(db: DatabaseSync, tableColumns: TableColumns): boolea
  * tables say another still self-heals.
  */
 export function openCatalogDb(path: string, tableColumns: TableColumns, ddl: string): DatabaseSync {
+  requireRestoredDb(path);
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL');

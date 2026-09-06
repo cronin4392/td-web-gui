@@ -60,9 +60,11 @@ thing. They read SQLite through `node:sqlite`.
   leaves existing ones alone, quietly and without failing on the second run.
   Nothing else is load-bearing enough to restore for you: `catalogDbPath`'s guard
   can't catch this case, because `data/snapshots/` is tracked and so is present in
-  every clone. The other two ways to reach a `.db` refuse rather than create one
-  before that restore: `db:scenes` / `db:effects` stop when the file is absent but
-  its snapshot isn't, and `db:checkpoint` skips it. An empty file either of them
+  every clone. Every other way to reach a `.db` refuses rather than creates one
+  before that restore: `openCatalogDb` / `openWordbankDb` stop when the file is
+  absent but its snapshot isn't — which covers the API plugins, since they open
+  lazily on the first request and a server started past `predev` would otherwise
+  seed an empty catalog — and `db:checkpoint` skips it. An empty file any of them
   created would look restored to the next `--if-missing`, and the snapshot's
   authored rows would never land.
 - **`folder` is stored relative to the content root, never absolute** — in the
