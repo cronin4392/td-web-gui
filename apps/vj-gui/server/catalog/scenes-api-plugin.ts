@@ -69,7 +69,7 @@ const tagActions: Record<string, CatalogAction> = {
 };
 
 export const scenesApiHandler = catalogApiHandler({
-  read: readCatalog,
+  read: (db) => readCatalog(db, scenesRoot(process.env)),
   sync: (db) => syncScenes(db, scenesRoot(process.env)),
   flags: { hidden: setSceneHidden },
   actions: tagActions,

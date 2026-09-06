@@ -28,13 +28,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# SQLite journals. The catalogs themselves are tracked, but these two are not:
-# `-shm` is a shared-memory index meaningless outside the running process, and
-# `-wal` is machine-local — a `.db`/`-wal` pair captured at two different
-# instants is a corrupt combination. `scripts/checkpoint-sqlite.mjs` folds the
-# log back into the `.db` on commit so the tracked file stands alone.
+# SQLite catalogs. The tracked copy is the text under
+# `apps/vj-gui/data/snapshots/` — see `apps/vj-gui/CLAUDE.md` for why.
+apps/vj-gui/data/*.db
 *.db-shm
 *.db-wal
+*.restoring
 
 # Embody / Envoy (auto-managed)
 Backup/

@@ -1,6 +1,6 @@
-import { mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 /** Each table's columns, mapped to the SQL that declares one — enough for the
  * schema check to add a missing column rather than rebuild the table. */
@@ -18,22 +18,7 @@ export function transaction<T>(db: DatabaseSync, work: () => T): T {
   }
 }
 
-/**
- * Folds the write-ahead log back into the `.db` after a write, so the file on
- * disk keeps up with the database.
- *
- * These files are tracked in git, and a committed transaction sitting in the
- * `-wal` is invisible from outside SQLite: `git status` reports a database whose
- * every tag just changed as unmodified, so there is nothing to stage and nothing
- * to warn you. Writes here are a handful per edit, never a hot path, so paying
- * this each time is cheaper than the silence.
- *
- * PASSIVE, so a concurrent reader is never blocked and the response is never
- * delayed — a log this skips is folded in by the next write, and the pre-commit
- * hook is what actually guarantees a commit is whole. Failure is ignored for the
- * same reason: the mutation already succeeded, and bookkeeping must not turn a
- * good write into a 500.
- */
+// PASSIVE and failure-ignoring: the write already succeeded; this only serves outside readers.
 export function checkpointWal(db: DatabaseSync): void {
   try {
     db.prepare('PRAGMA wal_checkpoint(PASSIVE)').get();
@@ -42,12 +27,29 @@ export function checkpointWal(db: DatabaseSync): void {
   }
 }
 
-/** `data/<filename>` under the package root, or `envVar` when set. Both `pnpm
- * dev` and the `db:*` scripts are run from `apps/vj-gui`, so cwd is the one
- * derivation — a second one could point a CLI at a different file. */
+// `data/snapshots/` is tracked, so its absence means a wrong cwd, not a new database.
 export function catalogDbPath(envVar: string, filename: string): string {
   const override = process.env[envVar];
-  return override ? resolve(override) : resolve(process.cwd(), 'data', filename);
+  if (override) return resolve(override);
+  const dir = resolve(process.cwd(), 'data');
+  if (!existsSync(join(dir, 'snapshots'))) {
+    throw new Error(
+      `No snapshots directory under ${dir}. Run this from apps/vj-gui, or set ${envVar} to the database path.`,
+    );
+  }
+  return join(dir, filename);
+}
+
+/** Refuses to open a catalog that was never restored. `openCatalogDb` would create
+ * an empty one, which `db:restore --if-missing` then skips, so every authored row in
+ * the snapshot silently stays out of the database a Sync is about to write to. */
+export function requireRestoredDb(path: string): void {
+  if (existsSync(path)) return;
+  const snapshot = join(dirname(path), 'snapshots', `${basename(path, '.db')}.sql`);
+  if (!existsSync(snapshot)) return;
+  throw new Error(
+    `No database at ${path}, but ${snapshot} holds one. Run \`pnpm db:restore\` first.`,
+  );
 }
 
 function columnsOf(db: DatabaseSync, table: string): string[] {

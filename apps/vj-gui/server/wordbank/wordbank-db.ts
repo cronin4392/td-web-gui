@@ -107,7 +107,6 @@ export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
     db.exec('ROLLBACK');
     throw err;
   }
-  // Outside the transaction, and after it: this file is tracked, and a commit
-  // that only lives in the -wal is one `git status` cannot see.
+  // A commit that only lives in the -wal is invisible to anything reading the file directly.
   checkpointWal(db);
 }

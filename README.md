@@ -59,7 +59,16 @@ pnpm --filter vj-gui dev          # start the VJ app (Vite + its dev-server API)
 pnpm --filter vj-gui test         # run its suite
 pnpm --filter vj-gui db:scenes    # rebuild the scene catalog from VJ_SCENES_ROOT
 pnpm --filter vj-gui db:effects   # rebuild the effect catalog from VJ_EFFECTS_ROOT
+
+pnpm --filter vj-gui db:export    # write the catalogs out to data/snapshots/*.sql (tracked)
+pnpm --filter vj-gui db:restore   # rebuild the .db files from those snapshots
 ```
+
+The `.db` files are untracked; `apps/vj-gui/data/snapshots/*.sql` is the tracked
+copy. `dev` restores any that are missing, and the restored rows resolve against
+your own `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` — run `db:scenes` / `db:effects`
+when the content on disk has changed, not to make a fresh clone work — they
+refuse to run before a restore.
 
 Workspace-wide: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm format`.
 

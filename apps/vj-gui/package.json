@@ -4,11 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm db:restore --if-missing",
     "dev": "vite",
     "build": "vite build",
+    "prepreview": "pnpm db:restore --if-missing",
     "preview": "vite preview",
     "db:scenes": "vite-node server/catalog/sync-scenes.ts",
     "db:effects": "vite-node server/catalog/sync-effects.ts",
+    "db:checkpoint": "node scripts/checkpoint-sqlite.mjs data/scenes.db data/effects.db data/wordbank.db",
+    "db:export": "node scripts/db-export.mjs --env .env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT data/scenes.db data/effects.db data/wordbank.db",
+    "db:restore": "node scripts/db-restore.mjs --env .env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT data/scenes.db data/effects.db data/wordbank.db",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"

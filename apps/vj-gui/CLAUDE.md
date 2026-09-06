@@ -50,22 +50,54 @@ published, and what they support is not this app's call.
 there is no server to start separately — `pnpm --filter vj-gui dev` is the whole
 thing. They read SQLite through `node:sqlite`.
 
-- `data/*.db` is **tracked**; its `-wal`/`-shm` journals are not. A catalog holds
-  authored state a Sync cannot rederive, so the file is the only copy of it —
-  `pnpm db:scenes` / `pnpm db:effects` rebuild the scanned columns around it.
-- **A write only counts once its WAL is checkpointed**, which is why every write
-  path calls `checkpointWal`. In WAL mode a committed transaction sits in
-  `data/*.db-wal`, where nothing outside SQLite can see it: the `.db` staged
-  without it opens cleanly, passes `integrity_check`, and is quietly missing it,
-  and `git status` calls a database whose every tag just changed unmodified.
-  Checkpointing on each write is what keeps `git status` honest; the pre-commit
-  hook re-runs `scripts/checkpoint-sqlite.mjs` on any staged `.db` and fails the
-  commit if it cannot get a clean one, and `pnpm db:checkpoint` does it by hand.
-  Nothing else in the repo makes this class of mistake loud, so don't route
-  around either.
-- A tracked `.db` shows as modified more often than its contents change —
-  SQLite reuses pages, so a round trip that ends where it started still rewrites
-  the file. Check what actually moved before committing one; the diff cannot.
+- `data/*.db` is **untracked**; `data/snapshots/*.sql` is the tracked copy. A
+  catalog holds authored state a Sync cannot rederive, but the live file is
+  rewritten as you work — tracking it left `git status` unable to separate an
+  edit from a background write, and turned every stash and checkout into a fight
+  with a moving, often reader-locked binary.
+- **A fresh clone has no `.db` at all, so `dev` restores one.** `predev` (and
+  `prepreview`) run `db:restore --if-missing`, which fills in absent databases and
+  leaves existing ones alone, quietly and without failing on the second run.
+  Nothing else is load-bearing enough to restore for you: `catalogDbPath`'s guard
+  can't catch this case, because `data/snapshots/` is tracked and so is present in
+  every clone. The other two ways to reach a `.db` refuse rather than create one
+  before that restore: `db:scenes` / `db:effects` stop when the file is absent but
+  its snapshot isn't, and `db:checkpoint` skips it. An empty file either of them
+  created would look restored to the next `--if-missing`, and the snapshot's
+  authored rows would never land.
+- **`folder` is stored relative to the content root, never absolute** — in the
+  `.db` as well as the Snapshot, so no machine's `.env` leaks into a tracked
+  file. The absolute path is derived, not stored: `readScenes` / `readEffects`
+  join the row against `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` from `.env`, and a
+  Scan writes only the part below the root. A restored catalog resolves a Tox
+  straight away; a Sync is for picking up what changed on disk, not for fixing
+  up paths. `db:export`'s `--strip` now only guards a `.db` written before this.
+- **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
+  for you, so an unexported change is an unbacked-up one. It refuses rather than
+  write nothing over a good snapshot: once for a database that isn't there, and
+  once for any table that is empty while the snapshot still holds rows for it —
+  the state the server leaves when it seeds a catalog before anything was
+  restored. The check is per table, so a wiped `scenes` is caught even while
+  `scene_tags` still has rows. `--force` overrides it when the emptying was
+  deliberate.
+- **The destructive direction is guarded too.** `pnpm db:restore` will not
+  overwrite an existing `.db` without `--force`, and `--force` itself refuses one
+  whose contents differ from its snapshot — export first, or say
+  `--discard-changes`. That comparison runs through the same `--strip` roots the
+  export used, which is why both scripts pass them.
+- Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
+  key. A re-export with nothing changed produces no diff, which is the only
+  reason the diffs are worth reading. Don't add anything per-run to them.
+- `-wal`/`-shm` are still machine-local and still ignored. `db:restore` deletes
+  them when it replaces a file: a journal left from the old database replays into
+  whatever takes its place and silently undoes the restore.
+- `checkpointWal` on every write path predates this and was justified by keeping
+  `git status` honest. That reason is gone; it is now only about readers outside
+  SQLite seeing recent writes. `pnpm db:checkpoint` still folds a log by hand,
+  and nothing enforces it on commit any more.
+- The scripts themselves live in `scripts/`, and their suites run with this app's
+  — `pnpm test` here covers them. They are plain `node` CLIs, so each test file
+  opts out of the jsdom default with a `@vitest-environment node` docblock.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes
