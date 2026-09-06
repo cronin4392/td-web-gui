@@ -2,8 +2,9 @@
 // check while missing recent writes, so this exits non-zero rather than stay quiet.
 
 import { DatabaseSync } from 'node:sqlite';
-import { statSync } from 'node:fs';
-import { relative } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
+
+import { show } from './lib/cli.mjs';
 
 // SQLite answers a checkpoint on a non-WAL database with -1s: a pass, no log to fold in.
 function checkpoint(path) {
@@ -31,7 +32,14 @@ if (paths.length === 0) {
 
 let failed = false;
 for (const path of paths) {
-  const name = relative(process.cwd(), path).replace(/\\/g, '/');
+  const name = show(path);
+  // `.db` files are untracked, so a fresh clone has none. Opening one would create an
+  // empty database that `db:restore --if-missing` then skips, losing the snapshot's rows.
+  if (!existsSync(path)) {
+    console.log(`- ${name}: no database there — nothing to checkpoint`);
+    continue;
+  }
+
   // Measured up front: a successful TRUNCATE zeroes the counters its own result reports.
   const before = walBytes(path);
   let result;

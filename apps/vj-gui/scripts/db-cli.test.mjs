@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 const EXPORT = join(here, 'db-export.mjs');
 const RESTORE = join(here, 'db-restore.mjs');
+const CHECKPOINT = join(here, 'checkpoint-sqlite.mjs');
 
 let dir;
 
@@ -202,5 +203,22 @@ describe('db-restore', () => {
     snapshotOf(['Alpha']);
     run(RESTORE, ['data/scenes.db']);
     expect(existsSync(`${db()}.restoring`)).toBe(false);
+  });
+});
+
+describe('checkpoint-sqlite', () => {
+  it('folds a log into a database that is there', () => {
+    seed(['Alpha']);
+    const { code, out } = run(CHECKPOINT, ['data/scenes.db']);
+    expect(code).toBe(0);
+    expect(out).toContain('data/scenes.db:');
+  });
+
+  it('skips an absent database rather than creating an empty one', () => {
+    mkdirSync(join(dir, 'data'), { recursive: true });
+    const { code, out } = run(CHECKPOINT, ['data/scenes.db']);
+    expect(code).toBe(0);
+    expect(out).toContain('no database there');
+    expect(existsSync(db())).toBe(false);
   });
 });
