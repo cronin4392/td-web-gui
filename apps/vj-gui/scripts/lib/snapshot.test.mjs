@@ -280,7 +280,7 @@ describe('restoreDb', () => {
     expect(existsSync(`${path}.restoring`)).toBe(false);
   });
 
-  it('keeps the journal when the database cannot be deleted', () => {
+  it('keeps the journal when the database cannot be replaced', () => {
     const source = make(dbPath('source.db'), [...CATALOG]);
     const path = dbPath();
     mkdirSync(path, { recursive: true });
@@ -289,6 +289,7 @@ describe('restoreDb', () => {
 
     expect(() => restoreDb(path, target)).toThrow();
     expect(existsSync(`${path}-wal`)).toBe(true);
+    expect(existsSync(`${path}.restoring`)).toBe(false);
   });
 
   it('discards a journal left beside the replaced database', () => {

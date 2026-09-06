@@ -156,11 +156,11 @@ export function restoreDb(path, snapshot) {
     } finally {
       db.close();
     }
-    // Before the journals: a locked database throws here, with its own -wal still whole.
-    rmSync(path, { force: true });
+    // Replaces the target in one step rather than unlinking it first: a rename that fails
+    // on a locked file leaves the old database — and its own -wal — whole.
+    renameSync(staging, path);
     // A journal left from the replaced database would replay into its successor.
     discardJournals(path);
-    renameSync(staging, path);
   } catch (err) {
     rmSync(staging, { force: true });
     discardJournals(staging);

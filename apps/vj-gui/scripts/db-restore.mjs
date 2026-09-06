@@ -13,7 +13,11 @@ Rebuilds each database from data/snapshots/<name>.sql, its tracked text copy.
   --env <file>        load this .env before reading --strip variables (repeatable)
   --strip <VAR>       the variables the snapshot was exported with (repeatable),
                       so the unexported-changes check compares like with like
-  --help              print this`;
+  --help              print this
+
+Stop the dev server first: Windows refuses the replace while the server holds the
+file, and elsewhere the replace succeeds while the server writes on into the file
+it replaced.`;
 
 function main(argv) {
   let args;
