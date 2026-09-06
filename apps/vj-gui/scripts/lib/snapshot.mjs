@@ -17,14 +17,17 @@ export function sortRoots(roots) {
     .sort((a, b) => b.length - a.length);
 }
 
-// Case-insensitive: these are Windows paths, so the root and the scanned value can differ in case.
+// Case- and separator-insensitive: these are Windows paths, so a stored value can differ
+// from the root in both. What is left over goes into the snapshot slash-separated, so the
+// tracked file reads the same whichever separator the writer happened to use.
 function relativise(value, roots) {
   if (typeof value !== 'string') return value;
-  const lower = value.toLowerCase();
+  const slashed = value.replace(/\\/g, '/');
+  const lower = slashed.toLowerCase();
   for (const root of roots) {
     const prefix = root.toLowerCase();
     if (lower === prefix) return '';
-    if (lower.startsWith(`${prefix}/`)) return value.slice(root.length + 1);
+    if (lower.startsWith(`${prefix}/`)) return slashed.slice(root.length + 1);
   }
   return value;
 }

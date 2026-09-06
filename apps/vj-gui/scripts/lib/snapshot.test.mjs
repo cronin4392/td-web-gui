@@ -174,6 +174,16 @@ describe('exportSql strip', () => {
     expect(sql).toContain(`'Blur', 'Blur'`);
   });
 
+  it('matches a root against a value stored with backslashes', () => {
+    const path = make(dbPath(), [
+      ...CATALOG,
+      `INSERT INTO scenes VALUES ('Blur', 'C:\\Content\\Effects\\3 Effect\\Blur', 0)`,
+    ]);
+    const { sql, relativised } = exportSql(path, { strip: [root] });
+    expect(sql).toContain(`'3 Effect/Blur'`);
+    expect(relativised).toBe(1);
+  });
+
   it('leaves a value outside every root alone', () => {
     const path = make(dbPath(), [
       ...CATALOG,
@@ -347,7 +357,7 @@ describe('the tracked snapshots', () => {
   it('carry no absolute content root', () => {
     for (const name of ['scenes', 'effects', 'wordbank']) {
       const sql = readFileSync(join('data', 'snapshots', `${name}.sql`), 'utf8');
-      expect(sql, name).not.toMatch(/'[A-Za-z]:\//);
+      expect(sql, name).not.toMatch(/'[A-Za-z]:[/\\]/);
     }
   });
 });
