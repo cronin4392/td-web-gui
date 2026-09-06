@@ -60,8 +60,8 @@ pnpm --filter vj-gui test         # run its suite
 pnpm --filter vj-gui db:scenes    # rebuild the scene catalog from VJ_SCENES_ROOT
 pnpm --filter vj-gui db:effects   # rebuild the effect catalog from VJ_EFFECTS_ROOT
 
-pnpm db:export                    # write the catalogs out to data/snapshots/*.sql (tracked)
-pnpm db:restore                   # rebuild the .db files from those snapshots
+pnpm --filter vj-gui db:export    # write the catalogs out to data/snapshots/*.sql (tracked)
+pnpm --filter vj-gui db:restore   # rebuild the .db files from those snapshots
 ```
 
 The `.db` files are untracked; `apps/vj-gui/data/snapshots/*.sql` is the tracked

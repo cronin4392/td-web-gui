@@ -68,7 +68,7 @@ thing. They read SQLite through `node:sqlite`.
   Scan writes only the part below the root. A restored catalog resolves a Tox
   straight away; a Sync is for picking up what changed on disk, not for fixing
   up paths. `db:export`'s `--strip` now only guards a `.db` written before this.
-- **`pnpm -w db:export` is manual by design and stays that way.** Nothing runs it
+- **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
   for you, so an unexported change is an unbacked-up one. It refuses rather than
   write nothing over a good snapshot: once for a database that isn't there, and
   once for any table that is empty while the snapshot still holds rows for it —
@@ -76,11 +76,11 @@ thing. They read SQLite through `node:sqlite`.
   restored. The check is per table, so a wiped `scenes` is caught even while
   `scene_tags` still has rows. `--force` overrides it when the emptying was
   deliberate.
-- **The destructive direction is guarded too.** `pnpm -w db:restore` will not
+- **The destructive direction is guarded too.** `pnpm db:restore` will not
   overwrite an existing `.db` without `--force`, and `--force` itself refuses one
   whose contents differ from its snapshot — export first, or say
   `--discard-changes`. That comparison runs through the same `--strip` roots the
-  export used, which is why both root scripts pass them.
+  export used, which is why both scripts pass them.
 - Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
   key. A re-export with nothing changed produces no diff, which is the only
   reason the diffs are worth reading. Don't add anything per-run to them.
@@ -89,11 +89,11 @@ thing. They read SQLite through `node:sqlite`.
   whatever takes its place and silently undoes the restore.
 - `checkpointWal` on every write path predates this and was justified by keeping
   `git status` honest. That reason is gone; it is now only about readers outside
-  SQLite seeing recent writes. `pnpm -w db:checkpoint` still folds a log by hand,
+  SQLite seeing recent writes. `pnpm db:checkpoint` still folds a log by hand,
   and nothing enforces it on commit any more.
-- The scripts themselves live in `scripts/` at the workspace root and are covered
-  by the root `vitest.config.ts` — `pnpm test` runs those before recursing into
-  the packages.
+- The scripts themselves live in `scripts/`, and their suites run with this app's
+  — `pnpm test` here covers them. They are plain `node` CLIs, so each test file
+  opts out of the jsdom default with a `@vitest-environment node` docblock.
 - Content roots come from `.env` (`VJ_SCENES_ROOT`, `VJ_EFFECTS_ROOT`); see
   `.env.example`. Those paths never reach the browser.
 - Vite's watcher deliberately ignores `data/**` — SQLite's `-wal`/`-shm` writes

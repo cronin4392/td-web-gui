@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,8 +73,6 @@ describe('rootsFrom', () => {
 
 describe('show', () => {
   it('prints a path relative to the cwd with forward slashes', () => {
-    expect(show(join(process.cwd(), 'apps', 'vj-gui', 'data', 'scenes.db'))).toBe(
-      'apps/vj-gui/data/scenes.db',
-    );
+    expect(show(join(process.cwd(), 'data', 'scenes.db'))).toBe('data/scenes.db');
   });
 });

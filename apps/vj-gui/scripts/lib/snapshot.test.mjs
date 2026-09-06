@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -328,16 +329,14 @@ describe('hasUnexportedChanges', () => {
 
 describe('snapshotPath', () => {
   it('sits beside the database under snapshots/', () => {
-    expect(snapshotPath(join('apps', 'vj-gui', 'data', 'scenes.db'))).toBe(
-      join('apps', 'vj-gui', 'data', 'snapshots', 'scenes.sql'),
-    );
+    expect(snapshotPath(join('data', 'scenes.db'))).toBe(join('data', 'snapshots', 'scenes.sql'));
   });
 });
 
 describe('the tracked snapshots', () => {
   it('carry no absolute content root', () => {
     for (const name of ['scenes', 'effects', 'wordbank']) {
-      const sql = readFileSync(join('apps', 'vj-gui', 'data', 'snapshots', `${name}.sql`), 'utf8');
+      const sql = readFileSync(join('data', 'snapshots', `${name}.sql`), 'utf8');
       expect(sql, name).not.toMatch(/'[A-Za-z]:\//);
     }
   });
