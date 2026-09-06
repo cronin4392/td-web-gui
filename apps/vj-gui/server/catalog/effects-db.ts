@@ -16,7 +16,7 @@ import {
   transaction,
   type TableColumns,
 } from '../platform/catalog-db';
-import { requiredEnv } from '../platform/env';
+import { optionalEnv, requiredEnv } from '../platform/env';
 
 const TABLE_COLUMNS: TableColumns = {
   effects: {
@@ -44,6 +44,11 @@ const DDL = `
  * so unlike the scene library this root never reaches the client. */
 export function effectsRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_EFFECTS_ROOT');
+}
+
+/** Answers '' rather than throwing when the root is unset — see scenesRootIfSet. */
+export function effectsRootIfSet(env: Record<string, string | undefined>): string {
+  return optionalEnv(env, 'VJ_EFFECTS_ROOT');
 }
 
 export function effectsDbPath(): string {
@@ -149,7 +154,8 @@ export function readEffects(db: DatabaseSync, root: string): EffectCatalog {
     .map((row): Effect =>
       effectFrom({
         ...row,
-        folder: resolve(root, row.folder),
+        // An unset root leaves the folder as stored, relative — the catalog still lists.
+        folder: root ? resolve(root, row.folder) : row.folder,
         hidden: row.hidden !== 0,
         favorite: row.favorite !== 0,
       }),

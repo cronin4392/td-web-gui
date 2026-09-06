@@ -9,6 +9,10 @@ export function loadDotEnv(): void {
   if (existsSync(path)) process.loadEnvFile(path);
 }
 
+export function optionalEnv(env: Record<string, string | undefined>, name: string): string {
+  return env[name]?.trim() ?? '';
+}
+
 export function requiredEnv(env: Record<string, string | undefined>, name: string): string {
   const value = env[name]?.trim();
   if (!value) {

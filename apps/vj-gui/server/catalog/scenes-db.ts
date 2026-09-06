@@ -12,7 +12,7 @@ import {
   transaction,
   type TableColumns,
 } from '../platform/catalog-db';
-import { requiredEnv } from '../platform/env';
+import { optionalEnv, requiredEnv } from '../platform/env';
 
 const TABLE_COLUMNS: TableColumns = {
   scenes: {
@@ -74,6 +74,13 @@ const DDL = `
 /** Read by the dev/preview server only — the browser goes through SCENES_ROUTE. */
 export function scenesRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_SCENES_ROOT');
+}
+
+/** Answers '' rather than throwing when the root is unset, which is what the read path
+ * wants: it also runs after a mutation has committed, where a throw would report a write
+ * that did happen as a failure. A Scan still demands the real root. */
+export function scenesRootIfSet(env: Record<string, string | undefined>): string {
+  return optionalEnv(env, 'VJ_SCENES_ROOT');
 }
 
 export function scenesDbPath(): string {
@@ -256,7 +263,8 @@ export function readScenes(db: DatabaseSync, root: string): Scene[] {
   return rows.map((row) =>
     sceneFrom({
       name: row.name,
-      folder: resolve(root, row.folder),
+      // An unset root leaves the folder as stored, relative — the catalog still lists.
+      folder: root ? resolve(root, row.folder) : row.folder,
       tags: tags.get(row.name) ?? [],
       rank: row.rank,
       dark: row.dark !== 0,

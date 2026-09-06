@@ -7,6 +7,7 @@ import {
   renameTag,
   scenesDbPath,
   scenesRoot,
+  scenesRootIfSet,
   setSceneHidden,
   setSceneTag,
   setTagOrder,
@@ -69,7 +70,7 @@ const tagActions: Record<string, CatalogAction> = {
 };
 
 export const scenesApiHandler = catalogApiHandler({
-  read: (db) => readCatalog(db, scenesRoot(process.env)),
+  read: (db) => readCatalog(db, scenesRootIfSet(process.env)),
   sync: (db) => syncScenes(db, scenesRoot(process.env)),
   flags: { hidden: setSceneHidden },
   actions: tagActions,

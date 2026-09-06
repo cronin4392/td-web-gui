@@ -2,6 +2,7 @@ import type { Plugin } from 'vite';
 import {
   effectsDbPath,
   effectsRoot,
+  effectsRootIfSet,
   openEffectsDb,
   readEffects,
   setEffectFavorite,
@@ -13,7 +14,7 @@ import { catalogApiHandler, sqliteApiPlugin } from '../platform/api-plugin';
 const ROUTE = '/api/effects';
 
 export const effectsApiHandler = catalogApiHandler({
-  read: (db) => readEffects(db, effectsRoot(process.env)),
+  read: (db) => readEffects(db, effectsRootIfSet(process.env)),
   sync: (db) => syncEffects(db, effectsRoot(process.env)),
   flags: { hidden: setEffectHidden, favorite: setEffectFavorite },
 });
