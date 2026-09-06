@@ -67,7 +67,8 @@ pnpm --filter vj-gui db:restore   # rebuild the .db files from those snapshots
 The `.db` files are untracked; `apps/vj-gui/data/snapshots/*.sql` is the tracked
 copy. `dev` restores any that are missing, and the restored rows resolve against
 your own `VJ_SCENES_ROOT` / `VJ_EFFECTS_ROOT` — run `db:scenes` / `db:effects`
-when the content on disk has changed, not to make a fresh clone work.
+when the content on disk has changed, not to make a fresh clone work — they
+refuse to run before a restore.
 
 Workspace-wide: `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm format`.
 

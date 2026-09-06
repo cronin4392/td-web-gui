@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { catalogDbPath } from './catalog-db';
+import { catalogDbPath, requireRestoredDb } from './catalog-db';
 
 let dir: string;
 let previousCwd: string;
@@ -41,5 +41,26 @@ describe('catalogDbPath', () => {
     const elsewhere = join(dir, 'elsewhere', 'scenes.db');
     process.env.VJ_TEST_DB = elsewhere;
     expect(catalogDbPath('VJ_TEST_DB', 'scenes.db')).toBe(elsewhere);
+  });
+});
+
+describe('requireRestoredDb', () => {
+  it('refuses an absent database whose snapshot is there', () => {
+    const root = cwd(true);
+    writeFileSync(join(root, 'data', 'snapshots', 'scenes.sql'), '', 'utf8');
+    expect(() => requireRestoredDb(join(root, 'data', 'scenes.db'))).toThrow(/db:restore/);
+  });
+
+  it('passes a database that is there', () => {
+    const root = cwd(true);
+    writeFileSync(join(root, 'data', 'snapshots', 'scenes.sql'), '', 'utf8');
+    const path = join(root, 'data', 'scenes.db');
+    writeFileSync(path, '', 'utf8');
+    expect(() => requireRestoredDb(path)).not.toThrow();
+  });
+
+  it('passes when there is no snapshot to restore from', () => {
+    const root = cwd(true);
+    expect(() => requireRestoredDb(join(root, 'data', 'scenes.db'))).not.toThrow();
   });
 });

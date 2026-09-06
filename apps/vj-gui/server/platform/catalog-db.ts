@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 /** Each table's columns, mapped to the SQL that declares one — enough for the
  * schema check to add a missing column rather than rebuild the table. */
@@ -38,6 +38,18 @@ export function catalogDbPath(envVar: string, filename: string): string {
     );
   }
   return join(dir, filename);
+}
+
+/** Refuses to open a catalog that was never restored. `openCatalogDb` would create
+ * an empty one, which `db:restore --if-missing` then skips, so every authored row in
+ * the snapshot silently stays out of the database a Sync is about to write to. */
+export function requireRestoredDb(path: string): void {
+  if (existsSync(path)) return;
+  const snapshot = join(dirname(path), 'snapshots', `${basename(path, '.db')}.sql`);
+  if (!existsSync(snapshot)) return;
+  throw new Error(
+    `No database at ${path}, but ${snapshot} holds one. Run \`pnpm db:restore\` first.`,
+  );
 }
 
 function columnsOf(db: DatabaseSync, table: string): string[] {
