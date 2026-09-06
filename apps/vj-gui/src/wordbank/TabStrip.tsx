@@ -53,104 +53,105 @@ export function TabStrip(props: TabStripProps): JSX.Element {
     `${styles.tab} ${state.selectedListId === id ? styles.tabSelected : ''}`;
 
   return (
-    <div role="tablist" aria-label="Phrase lists" class={styles.strip}>
-      <button
-        ref={(el) => tabRefs.set(RECENT_LIST_ID, el)}
-        type="button"
-        role="tab"
-        id={`tab-${RECENT_LIST_ID}`}
-        aria-selected={state.selectedListId === RECENT_LIST_ID}
-        aria-controls={`tabpanel-${RECENT_LIST_ID}`}
-        tabIndex={state.selectedListId === RECENT_LIST_ID ? 0 : -1}
-        onClick={() => props.store.selectList(RECENT_LIST_ID)}
-        onKeyDown={(event) => onTabKeyDown(event, RECENT_LIST_ID)}
-        class={tabClass(RECENT_LIST_ID)}
-      >
-        Recent
-      </button>
+    <>
+      <div role="tablist" aria-label="Phrase lists" class={styles.strip}>
+        <button
+          ref={(el) => tabRefs.set(RECENT_LIST_ID, el)}
+          type="button"
+          role="tab"
+          id={`tab-${RECENT_LIST_ID}`}
+          aria-selected={state.selectedListId === RECENT_LIST_ID}
+          aria-controls={`tabpanel-${RECENT_LIST_ID}`}
+          tabIndex={state.selectedListId === RECENT_LIST_ID ? 0 : -1}
+          onClick={() => props.store.selectList(RECENT_LIST_ID)}
+          onKeyDown={(event) => onTabKeyDown(event, RECENT_LIST_ID)}
+          class={tabClass(RECENT_LIST_ID)}
+        >
+          Recent
+        </button>
 
-      <For each={state.lists}>
-        {(tab, i) => (
-          <div
-            class={`${styles.tabSlot} ${dragIndex() === i() ? styles.tabSlotDragging : ''}`}
-            draggable={renamingId() !== tab.id}
-            onDragStart={(event) => {
-              event.dataTransfer?.setData(TAB_MIME, String(i()));
-              setDragIndex(i());
-            }}
-            onDragOver={(event) => {
-              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
-              event.preventDefault();
-            }}
-            onDrop={(event) => {
-              if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
-              event.preventDefault();
-              const from = dragIndex();
-              setDragIndex(null);
-              if (from === null) return;
-              props.store.reorderLists(from, adjustReorderTarget(from, i()));
-            }}
-            onDragEnd={() => setDragIndex(null)}
-            onContextMenu={(event) => menu.open(event, tabMenu(tab.id))}
-          >
-            <Show
-              when={renamingId() === tab.id}
-              fallback={
-                <button
-                  ref={(el) => tabRefs.set(tab.id, el)}
-                  type="button"
-                  role="tab"
-                  id={`tab-${tab.id}`}
-                  aria-selected={state.selectedListId === tab.id}
-                  aria-controls={`tabpanel-${tab.id}`}
-                  tabIndex={state.selectedListId === tab.id ? 0 : -1}
-                  onClick={() => props.store.selectList(tab.id)}
-                  onKeyDown={(event) => onTabKeyDown(event, tab.id)}
-                  class={tabClass(tab.id)}
-                >
-                  {tab.name}
-                </button>
-              }
+        <For each={state.lists}>
+          {(tab, i) => (
+            <div
+              class={`${styles.tabSlot} ${dragIndex() === i() ? styles.tabSlotDragging : ''}`}
+              draggable={renamingId() !== tab.id}
+              onDragStart={(event) => {
+                event.dataTransfer?.setData(TAB_MIME, String(i()));
+                setDragIndex(i());
+              }}
+              onDragOver={(event) => {
+                if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                if (!hasDragMime(event.dataTransfer!, TAB_MIME)) return;
+                event.preventDefault();
+                const from = dragIndex();
+                setDragIndex(null);
+                if (from === null) return;
+                props.store.reorderLists(from, adjustReorderTarget(from, i()));
+              }}
+              onDragEnd={() => setDragIndex(null)}
+              onContextMenu={(event) => menu.open(event, tabMenu(tab.id))}
             >
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  commitRename(
-                    tab.id,
-                    (event.currentTarget.elements.namedItem('rename') as HTMLInputElement).value,
-                  );
-                }}
+              <Show
+                when={renamingId() === tab.id}
+                fallback={
+                  <button
+                    ref={(el) => tabRefs.set(tab.id, el)}
+                    type="button"
+                    role="tab"
+                    id={`tab-${tab.id}`}
+                    aria-selected={state.selectedListId === tab.id}
+                    aria-controls={`tabpanel-${tab.id}`}
+                    tabIndex={state.selectedListId === tab.id ? 0 : -1}
+                    onClick={() => props.store.selectList(tab.id)}
+                    onKeyDown={(event) => onTabKeyDown(event, tab.id)}
+                    class={tabClass(tab.id)}
+                  >
+                    {tab.name}
+                  </button>
+                }
               >
-                <input
-                  name="rename"
-                  ref={(el) => {
-                    queueMicrotask(() => {
-                      el.focus();
-                      el.select();
-                    });
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    commitRename(
+                      tab.id,
+                      (event.currentTarget.elements.namedItem('rename') as HTMLInputElement).value,
+                    );
                   }}
-                  value={tab.name}
-                  class={styles.rename}
-                  onBlur={(event) => commitRename(tab.id, event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setRenamingId(null);
-                  }}
-                />
-              </form>
-            </Show>
-          </div>
-        )}
-      </For>
-      <button
-        type="button"
-        aria-label="Add a new list"
-        onClick={() => props.store.addList()}
-        class={styles.add}
-      >
-        +
-      </button>
-
+                >
+                  <input
+                    name="rename"
+                    ref={(el) => {
+                      queueMicrotask(() => {
+                        el.focus();
+                        el.select();
+                      });
+                    }}
+                    value={tab.name}
+                    class={styles.rename}
+                    onBlur={(event) => commitRename(tab.id, event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setRenamingId(null);
+                    }}
+                  />
+                </form>
+              </Show>
+            </div>
+          )}
+        </For>
+        <button
+          type="button"
+          aria-label="Add a new list"
+          onClick={() => props.store.addList()}
+          class={styles.add}
+        >
+          +
+        </button>
+      </div>
       {menu.element}
-    </div>
+    </>
   );
 }
