@@ -1,9 +1,9 @@
 /**
  * WebRTC tests, driven against the faked `RTCPeerConnection` and
  * the mock TD server so every signaling and recovery path runs without real
- * media: offer/answer + trickle ICE (5.2), the `streams` id→mid map (5.3),
- * connectionState-driven rebuild (5.5), WS-reconnect recovery and deferred
- * renegotiation (5.6), and track-stopping teardown (5.8).
+ * media: offer/answer + trickle ICE, the `streams` id→mid map,
+ * connectionState-driven rebuild, WS-reconnect recovery and deferred
+ * renegotiation, and track-stopping teardown.
  */
 
 import { createRoot } from 'solid-js';
@@ -85,7 +85,7 @@ async function setup(
   };
 }
 
-describe('peer setup + offer (5.2)', () => {
+describe('peer setup + offer', () => {
   it('waits for the WS snapshot before building the peer', async () => {
     const td = createMockTD({ autoHandshake: false });
     const sched = createManualScheduler();
@@ -167,7 +167,7 @@ describe('peer setup + offer (5.2)', () => {
     // the second setRemoteDescription lands before the first has answered — and
     // the first setLocalDescription then throws `wrong signalingState: stable`,
     // leaving TD in have-local-offer with no media flowing. Found live with two
-    // instances negotiating at once (Phase 6.6).
+    // instances negotiating at once.
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     const h = await setup({ offerRole: 'td' });
     const peer = MockPeerConnection.latest();
@@ -187,7 +187,7 @@ describe('peer setup + offer (5.2)', () => {
   });
 });
 
-describe('trickle ICE both ways (5.2)', () => {
+describe('trickle ICE both ways', () => {
   it('sends local candidates with their full descriptor, then end-of-candidates', async () => {
     const h = await setup();
     const peer = MockPeerConnection.latest();
@@ -234,7 +234,7 @@ describe('trickle ICE both ways (5.2)', () => {
   });
 });
 
-describe('streams mapping (5.3)', () => {
+describe('streams mapping', () => {
   it('maps each announced id onto the track carried by its mid', async () => {
     const h = await setup({ receivers: 2 });
     const peer = MockPeerConnection.latest();
@@ -297,7 +297,7 @@ describe('streams mapping (5.3)', () => {
     });
     await settle();
 
-    // The 8-tile wall (6.7). TD reports one msid for the whole peer, so
+    // The 8-tile wall. TD reports one msid for the whole peer, so
     // `event.streams[0]` is the same 8-track object on every mid — and a
     // <video> plays only the first video track of what it's given, so binding
     // to it silently renders tile 1 eight times.
@@ -441,7 +441,7 @@ describe('per-stream enable', () => {
   });
 });
 
-describe('per-stream status + rebuild on failure (5.5)', () => {
+describe('per-stream status + rebuild on failure', () => {
   it('reports a stream connected only once its track has arrived', async () => {
     const h = await setup();
     expect(h.video.status()).toBe('connecting');
@@ -509,7 +509,7 @@ describe('per-stream status + rebuild on failure (5.5)', () => {
   });
 });
 
-describe('WS-reconnect recovery + deferred renegotiation (5.6)', () => {
+describe('WS-reconnect recovery + deferred renegotiation', () => {
   it('leaves a healthy peer alone across a WS blip', async () => {
     const h = await setup();
     const peer = MockPeerConnection.latest();
@@ -571,7 +571,7 @@ describe('WS-reconnect recovery + deferred renegotiation (5.6)', () => {
   });
 });
 
-describe('teardown (5.8)', () => {
+describe('teardown', () => {
   it('closes the peer and stops every received track', async () => {
     const h = await setup();
     const peer = MockPeerConnection.latest();

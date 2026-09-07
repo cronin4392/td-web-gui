@@ -247,25 +247,33 @@ interface DemoCalls {
 }
 
 describe('createTDClient call routing', () => {
-  it('routes a typed call to the mounted provider’s connection', async () => {
+  it('routes a typed call through the connection captured at setup', async () => {
     const sched = createManualScheduler();
     const td = createMockTD({ snapshot: {} });
     const TD = createTDClient<EmptyParams, DemoCalls>();
     const host = document.createElement('div');
     document.body.appendChild(host);
 
+    let conn!: ReturnType<typeof TD.useConnection>;
+    const Capture = () => {
+      conn = TD.useConnection();
+      return null;
+    };
+
     const dispose = render(
       () => (
         <TD.Provider
           url="ws://test"
           options={{ WebSocket: td.WebSocket, scheduler: sched.scheduler }}
-        />
+        >
+          <Capture />
+        </TD.Provider>
       ),
       host,
     );
     await flush();
 
-    const promise = TD.call('print', { text: 'hi' });
+    const promise = conn.call('print', { text: 'hi' });
     const sent = td.socket().received.at(-1) as any;
     expect(sent).toMatchObject({ type: 'call', name: 'print', args: { text: 'hi' } });
     td.socket().serverSend({ type: 'result', id: sent.id, value: { ok: true } });
@@ -275,15 +283,9 @@ describe('createTDClient call routing', () => {
     host.remove();
   });
 
-  it('throws before any provider has mounted', () => {
-    const TD = createTDClient<EmptyParams, DemoCalls>();
-    expect(() => TD.call('print', { text: 'hi' })).toThrow(/no TD connection/);
-  });
-
-  // The factory resolves the connection outside Solid's owner (event handlers
-  // have none), so two live providers leave nothing to disambiguate from.
-  // Failing loudly beats silently binding the wrong socket.
-  it('throws rather than guessing when two providers from one factory are mounted', async () => {
+  // The reason the bundle has no `call`: with several providers from one factory
+  // there is no ambient "the" connection, and each subtree must reach its own.
+  it('gives each provider from one factory its own connection', async () => {
     const sched = createManualScheduler();
     const a = createMockTD({ snapshot: {} });
     const b = createMockTD({ snapshot: {} });
@@ -291,24 +293,50 @@ describe('createTDClient call routing', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
 
+    const seen: ReturnType<typeof TD.useConnection>[] = [];
+    const Capture = () => {
+      seen.push(TD.useConnection());
+      return null;
+    };
+
     const dispose = render(
       () => (
         <>
           <TD.Provider
             url="ws://a"
             options={{ WebSocket: a.WebSocket, scheduler: sched.scheduler }}
-          />
+          >
+            <Capture />
+          </TD.Provider>
           <TD.Provider
             url="ws://b"
             options={{ WebSocket: b.WebSocket, scheduler: sched.scheduler }}
-          />
+          >
+            <Capture />
+          </TD.Provider>
         </>
       ),
       host,
     );
     await flush();
 
-    expect(() => TD.call('print', { text: 'hi' })).toThrow(/one createTDClient/);
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).not.toBe(seen[1]);
+
+    // Each reply is answered by the socket its own provider owns, so a result
+    // landing on the right promise is the actual claim here.
+    const toA = seen[0]!.call('print', { text: 'to-a' });
+    const toB = seen[1]!.call('print', { text: 'to-b' });
+
+    const sentA = a.socket().received.at(-1) as any;
+    const sentB = b.socket().received.at(-1) as any;
+    expect(sentA).toMatchObject({ name: 'print', args: { text: 'to-a' } });
+    expect(sentB).toMatchObject({ name: 'print', args: { text: 'to-b' } });
+
+    a.socket().serverSend({ type: 'result', id: sentA.id, value: 'from-a' });
+    b.socket().serverSend({ type: 'result', id: sentB.id, value: 'from-b' });
+    await expect(toA).resolves.toBe('from-a');
+    await expect(toB).resolves.toBe('from-b');
 
     dispose();
     host.remove();

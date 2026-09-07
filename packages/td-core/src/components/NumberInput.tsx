@@ -1,7 +1,7 @@
 /**
  * `<NumberInput>` — numeric input bound to a TD number parameter.
  *
- * Invalid/empty-input rules (see § "Invalid / empty numeric input"):
+ * Invalid/empty-input rules:
  *  - While the field is empty or unparseable, hold the last valid value in the
  *    signal and send nothing — TD keeps showing the last good value.
  *  - Never send `NaN`.
@@ -17,7 +17,7 @@
 
 import { createEffect, splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
-import { callHandler } from './TextInput';
+import { callHandler, mergeClass } from './props';
 
 export interface NumberInputProps extends Omit<
   JSX.InputHTMLAttributes<HTMLInputElement>,
@@ -36,6 +36,7 @@ export function NumberInput(props: NumberInputProps): JSX.Element {
     'name',
     'min',
     'max',
+    'class',
     'disabled',
     'onInput',
     'onFocus',
@@ -63,11 +64,11 @@ export function NumberInput(props: NumberInputProps): JSX.Element {
     <input
       ref={inputRef}
       type="number"
-      class="td-number-input"
       min={props.min}
       max={props.max}
       step={props.step}
       {...rest}
+      class={mergeClass('td-number-input', props.class)}
       disabled={props.disabled ?? binding.readonly()}
       onInput={(event) => {
         const raw = event.currentTarget.value;

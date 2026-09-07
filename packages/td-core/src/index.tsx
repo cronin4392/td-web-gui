@@ -34,6 +34,7 @@ export const version = '0.1.0';
 export {
   PROTOCOL_VERSION,
   escapeNewlines,
+  isServerMessage,
   parse,
   unescapeNewlines,
   type CallMessage,
@@ -42,6 +43,9 @@ export {
   type ErrorMessage,
   type HelloMessage,
   type JsonValue,
+  type MenuOption,
+  type MenusMessage,
+  type MenusRequestMessage,
   type Message,
   type ParamMap,
   type ParamValue,
@@ -68,24 +72,36 @@ export {
   type BackoffOptions,
   type BackpressureOptions,
   type HeartbeatOptions,
-  type TDBinding,
+  type ParamSchema,
   type TDConnection,
   type TDConnectionOptions,
-  type TDSendOptions,
   type TDStatus,
+  type WebSocketLike,
+  type WebSocketLikeConstructor,
 } from './connection';
+
+// Parameter bindings
+export { type TDBinding, type TDSendOptions } from './params';
 
 // Scheduler (injectable clock; default backed by the platform globals)
 export { defaultScheduler, type TDScheduler } from './scheduler';
 
 // Calls (named-handler invocation, both directions)
-export { TDCallError, type CallHandler, type CallOptions } from './calls';
+export {
+  TDCallError,
+  type AnyCalls,
+  type CallHandler,
+  type CallOptions,
+  type CallSchema,
+  type CallSignature,
+} from './calls';
 
 // WebRTC peer
 export {
   createTDVideoStream,
   type IceCandidateInit,
   type MediaStreamLike,
+  type MediaStreamLikeConstructor,
   type RTCPeerConnectionLike,
   type RTCPeerConnectionLikeConstructor,
   type TDPeerStatus,
@@ -101,8 +117,6 @@ export {
   createTDSignal,
   useTDConnection,
   useTDVideoStream,
-  type CallSchema,
-  type CallSignature,
   type TDProviderProps,
 } from './context';
 

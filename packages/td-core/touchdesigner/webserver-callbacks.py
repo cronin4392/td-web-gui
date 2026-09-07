@@ -918,6 +918,20 @@ def attach_streams(connection):
         _set_par(top, "webrtcvideotrack", stream_id)  # audio out of scope for v1
 
 
+def reattach_streams():
+    """Re-point every live peer's Video Stream Out TOPs at its tracks.
+
+    Public: called after a Rebuild that REPLACED the encoders under a live peer,
+    which a project save does by construction (the build product is dropped
+    before the file is written and rebuilt after — see exit-execute.py). The peer
+    and its tracks survive that, since they belong to the WebRTC DAT; only the
+    TOPs feeding them are new, and a new TOP has no WebRTC parameters set. Skip
+    this and the peer stays `connected` with every tile black.
+    """
+    for connection in list(client_by_peer):
+        _attach_streams_next_frame(connection)
+
+
 def _attach_streams_next_frame(connection):
     # run() executes detached from this module, so the callbacks DAT is
     # addressed by absolute path rather than the config's bare name.

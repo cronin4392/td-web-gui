@@ -1,6 +1,6 @@
 /**
  * Toggle behavior: bidirectional bool checkbox, optimistic write +
- * send-on-change, focus-driven echo suppression, read-only disabling (4.10).
+ * send-on-change, focus-driven echo suppression, read-only disabling.
  */
 
 import { render } from 'solid-js/web';

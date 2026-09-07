@@ -27,8 +27,8 @@ import {
 //
 // Instance 1 also carries `Calls`/`Handlers` generics — the two independent
 // namespaces for "what TD exposes" (`call`/`notify`) and "what the web
-// exposes" (`handle`) — so `Example1.call('print', ...)` autocompletes and
-// typos are compile errors, same as a param name.
+// exposes" (`handle`) — so `Example1.useConnection().call('print', ...)`
+// autocompletes and typos are compile errors, same as a param name.
 const Example1 = createTDClient<Example1Params, Example1Calls, Example1Handlers>();
 const Example2 = createTDClient<Example2Params>();
 
@@ -137,7 +137,12 @@ function AudioDevicePicker() {
 
 /** Instance 1's named-call demo — the bidirectional channel from prds/CALLS.md. */
 function CallsDemo() {
-  const conn = useTDConnection();
+  // Captured at setup: Solid resolves context from the current owner, and the
+  // event handlers below run after paint with none. `Example1.useConnection()`
+  // is the typed view — `call('print' | 'echo')` and nothing else.
+  const conn = Example1.useConnection();
+  // The same socket, untyped, for the deliberate unknown-handler demo below.
+  const raw = useTDConnection();
   const [text, setText] = createSignal('');
   const [printResult, setPrintResult] = createSignal<string>();
   const [echoResult, setEchoResult] = createSignal<string>();
@@ -154,7 +159,7 @@ function CallsDemo() {
   async function printInTD() {
     setCallError(undefined);
     try {
-      const result = await Example1.call('print', { text: text() });
+      const result = await conn.call('print', { text: text() });
       setPrintResult(JSON.stringify(result));
     } catch (error) {
       setCallError(describe(error));
@@ -164,7 +169,7 @@ function CallsDemo() {
   async function echoFromTD() {
     setCallError(undefined);
     try {
-      const result = await Example1.call('echo', { hello: 'world' });
+      const result = await conn.call('echo', { hello: 'world' });
       setEchoResult(JSON.stringify(result));
     } catch (error) {
       setCallError(describe(error));
@@ -174,9 +179,9 @@ function CallsDemo() {
   async function callUnknown() {
     setCallError(undefined);
     try {
-      // Raw connection, not `Example1.call`: the typed wrapper has no way to
-      // name a handler that isn't in `Example1Calls`, which is the whole point.
-      await conn.call('does-not-exist');
+      // The untyped connection, not `conn`: naming a handler outside
+      // `Example1Calls` is a compile error on the typed one, which is the point.
+      await raw.call('does-not-exist');
     } catch (error) {
       setCallError(describe(error));
     }

@@ -1,7 +1,7 @@
 /**
  * Multiple components bound to the same param name — verifies the
- * shared-signal model already implied by lazy allocation (2.2) and
- * focus-based echo suppression (2.5): every binder of a name shares one
+ * shared-signal model already implied by lazy allocation and
+ * focus-based echo suppression: every binder of a name shares one
  * signal and one active-editor count, so an optimistic write from any one of
  * them fans out to all the others, and suppression is a *count*, not a
  * boolean, so overlapping editors don't unsuppress each other prematurely.
@@ -32,7 +32,7 @@ function drag(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-describe('shared signal across multiple binders (4.9)', () => {
+describe('shared signal across multiple binders', () => {
   it('fans an optimistic write from a slider out to a readout of the same param', async () => {
     const td = createMockTD({ snapshot: { level: 0 } });
     const sched = createManualScheduler();

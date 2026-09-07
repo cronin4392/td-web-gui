@@ -9,6 +9,7 @@
 
 import { Index, Show, splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
+import { mergeClass } from './props';
 
 export interface TableProps extends Omit<JSX.HTMLAttributes<HTMLTableElement>, 'children'> {
   /** Readout name to read. */
@@ -21,7 +22,7 @@ export interface TableProps extends Omit<JSX.HTMLAttributes<HTMLTableElement>, '
 
 export function Table(props: TableProps): JSX.Element {
   const binding = createTDSignal<string[][]>(props.name);
-  const [, rest] = splitProps(props, ['name', 'header', 'format']);
+  const [, rest] = splitProps(props, ['name', 'class', 'header', 'format']);
 
   const rows = (): string[][] => {
     const value = binding.value();
@@ -45,7 +46,7 @@ export function Table(props: TableProps): JSX.Element {
     props.format ? props.format(value, row, col) : value;
 
   return (
-    <table class="td-table" {...rest}>
+    <table {...rest} class={mergeClass('td-table', props.class)}>
       <Show when={headerRow()}>
         {(head) => (
           <thead>

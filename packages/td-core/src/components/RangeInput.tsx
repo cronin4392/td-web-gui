@@ -16,7 +16,7 @@
 
 import { splitProps, type JSX } from 'solid-js';
 import { createTDSignal } from '../context';
-import { callHandler } from './TextInput';
+import { callHandler, mergeClass } from './props';
 
 export interface RangeInputProps extends Omit<
   JSX.InputHTMLAttributes<HTMLInputElement>,
@@ -36,6 +36,7 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
   const [, rest] = splitProps(props, [
     'name',
     'throttle',
+    'class',
     'disabled',
     'onInput',
     'onFocus',
@@ -45,8 +46,8 @@ export function RangeInput(props: RangeInputProps): JSX.Element {
   return (
     <input
       type="range"
-      class="td-range-input"
       {...rest}
+      class={mergeClass('td-range-input', props.class)}
       value={binding.value() ?? props.min ?? 0}
       disabled={props.disabled ?? binding.readonly()}
       onInput={(event) => {
