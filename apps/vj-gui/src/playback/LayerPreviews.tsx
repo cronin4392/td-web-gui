@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from '
 import { unescapeNewlines, type SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
+import { RadioGroup } from '@/ui/RadioGroup';
 import { isZLayer, layerNumber, type LayerId } from './layers';
 import {
   activeSceneFolder,
@@ -92,14 +93,14 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
         <ParamRadios
           layer={props.layer}
           name="layout"
-          legend="Layout"
+          label="Layout"
           prefix="L"
           options={LAYOUT_OPTIONS}
         />
         <ParamRadios
           layer={props.layer}
           name="color"
-          legend="Color"
+          label="Color"
           prefix="C"
           options={COLOR_OPTIONS}
         />
@@ -286,20 +287,22 @@ function levelStyle(level: number | undefined): JSX.CSSProperties {
 function ParamRadios(props: {
   layer: LayerId;
   name: 'layout' | 'color';
-  legend: string;
+  label: string;
   prefix: string;
   options: readonly SelectOption[];
 }): JSX.Element {
   const binding = LoaderClient.signal(props.name);
   return (
-    <fieldset class={styles.paramGroup}>
-      <legend class="u-sr-only">{`Layer ${props.layer} ${props.legend}`}</legend>
+    // Named per layer as well as per param: one shared name would make all
+    // eight tiles a single radio group.
+    <RadioGroup
+      name={`layer-${props.layer}-${props.name}`}
+      direction="vertical"
+      label={`Layer ${props.layer} ${props.label}`}
+    >
       <For each={props.options}>
         {(option, index) => (
-          // Grouped per layer as well as per param: one shared name would make
-          // all eight tiles a single radio group.
           <RadioButton
-            name={`layer-${props.layer}-${props.name}`}
             checked={binding.value() === option.value}
             onSelect={() => binding.setValue(option.value)}
           >
@@ -307,7 +310,7 @@ function ParamRadios(props: {
           </RadioButton>
         )}
       </For>
-    </fieldset>
+    </RadioGroup>
   );
 }
 

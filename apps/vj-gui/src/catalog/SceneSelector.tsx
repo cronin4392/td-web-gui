@@ -15,6 +15,7 @@ import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 import { PanelHeader } from '@/ui/PanelHeader';
 import { RadioButton } from '@/ui/RadioButton';
+import { RadioGroup } from '@/ui/RadioGroup';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, hasDragMime, moveItem } from '@/ui/dnd';
 import styles from './SceneSelector.module.css';
@@ -192,9 +193,8 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
         </div>
       </div>
 
-      <fieldset
+      <div
         class={styles.tags}
-        aria-label="Scene tag"
         // No native way to scroll a horizontal overflow with a vertical wheel;
         // map it here. Non-passive in Solid, so preventDefault holds.
         onWheel={(event) => {
@@ -203,89 +203,84 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
           event.currentTarget.scrollLeft += event.deltaY;
         }}
       >
-        <RadioButton
-          name="scene-tag"
-          checked={selectedTag() === null}
-          onSelect={() => setPickedTag(null)}
-        >
-          All
-        </RadioButton>
+        <RadioGroup name="scene-tag" direction="horizontal" label="Scene tag">
+          <RadioButton checked={selectedTag() === null} onSelect={() => setPickedTag(null)}>
+            All
+          </RadioButton>
 
-        {/* For, not Index: a radio holds DOM state, so a reordered list must
+          {/* For, not Index: a radio holds DOM state, so a reordered list must
             move the node rather than rewrite its label. */}
-        <For each={tags()}>
-          {(tag) => (
-            <div
-              class={styles.tagSlot}
-              data-dragging={dragTag() === tag}
-              data-dropping={dropTag() === tag}
-              // A draggable ancestor stops Chrome placing a caret in a child
-              // input, so the slot gives up dragging while it is being renamed.
-              draggable={renaming() !== tag}
-              onDragStart={(event) => {
-                event.dataTransfer?.setData(TAG_MIME, tag);
-                setDragTag(tag);
-              }}
-              onDragOver={(event) => {
-                const data = event.dataTransfer;
-                if (!data) return;
-                const scene = hasDragMime(data, SCENE_MIME);
-                if (!scene && !hasDragMime(data, TAG_MIME)) return;
-                event.preventDefault();
-                if (scene) setDropTag(tag);
-              }}
-              onDragLeave={() => setDropTag(null)}
-              onDrop={(event) => dropOnTag(event, tag)}
-              onDragEnd={() => {
-                setDragTag(null);
-                setDropTag(null);
-              }}
-              onContextMenu={(event) => menu.open(event, tagMenu(tag))}
-            >
-              <Show
-                when={renaming() === tag}
-                fallback={
-                  <RadioButton
-                    name="scene-tag"
-                    checked={selectedTag() === tag}
-                    onSelect={() => setPickedTag(tag)}
-                  >
-                    <span class={styles.tagName} title={tag}>
-                      {tag}
-                    </span>
-                  </RadioButton>
-                }
+          <For each={tags()}>
+            {(tag) => (
+              <div
+                class={styles.tagSlot}
+                data-dragging={dragTag() === tag}
+                // A draggable ancestor stops Chrome placing a caret in a child
+                // input, so the slot gives up dragging while it is being renamed.
+                draggable={renaming() !== tag}
+                onDragStart={(event) => {
+                  event.dataTransfer?.setData(TAG_MIME, tag);
+                  setDragTag(tag);
+                }}
+                onDragOver={(event) => {
+                  const data = event.dataTransfer;
+                  if (!data) return;
+                  const scene = hasDragMime(data, SCENE_MIME);
+                  if (!scene && !hasDragMime(data, TAG_MIME)) return;
+                  event.preventDefault();
+                  if (scene) setDropTag(tag);
+                }}
+                onDragLeave={() => setDropTag(null)}
+                onDrop={(event) => dropOnTag(event, tag)}
+                onDragEnd={() => {
+                  setDragTag(null);
+                  setDropTag(null);
+                }}
+                onContextMenu={(event) => menu.open(event, tagMenu(tag))}
               >
-                <form
-                  class={styles.tagForm}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    commitRename(
-                      tag,
-                      (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
-                    );
-                  }}
+                <Show
+                  when={renaming() === tag}
+                  fallback={
+                    <RadioButton
+                      checked={selectedTag() === tag}
+                      highlighted={dropTag() === tag}
+                      onSelect={() => setPickedTag(tag)}
+                    >
+                      <span title={tag}>{tag}</span>
+                    </RadioButton>
+                  }
                 >
-                  <input
-                    name="tag"
-                    class={styles.tagInput}
-                    value={tag}
-                    ref={(el) => {
-                      queueMicrotask(() => {
-                        el.focus();
-                        el.select();
-                      });
+                  <form
+                    class={styles.tagForm}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      commitRename(
+                        tag,
+                        (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
+                      );
                     }}
-                    onBlur={(event) => commitRename(tag, event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Escape') setRenaming(null);
-                    }}
-                  />
-                </form>
-              </Show>
-            </div>
-          )}
-        </For>
+                  >
+                    <input
+                      name="tag"
+                      class={styles.tagInput}
+                      value={tag}
+                      ref={(el) => {
+                        queueMicrotask(() => {
+                          el.focus();
+                          el.select();
+                        });
+                      }}
+                      onBlur={(event) => commitRename(tag, event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Escape') setRenaming(null);
+                      }}
+                    />
+                  </form>
+                </Show>
+              </div>
+            )}
+          </For>
+        </RadioGroup>
 
         <Show
           when={adding()}
@@ -321,7 +316,7 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
             />
           </form>
         </Show>
-      </fieldset>
+      </div>
 
       {menu.element}
     </section>

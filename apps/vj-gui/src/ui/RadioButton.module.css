@@ -6,10 +6,14 @@
     cursor: pointer;
     user-select: none;
     text-align: center;
+    white-space: nowrap;
     font-family: var(--font-mono);
     font-size: var(--text-m);
     padding: var(--spacing-m);
     border: 1px solid var(--color-border);
+    /* Set by the enclosing RadioGroup. Rounding the pill's own border beats
+       clipping it to a rounded parent, which slices the corner off the stroke. */
+    border-radius: var(--radio-radius, 0);
     background: var(--color-canvas);
     color: var(--color-text);
 
@@ -21,6 +25,13 @@
     &:has(:focus-visible) {
       outline: 2px solid var(--color-text);
       outline-offset: 2px;
+    }
+
+    /* Outranks `.checked`, so the pill a drop would land on reads as the target
+       even when it is the selected one. */
+    &[data-highlighted='true'] {
+      border-color: var(--color-accent);
+      background: color-mix(in srgb, var(--color-accent) 25%, transparent);
     }
   }
 
