@@ -83,36 +83,4 @@
       opacity: 0.35;
     }
   }
-
-  .favorite {
-    flex-shrink: 0;
-    padding-inline: var(--spacing-m);
-    border: 1px solid var(--color-border-hover);
-    border-radius: var(--radius);
-    font-size: var(--text-m);
-    line-height: 1;
-    color: var(--color-text-faint);
-
-    &:hover {
-      color: var(--color-text);
-    }
-
-    &[aria-pressed='true'] {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
-    }
-  }
-
-  .hide {
-    flex-shrink: 0;
-    padding: var(--spacing-s) var(--spacing-m);
-    border: 1px solid var(--color-border-hover);
-    border-radius: var(--radius);
-    font-size: var(--text-s);
-    color: var(--color-text);
-
-    &:hover {
-      border-color: var(--color-text);
-    }
-  }
 }

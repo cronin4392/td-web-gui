@@ -23,15 +23,4 @@
       cursor: grabbing;
     }
   }
-
-  .delete {
-    flex-shrink: 0;
-    padding: var(--spacing-s) var(--spacing-m);
-    font-size: var(--text-s);
-    color: var(--color-text-faint);
-
-    &:hover {
-      color: var(--color-danger);
-    }
-  }
 }
