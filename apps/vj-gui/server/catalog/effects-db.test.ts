@@ -112,7 +112,19 @@ describe('syncEffects', () => {
 
     const db = open();
     expect(syncEffects(db, root)).toEqual({ effects: 2 });
-    expect(readEffects(db)).toEqual(scanEffectFolders(root));
+    expect(readEffects(db, root)).toEqual(scanEffectFolders(root));
+  });
+
+  it('stores the folder relative to the root and joins it back on read', () => {
+    effect('1 Flashing', 'Drifter');
+    const db = open();
+
+    syncEffects(db, root);
+
+    expect(db.prepare('SELECT folder FROM effects').all()).toEqual([
+      { folder: '1 Flashing/Drifter' },
+    ]);
+    expect(readEffects(db, root)[0]?.path).toBe(toxPathOf('1 Flashing', 'Drifter'));
   });
 
   it('sorts mixed-case and non-ascii names through the scan comparator, not SQLite collation', () => {
@@ -123,8 +135,8 @@ describe('syncEffects', () => {
     const db = open();
     syncEffects(db, root);
 
-    expect(readEffects(db)).toEqual(scanEffectFolders(root));
-    expect(readEffects(db).map((e) => e.name)).toEqual(['Ähnlich', 'apple', 'Banana']);
+    expect(readEffects(db, root)).toEqual(scanEffectFolders(root));
+    expect(readEffects(db, root).map((e) => e.name)).toEqual(['Ähnlich', 'apple', 'Banana']);
   });
 
   it('is deterministic — a second run leaves the same rows', () => {
@@ -133,9 +145,9 @@ describe('syncEffects', () => {
 
     const db = open();
     const first = syncEffects(db, root);
-    const before = readEffects(db);
+    const before = readEffects(db, root);
     expect(syncEffects(db, root)).toEqual(first);
-    expect(readEffects(db)).toEqual(before);
+    expect(readEffects(db, root)).toEqual(before);
   });
 
   it('drops effects that vanished from disk', () => {
@@ -147,7 +159,7 @@ describe('syncEffects', () => {
     rmSync(join(root, '3 Effect', 'Doomed'), { recursive: true, force: true });
     syncEffects(db, root);
 
-    expect(readEffects(db).map((e) => e.name)).toEqual(['Survivor']);
+    expect(readEffects(db, root).map((e) => e.name)).toEqual(['Survivor']);
   });
 
   it('leaves the prior catalog serving when the next scan fails', () => {
@@ -157,20 +169,20 @@ describe('syncEffects', () => {
 
     effect('1 Flashing', 'Good');
     expect(() => syncEffects(db, root)).toThrow();
-    expect(readEffects(db).map((e) => e.name)).toEqual(['Good']);
+    expect(readEffects(db, root).map((e) => e.name)).toEqual(['Good']);
   });
 
   it('follows an effect that moved to another group', () => {
     effect('1 Flashing', 'Drifter');
     const db = open();
     syncEffects(db, root);
-    expect(readEffects(db)[0]?.path).toBe(toxPathOf('1 Flashing', 'Drifter'));
+    expect(readEffects(db, root)[0]?.path).toBe(toxPathOf('1 Flashing', 'Drifter'));
 
     rmSync(join(root, '1 Flashing'), { recursive: true, force: true });
     effect('3 Effect', 'Drifter');
     syncEffects(db, root);
 
-    expect(readEffects(db)[0]?.path).toBe(toxPathOf('3 Effect', 'Drifter'));
+    expect(readEffects(db, root)[0]?.path).toBe(toxPathOf('3 Effect', 'Drifter'));
   });
 });
 
@@ -188,7 +200,7 @@ describe('schema', () => {
     const db = open();
     syncEffects(db, root);
 
-    expect(readEffects(db).map((e) => e.name)).toEqual(['Fresh']);
+    expect(readEffects(db, root).map((e) => e.name)).toEqual(['Fresh']);
   });
 
   it('rejects a duplicate or null name, backstopping the scan', () => {
@@ -209,13 +221,13 @@ describe('schema', () => {
     openDbs = [];
 
     const second = open();
-    expect(readEffects(second).map((e) => e.name)).toEqual(['Blur']);
+    expect(readEffects(second, root).map((e) => e.name)).toEqual(['Blur']);
   });
 });
 
 describe('setEffectHidden', () => {
   function hiddenNames(db: DatabaseSync): string[] {
-    return readEffects(db)
+    return readEffects(db, root)
       .filter((entry) => entry.hidden)
       .map((entry) => entry.name);
   }
@@ -271,7 +283,7 @@ describe('setEffectHidden', () => {
     effect('3 Effect', 'Drifter');
     syncEffects(db, root);
 
-    expect(readEffects(db)).toEqual([
+    expect(readEffects(db, root)).toEqual([
       expect.objectContaining({ path: toxPathOf('3 Effect', 'Drifter'), hidden: true }),
     ]);
   });
@@ -312,13 +324,15 @@ describe('setEffectHidden', () => {
 
     const db = open();
 
-    expect(readEffects(db)).toEqual([expect.objectContaining({ name: 'Kept', hidden: false })]);
+    expect(readEffects(db, root)).toEqual([
+      expect.objectContaining({ name: 'Kept', hidden: false }),
+    ]);
   });
 });
 
 describe('setEffectFavorite', () => {
   function favoriteNames(db: DatabaseSync): string[] {
-    return readEffects(db)
+    return readEffects(db, root)
       .filter((entry) => entry.favorite)
       .map((entry) => entry.name);
   }
@@ -361,7 +375,7 @@ describe('setEffectFavorite', () => {
     setEffectHidden(db, 'Blur', true);
     syncEffects(db, root);
 
-    expect(readEffects(db)).toEqual([
+    expect(readEffects(db, root)).toEqual([
       expect.objectContaining({ name: 'Blur', hidden: true, favorite: true }),
     ]);
   });
@@ -380,7 +394,7 @@ describe('setEffectFavorite', () => {
 
     const db = open();
 
-    expect(readEffects(db)).toEqual([
+    expect(readEffects(db, root)).toEqual([
       expect.objectContaining({ name: 'Kept', hidden: true, favorite: false }),
     ]);
   });

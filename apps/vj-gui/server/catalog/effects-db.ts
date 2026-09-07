@@ -16,7 +16,7 @@ import {
   transaction,
   type TableColumns,
 } from '../platform/catalog-db';
-import { requiredEnv } from '../platform/env';
+import { optionalEnv, requiredEnv } from '../platform/env';
 
 const TABLE_COLUMNS: TableColumns = {
   effects: {
@@ -44,6 +44,10 @@ const DDL = `
  * so unlike the scene library this root never reaches the client. */
 export function effectsRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_EFFECTS_ROOT');
+}
+
+export function effectsRootIfSet(env: Record<string, string | undefined>): string {
+  return optionalEnv(env, 'VJ_EFFECTS_ROOT');
 }
 
 export function effectsDbPath(): string {
@@ -79,7 +83,8 @@ function scanEffectFields(root: string): EffectFields[] {
     for (const name of directoryNames(`${base}/${group}`)) {
       const folder = `${base}/${group}/${name}`;
       if (!isFile(join(folder, `${name}.tox`))) continue;
-      fields.push({ name, folder });
+      // Relative to the root: the absolute path is this machine's, and the catalog is tracked.
+      fields.push({ name, folder: `${group}/${name}` });
     }
   }
 
@@ -89,7 +94,9 @@ function scanEffectFields(root: string): EffectFields[] {
 }
 
 export function scanEffectFolders(root: string): EffectCatalog {
-  return scanEffectFields(root).map(effectFrom);
+  return scanEffectFields(root).map((fields) =>
+    effectFrom({ ...fields, folder: resolve(root, fields.folder) }),
+  );
 }
 
 /** Reconcile the catalog against disk in one transaction — the whole scan or none
@@ -135,7 +142,7 @@ export function setEffectFavorite(db: DatabaseSync, name: string, favorite: bool
   setEffectFlag(db, 'favorite', name, favorite);
 }
 
-export function readEffects(db: DatabaseSync): EffectCatalog {
+export function readEffects(db: DatabaseSync, root: string): EffectCatalog {
   const rows = db.prepare('SELECT name, folder, hidden, favorite FROM effects').all() as {
     name: string;
     folder: string;
@@ -144,7 +151,13 @@ export function readEffects(db: DatabaseSync): EffectCatalog {
   }[];
   return rows
     .map((row): Effect =>
-      effectFrom({ ...row, hidden: row.hidden !== 0, favorite: row.favorite !== 0 }),
+      effectFrom({
+        ...row,
+        // An unset root leaves the folder as stored, relative — the catalog still lists.
+        folder: root ? resolve(root, row.folder) : row.folder,
+        hidden: row.hidden !== 0,
+        favorite: row.favorite !== 0,
+      }),
     )
     .sort(byName);
 }

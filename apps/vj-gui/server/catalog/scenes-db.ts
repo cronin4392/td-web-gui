@@ -12,7 +12,7 @@ import {
   transaction,
   type TableColumns,
 } from '../platform/catalog-db';
-import { requiredEnv } from '../platform/env';
+import { optionalEnv, requiredEnv } from '../platform/env';
 
 const TABLE_COLUMNS: TableColumns = {
   scenes: {
@@ -74,6 +74,12 @@ const DDL = `
 /** Read by the dev/preview server only — the browser goes through SCENES_ROUTE. */
 export function scenesRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_SCENES_ROOT');
+}
+
+// The read path also runs after a mutation has committed, where a throw would report a write
+// that did happen as a failure. A Scan still demands the real root.
+export function scenesRootIfSet(env: Record<string, string | undefined>): string {
+  return optionalEnv(env, 'VJ_SCENES_ROOT');
 }
 
 export function scenesDbPath(): string {
@@ -181,13 +187,16 @@ function scanSceneFields(root: string): SceneFields[] {
     const folder = `${base}/${name}`;
     const metaPath = join(folder, META_FILE);
     if (!isFile(metaPath) || !isFile(join(folder, `${name}.tox`))) continue;
-    fields.push({ name, folder, ...parseMeta(readFileSync(metaPath, 'utf8'), name) });
+    // Relative to the root: the absolute path is this machine's, and the catalog is tracked.
+    fields.push({ name, folder: name, ...parseMeta(readFileSync(metaPath, 'utf8'), name) });
   }
   return fields.sort(byRank);
 }
 
 export function scanSceneFolders(root: string): Scene[] {
-  return scanSceneFields(root).map(sceneFrom);
+  return scanSceneFields(root).map((fields) =>
+    sceneFrom({ ...fields, folder: resolve(root, fields.folder) }),
+  );
 }
 
 /**
@@ -229,7 +238,7 @@ export function setSceneHidden(db: DatabaseSync, name: string, hidden: boolean):
   if (changes === 0) throw new Error(`no such scene "${name}"`);
 }
 
-export function readScenes(db: DatabaseSync): Scene[] {
+export function readScenes(db: DatabaseSync, root: string): Scene[] {
   const rows = (
     db.prepare('SELECT name, folder, rank, dark, hidden FROM scenes').all() as {
       name: string;
@@ -253,7 +262,8 @@ export function readScenes(db: DatabaseSync): Scene[] {
   return rows.map((row) =>
     sceneFrom({
       name: row.name,
-      folder: row.folder,
+      // An unset root leaves the folder as stored, relative — the catalog still lists.
+      folder: root ? resolve(root, row.folder) : row.folder,
       tags: tags.get(row.name) ?? [],
       rank: row.rank,
       dark: row.dark !== 0,
@@ -369,6 +379,6 @@ export function setSceneTag(db: DatabaseSync, scene: string, tag: string, tagged
   });
 }
 
-export function readCatalog(db: DatabaseSync): Catalog {
-  return { scenes: readScenes(db), tags: readTagNames(db) };
+export function readCatalog(db: DatabaseSync, root: string): Catalog {
+  return { scenes: readScenes(db, root), tags: readTagNames(db) };
 }
