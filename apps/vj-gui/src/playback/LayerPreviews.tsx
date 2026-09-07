@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from '
 import { unescapeNewlines, type SelectOption } from 'td-core';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
+import { RadioGroup } from '@/ui/RadioGroup';
 import { isZLayer, layerNumber, type LayerId } from './layers';
 import {
   activeSceneFolder,
@@ -292,14 +293,16 @@ function ParamRadios(props: {
 }): JSX.Element {
   const binding = LoaderClient.signal(props.name);
   return (
-    <fieldset class={styles.paramGroup}>
-      <legend class="u-sr-only">{`Layer ${props.layer} ${props.legend}`}</legend>
+    // Named per layer as well as per param: one shared name would make all
+    // eight tiles a single radio group.
+    <RadioGroup
+      name={`layer-${props.layer}-${props.name}`}
+      direction="vertical"
+      label={`Layer ${props.layer} ${props.legend}`}
+    >
       <For each={props.options}>
         {(option, index) => (
-          // Grouped per layer as well as per param: one shared name would make
-          // all eight tiles a single radio group.
           <RadioButton
-            name={`layer-${props.layer}-${props.name}`}
             checked={binding.value() === option.value}
             onSelect={() => binding.setValue(option.value)}
           >
@@ -307,7 +310,7 @@ function ParamRadios(props: {
           </RadioButton>
         )}
       </For>
-    </fieldset>
+    </RadioGroup>
   );
 }
 

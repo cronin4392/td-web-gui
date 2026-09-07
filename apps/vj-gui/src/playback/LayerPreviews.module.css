@@ -207,19 +207,6 @@
     }
   }
 
-  .paramGroup {
-    display: flex;
-    flex-direction: column;
-
-    & > label:first-of-type {
-      --radio-radius: var(--radius) var(--radius) 0 0;
-    }
-
-    & > label:last-of-type {
-      --radio-radius: 0 0 var(--radius) var(--radius);
-    }
-  }
-
   /* Where a full tile keeps its stream toggle: a Z tile has no stream, and the
      other corners are spoken for by the stats and the scene name. */
   .clearIcon {

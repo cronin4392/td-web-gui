@@ -18,20 +18,6 @@
        as tags come and go. The wheel handler maps vertical wheel to this axis. */
     overflow-x: scroll;
     overflow-y: hidden;
-
-    /* "All" opens the strip; the last tag closes it. Custom properties inherit,
-       so the slot can say this without naming the radio inside it. */
-    & > label {
-      --radio-radius: var(--radius) 0 0 var(--radius);
-    }
-
-    & > div:last-of-type {
-      --radio-radius: 0 var(--radius) var(--radius) 0;
-    }
-
-    &:not(:has(div)) > label {
-      --radio-radius: var(--radius);
-    }
   }
 
   .tagSlot {
