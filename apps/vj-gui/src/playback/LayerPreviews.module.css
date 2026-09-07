@@ -103,6 +103,7 @@
     position: absolute;
     top: 0;
     right: 0;
+    /* Custom font-size and weight */
     font-size: 1.5rem;
     font-weight: 500;
 
@@ -191,7 +192,7 @@
 
   .clear {
     grid-column: 1 / -1;
-    padding: var(--spacing-s);
+    padding: var(--spacing-m);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     background: var(--color-canvas);
@@ -287,10 +288,11 @@
   }
 
   .statLabel {
-    padding-inline: var(--spacing-s);
+    padding: var(--spacing-s);
   }
 
   .statValue {
+    padding-block: var(--spacing-s);
     padding-right: var(--spacing-s);
   }
 }

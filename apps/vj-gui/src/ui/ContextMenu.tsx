@@ -154,7 +154,7 @@ export function createContextMenu(): ContextMenu {
               }}
             >
               <span class={styles.check}>{item.checked ? '✓' : ''}</span>
-              {item.label}
+              <span>{item.label}</span>
             </button>
           )
         }
