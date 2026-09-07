@@ -6,7 +6,7 @@
  * docblock above opts this file into the `node` environment instead.
  */
 
-import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -33,6 +33,18 @@ beforeEach(() => {
 afterEach(() => {
   for (const db of openDbs) db.close();
   rmSync(dir, { recursive: true, force: true });
+});
+
+describe('openWordbankDb guard', () => {
+  it('refuses to create a database its snapshot could still rebuild', () => {
+    const root = mkdtempSync(join(tmpdir(), 'wordbank-guard-'));
+    mkdirSync(join(root, 'snapshots'), { recursive: true });
+    writeFileSync(join(root, 'snapshots', 'wordbank.sql'), '', 'utf8');
+    const path = join(root, 'wordbank.db');
+    expect(() => openWordbankDb(path)).toThrow(/db:restore/);
+    expect(existsSync(path)).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
 });
 
 describe('schema + seed', () => {

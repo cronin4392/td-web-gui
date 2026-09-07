@@ -20,7 +20,7 @@ Loose items to come back to — not yet promoted into `prds/` (which may or may 
 - [x] 2. On TD close, delete all the watcher DATs. On open there shouldn't be any watchers, they should get fully built.
 - [x] Investigate why some tags are not showing up in the scene loader tags. black, dancer, flashing, flowers, future
 - [x] Convert SceneLoader using a TD derived dat (parsed from scene json files) into my sqlite database.
-- [ ] Add sqlite database to version tracking
+- [x] Add sqlite database to version tracking
 - [ ] Wire midi controls (from Input.toe) to trigger callbacks in web (like selectedScene)
 - [x] In SceneLoader.toe the WebGuiServer is a global and therefore can't be embedded in each scene loader. Leave as a global or allow for multiple? Right now it references the global inside itself.
 - [ ] DDD refactor of packages/td-core

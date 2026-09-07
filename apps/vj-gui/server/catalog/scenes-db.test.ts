@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { toxPath } from '../../domain/catalog/tox';
 import {
   createTag,
   deleteTag,
@@ -130,7 +131,17 @@ describe('syncScenes', () => {
 
     const db = open();
     expect(syncScenes(db, root)).toEqual({ scenes: 3 });
-    expect(readScenes(db)).toEqual(scanSceneFolders(root));
+    expect(readScenes(db, root)).toEqual(scanSceneFolders(root));
+  });
+
+  it('stores the folder relative to the root and joins it back on read', () => {
+    scene('One', { tags: [], rank: 1 });
+    const db = open();
+
+    syncScenes(db, root);
+
+    expect(db.prepare('SELECT folder FROM scenes').all()).toEqual([{ folder: 'One' }]);
+    expect(readScenes(db, root)[0]?.path).toBe(toxPath(join(root, 'One'), 'One'));
   });
 
   it('breaks a rank tie through the scan comparator, not SQLite collation', () => {
@@ -141,8 +152,8 @@ describe('syncScenes', () => {
     const db = open();
     syncScenes(db, root);
 
-    expect(readScenes(db)).toEqual(scanSceneFolders(root));
-    expect(readScenes(db).map((s) => s.name)).toEqual(['Ähnlich', 'apple', 'Banana']);
+    expect(readScenes(db, root)).toEqual(scanSceneFolders(root));
+    expect(readScenes(db, root).map((s) => s.name)).toEqual(['Ähnlich', 'apple', 'Banana']);
   });
 
   it('is deterministic — a second run leaves the same rows', () => {
@@ -151,9 +162,9 @@ describe('syncScenes', () => {
 
     const db = open();
     const first = syncScenes(db, root);
-    const before = readScenes(db);
+    const before = readScenes(db, root);
     expect(syncScenes(db, root)).toEqual(first);
-    expect(readScenes(db)).toEqual(before);
+    expect(readScenes(db, root)).toEqual(before);
   });
 
   it('drops scenes that vanished from disk, leaving no orphan tag links', () => {
@@ -169,7 +180,7 @@ describe('syncScenes', () => {
     rmSync(join(root, 'Doomed'), { recursive: true, force: true });
     syncScenes(db, root);
 
-    expect(readScenes(db).map((s) => s.name)).toEqual(['Survivor']);
+    expect(readScenes(db, root).map((s) => s.name)).toEqual(['Survivor']);
     const { n } = db.prepare('SELECT COUNT(*) AS n FROM scene_tags').get() as { n: number };
     expect(n).toBe(1);
   });
@@ -185,7 +196,7 @@ describe('syncScenes', () => {
     syncScenes(db, root);
 
     expect(readTagNames(db)).toContain('mine');
-    expect(readScenes(db)[0]?.tags).toEqual(['mine']);
+    expect(readScenes(db, root)[0]?.tags).toEqual(['mine']);
   });
 
   it('never adds a tag of its own, however many meta.json lists', () => {
@@ -196,7 +207,7 @@ describe('syncScenes', () => {
     syncScenes(db, root);
 
     expect(readTagNames(db)).toEqual(before);
-    expect(readScenes(db)[0]?.tags).toEqual([]);
+    expect(readScenes(db, root)[0]?.tags).toEqual([]);
   });
 
   it('leaves the prior catalog untouched when a meta.json is malformed', () => {
@@ -206,7 +217,7 @@ describe('syncScenes', () => {
 
     scene('Broken', '{ not json');
     expect(() => syncScenes(db, root)).toThrow();
-    expect(readScenes(db).map((s) => s.name)).toEqual(['Good']);
+    expect(readScenes(db, root).map((s) => s.name)).toEqual(['Good']);
   });
 });
 
@@ -350,7 +361,7 @@ describe('tag mutations', () => {
     renameTag(db, 'before', 'renamed');
 
     expect(readTagNames(db)).toEqual(['renamed', 'after']);
-    expect(readScenes(db).find((s) => s.name === 'One')?.tags).toEqual(['renamed']);
+    expect(readScenes(db, root).find((s) => s.name === 'One')?.tags).toEqual(['renamed']);
   });
 
   it('allows a change of case but not a collision', () => {
@@ -375,7 +386,7 @@ describe('tag mutations', () => {
     deleteTag(db, 'doomed');
 
     expect(readTagNames(db)).toEqual(['kept']);
-    expect(readScenes(db).map((s) => s.name)).toEqual(['One', 'Two']);
+    expect(readScenes(db, root).map((s) => s.name)).toEqual(['One', 'Two']);
     const { n } = db.prepare('SELECT COUNT(*) AS n FROM scene_tags').get() as { n: number };
     expect(n).toBe(0);
   });
@@ -413,11 +424,11 @@ describe('tag mutations', () => {
 
     setSceneTag(db, 'One', 'neon', true);
     setSceneTag(db, 'One', 'neon', true);
-    expect(readScenes(db).find((s) => s.name === 'One')?.tags).toEqual(['neon']);
+    expect(readScenes(db, root).find((s) => s.name === 'One')?.tags).toEqual(['neon']);
 
     setSceneTag(db, 'One', 'neon', false);
     setSceneTag(db, 'One', 'neon', false);
-    expect(readScenes(db).find((s) => s.name === 'One')?.tags).toEqual([]);
+    expect(readScenes(db, root).find((s) => s.name === 'One')?.tags).toEqual([]);
   });
 
   it('names what is missing rather than failing on a foreign key', () => {
@@ -444,7 +455,7 @@ describe('schema', () => {
     const db = open();
     syncScenes(db, root);
 
-    expect(readScenes(db).map((s) => s.name)).toEqual(['Fresh']);
+    expect(readScenes(db, root).map((s) => s.name)).toEqual(['Fresh']);
   });
 
   it('reopens without reseeding or losing rows', () => {
@@ -456,7 +467,7 @@ describe('schema', () => {
     openDbs = [];
 
     const second = open();
-    expect(readScenes(second).map((s) => s.name)).toEqual(['One']);
+    expect(readScenes(second, root).map((s) => s.name)).toEqual(['One']);
   });
 
   it('rebuilds when a table is missing entirely', () => {
@@ -471,7 +482,7 @@ describe('schema', () => {
     const second = open();
     syncScenes(second, root);
 
-    expect(readScenes(second)).toEqual(scanSceneFolders(root));
+    expect(readScenes(second, root)).toEqual(scanSceneFolders(root));
     // The rebuild empties every table, so the reopen looks like a fresh catalog
     // and reseeds. The authored 'alpha' is gone — that path costs authored state
     // by design, `hidden` included.
@@ -482,7 +493,7 @@ describe('schema', () => {
 
 describe('setSceneHidden', () => {
   function hiddenNames(db: DatabaseSync): string[] {
-    return readScenes(db)
+    return readScenes(db, root)
       .filter((scene) => scene.hidden)
       .map((scene) => scene.name);
   }
@@ -539,7 +550,7 @@ describe('setSceneHidden', () => {
     scene('One', { rank: 900, dark: true });
     syncScenes(db, root);
 
-    expect(readScenes(db)).toEqual([
+    expect(readScenes(db, root)).toEqual([
       expect.objectContaining({
         name: 'One',
         tags: ['mine'],
@@ -590,7 +601,7 @@ describe('setSceneHidden', () => {
 
     const db = open();
 
-    expect(readScenes(db)).toEqual([
+    expect(readScenes(db, root)).toEqual([
       expect.objectContaining({ name: 'Kept', rank: 5, hidden: false }),
     ]);
   });

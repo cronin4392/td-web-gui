@@ -4,10 +4,10 @@ import styles from './PickerToolbar.module.css';
 
 export function PickerToolbar(props: {
   refreshing: boolean;
-  editing: boolean;
+  showHidden: boolean;
   error?: string;
   onRefresh: () => void;
-  onToggleEditing: () => void;
+  onToggleShowHidden: () => void;
 }): JSX.Element {
   return (
     <>
@@ -20,11 +20,11 @@ export function PickerToolbar(props: {
         ↻
       </PanelHeaderButton>
       <PanelHeaderButton
-        label={props.editing ? 'Done' : 'Edit'}
-        pressed={props.editing}
-        onClick={() => props.onToggleEditing()}
+        label={props.showHidden ? 'Hide hidden' : 'Show hidden'}
+        pressed={props.showHidden}
+        onClick={() => props.onToggleShowHidden()}
       >
-        ✎
+        ◉
       </PanelHeaderButton>
     </>
   );

@@ -105,6 +105,20 @@ describe('scenesApiHandler', () => {
   });
 });
 
+describe('scenesApiHandler with the scene root unset', () => {
+  it('reads and writes rather than failing once the write has committed', async () => {
+    call('POST', '/sync');
+    vi.stubEnv('VJ_SCENES_ROOT', '');
+
+    expect(call('GET', '').status).toBe(200);
+    const res = await hide('AudioSpectrum', true);
+    expect(res.status).toBe(200);
+    expect(JSON.parse(res.body).scenes).toEqual([
+      expect.objectContaining({ name: 'AudioSpectrum', hidden: true }),
+    ]);
+  });
+});
+
 describe('scenesApiHandler tag routes', () => {
   const tagsOf = (res: { body: string }) => JSON.parse(res.body).tags as string[];
   const sceneTags = (res: { body: string }) => JSON.parse(res.body).scenes[0].tags as string[];

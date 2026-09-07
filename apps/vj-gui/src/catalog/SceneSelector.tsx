@@ -9,19 +9,20 @@ import {
   setTagOrder,
   syncCatalog,
 } from './scenes-api';
-import { emptyCatalog, type Catalog } from '@domain/catalog/scene';
+import { emptyCatalog, type Catalog, type Scene } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { PickerToolbar } from './PickerToolbar';
 import { PanelHeader } from '@/ui/PanelHeader';
 import { RadioButton } from '@/ui/RadioButton';
+import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, hasDragMime, moveItem } from '@/ui/dnd';
 import styles from './SceneSelector.module.css';
 
 /** Two drag surfaces over one rail, so a tag being reordered and a scene being
  * filed are never mistaken for each other — and a drag from outside the app
  * carries neither. */
-const TAG_MIME = 'application/x-td-tag-index';
+const TAG_MIME = 'application/x-td-tag';
 const SCENE_MIME = 'application/x-td-scene';
 
 export function SceneSelector(props: { class?: string }): JSX.Element {
@@ -32,18 +33,11 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     initialValue: emptyCatalog(),
     load: loadTox,
   });
+  const menu = createContextMenu();
 
   const scenes = () => picker.catalog().scenes;
 
-  /** Editing is the one view that shows a tag whose every scene is hidden —
-   * otherwise there would be no way to unhide them. It is also the only view
-   * whose list is the whole catalog, which is what lets a reorder send it. */
-  const tags = createMemo(() => {
-    const all = picker.catalog().tags;
-    if (picker.editing()) return all;
-    const inUse = new Set(scenes().flatMap((scene) => (scene.hidden ? [] : scene.tags)));
-    return all.filter((tag) => inUse.has(tag));
-  });
+  const tags = () => picker.catalog().tags;
   const [pickedTag, setPickedTag] = createSignal<string | null>(null);
 
   /** `null` is the unfiltered "All" option, the default, and the fallback for a
@@ -55,16 +49,15 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
 
   const visibleScenes = createMemo(() => {
     const tag = selectedTag();
-    const editing = picker.editing();
+    const showHidden = picker.showHidden();
     return scenes().filter(
-      (scene) => (editing || !scene.hidden) && (tag === null || scene.tags.includes(tag)),
+      (scene) => (showHidden || !scene.hidden) && (tag === null || scene.tags.includes(tag)),
     );
   });
 
   const [renaming, setRenaming] = createSignal<string | null>(null);
-  const [confirming, setConfirming] = createSignal<string | null>(null);
   const [adding, setAdding] = createSignal(false);
-  const [dragIndex, setDragIndex] = createSignal<number | null>(null);
+  const [dragTag, setDragTag] = createSignal<string | null>(null);
   const [dropTag, setDropTag] = createSignal<string | null>(null);
 
   const carriers = (tag: string) => scenes().filter((scene) => scene.tags.includes(tag)).length;
@@ -92,12 +85,36 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     });
   }
 
-  function removeTag(tag: string): void {
-    setConfirming(null);
-    void picker.edit(() => deleteTag(tag));
+  function sceneMenu(scene: Scene): MenuItems {
+    const unfile = scene.tags.map((tag) => ({
+      label: `Remove from "${tag}"`,
+      onSelect: () => void picker.edit(() => setSceneTag(scene.name, tag, false)),
+    }));
+    return [
+      {
+        label: scene.hidden ? 'Show' : 'Hide',
+        checked: scene.hidden,
+        onSelect: () => void picker.edit(() => setSceneHidden(scene.name, !scene.hidden)),
+      },
+      ...(unfile.length > 0 ? (['separator'] as const) : []),
+      ...unfile,
+    ];
   }
 
-  function dropOnTag(event: DragEvent, tag: string, index: number): void {
+  function tagMenu(tag: string): MenuItems {
+    const held = carriers(tag);
+    return [
+      { label: 'Rename', onSelect: () => setRenaming(tag) },
+      {
+        // Nothing confirms this, so the label carries the cost instead.
+        label: held === 0 ? 'Delete' : `Delete (${held} scene${held === 1 ? '' : 's'})`,
+        danger: true,
+        onSelect: () => void picker.edit(() => deleteTag(tag)),
+      },
+    ];
+  }
+
+  function dropOnTag(event: DragEvent, tag: string): void {
     const data = event.dataTransfer;
     if (!data) return;
 
@@ -111,14 +128,14 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
 
     if (!hasDragMime(data, TAG_MIME)) return;
     event.preventDefault();
-    const from = dragIndex();
-    setDragIndex(null);
-    if (from === null) return;
-    const to = adjustReorderTarget(from, index);
+    setDragTag(null);
+    const all = tags();
+    const from = all.indexOf(data.getData(TAG_MIME));
+    const onto = all.indexOf(tag);
+    if (from < 0 || onto < 0) return;
+    const to = adjustReorderTarget(from, onto);
     if (from === to) return;
-    // Reordering is edit-only, so `tags()` is the whole catalog here — which is
-    // what the server requires, since a partial list is not a permutation.
-    void picker.edit(() => setTagOrder(moveItem(tags(), from, to)));
+    void picker.edit(() => setTagOrder(moveItem(all, from, to)));
   }
 
   return (
@@ -126,10 +143,10 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
       <PanelHeader title="Scenes">
         <PickerToolbar
           refreshing={picker.refreshing()}
-          editing={picker.editing()}
+          showHidden={picker.showHidden()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
-          onToggleEditing={() => picker.toggleEditing()}
+          onToggleShowHidden={() => picker.toggleShowHidden()}
         />
       </PanelHeader>
 
@@ -139,21 +156,20 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
         <div class={styles.grid} data-live={selectedLevel() > 0}>
           <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
             {(scene) => (
-              // The buttons can't nest inside the tile — a button inside a
-              // button is invalid, and the tile is the load target.
               <div
                 class={styles.cell}
                 data-hidden={scene.hidden}
                 data-dark={scene.dark}
-                // Filing a scene is not an edit-mode job: it is the one tag
-                // action worth doing mid-set, and Chrome suppresses the click
-                // that follows a drag, so the tile stays a load target.
+                // Filing a scene is the one tag action worth doing mid-set, and
+                // Chrome suppresses the click that follows a drag, so the tile
+                // stays a load target.
                 //
                 // `={true}`, never a bare `draggable`: it is an enumerated
                 // attribute, not a boolean one, and JSX renders the bare form as
                 // `draggable=""` — invalid, so it falls back to not draggable.
                 draggable={true}
                 onDragStart={(event) => event.dataTransfer?.setData(SCENE_MIME, scene.name)}
+                onContextMenu={(event) => menu.open(event, sceneMenu(scene))}
               >
                 <button
                   type="button"
@@ -170,228 +186,144 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                   {/* Scrim — the label sits over arbitrary artwork. */}
                   <span class={styles.caption}>{scene.name}</span>
                 </button>
-
-                <Show when={picker.editing()}>
-                  <div class={styles.cellActions}>
-                    <button
-                      type="button"
-                      class={styles.action}
-                      onClick={() =>
-                        void picker.edit(() => setSceneHidden(scene.name, !scene.hidden))
-                      }
-                    >
-                      {scene.hidden ? 'Show' : 'Hide'}
-                    </button>
-
-                    {/* Only inside a tag tab: "remove from this tag" has no
-                        meaning in All, where no one tag is in view. */}
-                    <Show when={selectedTag()}>
-                      {(tag) => (
-                        <button
-                          type="button"
-                          class={styles.action}
-                          aria-label={`Remove "${scene.name}" from "${tag()}"`}
-                          title={`Remove from "${tag()}"`}
-                          onClick={() =>
-                            void picker.edit(() => setSceneTag(scene.name, tag(), false))
-                          }
-                        >
-                          ×
-                        </button>
-                      )}
-                    </Show>
-                  </div>
-                </Show>
               </div>
             )}
           </For>
         </div>
       </div>
 
-      {/* Editing keeps the rail even with no tags left — the `+` lives in it, so
-          deleting the last tag would otherwise remove the way to make another. */}
-      <Show when={picker.editing() || tags().length > 0}>
-        <fieldset
-          class={styles.tags}
-          aria-label="Scene tag"
-          data-editing={picker.editing()}
-          // No native way to scroll a horizontal overflow with a vertical wheel;
-          // map it here. Non-passive in Solid, so preventDefault holds.
-          onWheel={(event) => {
-            if (!event.deltaY) return;
-            event.preventDefault();
-            event.currentTarget.scrollLeft += event.deltaY;
-          }}
+      <fieldset
+        class={styles.tags}
+        aria-label="Scene tag"
+        // No native way to scroll a horizontal overflow with a vertical wheel;
+        // map it here. Non-passive in Solid, so preventDefault holds.
+        onWheel={(event) => {
+          if (!event.deltaY) return;
+          event.preventDefault();
+          event.currentTarget.scrollLeft += event.deltaY;
+        }}
+      >
+        <RadioButton
+          name="scene-tag"
+          checked={selectedTag() === null}
+          onSelect={() => setPickedTag(null)}
         >
-          <RadioButton
-            name="scene-tag"
-            checked={selectedTag() === null}
-            onSelect={() => setPickedTag(null)}
-          >
-            All
-          </RadioButton>
+          All
+        </RadioButton>
 
-          {/* For, not Index: a radio holds DOM state, so a reordered list must
-              move the node rather than rewrite its label. */}
-          <For each={tags()}>
-            {(tag, i) => (
-              <div
-                class={styles.tagSlot}
-                data-dragging={dragIndex() === i()}
-                data-dropping={dropTag() === tag}
-                // A draggable ancestor stops Chrome placing a caret in a child
-                // input, so the slot gives up dragging while it is being renamed.
-                draggable={picker.editing() && renaming() !== tag}
-                onDragStart={(event) => {
-                  event.dataTransfer?.setData(TAG_MIME, String(i()));
-                  setDragIndex(i());
-                }}
-                onDragOver={(event) => {
-                  const data = event.dataTransfer;
-                  if (!data) return;
-                  const scene = hasDragMime(data, SCENE_MIME);
-                  if (!scene && !hasDragMime(data, TAG_MIME)) return;
-                  event.preventDefault();
-                  if (scene) setDropTag(tag);
-                }}
-                onDragLeave={() => setDropTag(null)}
-                onDrop={(event) => dropOnTag(event, tag, i())}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setDropTag(null);
-                }}
-              >
-                <Show
-                  when={renaming() === tag}
-                  fallback={
-                    <RadioButton
-                      name="scene-tag"
-                      checked={selectedTag() === tag}
-                      onSelect={() => setPickedTag(tag)}
-                    >
-                      <span
-                        class={styles.tagName}
-                        title={tag}
-                        onDblClick={() => picker.editing() && setRenaming(tag)}
-                      >
-                        {tag}
-                      </span>
-
-                      {/* Interactive content inside a label, so a click here
-                          deletes without also toggling the radio. */}
-                      <Show when={picker.editing()}>
-                        <Show
-                          when={confirming() === tag}
-                          fallback={
-                            <button
-                              type="button"
-                              tabIndex={-1}
-                              class={styles.tagDelete}
-                              aria-label={`Delete tag "${tag}"`}
-                              // A tag no scene carries is nothing to lose; one
-                              // that is in use takes its filing with it, so it
-                              // asks first.
-                              onClick={() =>
-                                carriers(tag) === 0 ? removeTag(tag) : setConfirming(tag)
-                              }
-                            >
-                              ×
-                            </button>
-                          }
-                        >
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            class={styles.tagConfirm}
-                            aria-label={`Delete tag "${tag}", removing it from ${carriers(tag)} scenes`}
-                            title={`Remove from ${carriers(tag)} scenes`}
-                            onClick={() => removeTag(tag)}
-                          >
-                            ✓
-                          </button>
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            class={styles.tagDelete}
-                            aria-label="Keep the tag"
-                            onClick={() => setConfirming(null)}
-                          >
-                            ✕
-                          </button>
-                        </Show>
-                      </Show>
-                    </RadioButton>
-                  }
-                >
-                  <form
-                    class={styles.tagForm}
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      commitRename(
-                        tag,
-                        (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
-                      );
-                    }}
-                  >
-                    <input
-                      name="tag"
-                      class={styles.tagInput}
-                      value={tag}
-                      ref={(el) => {
-                        queueMicrotask(() => {
-                          el.focus();
-                          el.select();
-                        });
-                      }}
-                      onBlur={(event) => commitRename(tag, event.currentTarget.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Escape') setRenaming(null);
-                      }}
-                    />
-                  </form>
-                </Show>
-              </div>
-            )}
-          </For>
-
-          <Show when={picker.editing()}>
-            <Show
-              when={adding()}
-              fallback={
-                <button
-                  type="button"
-                  class={styles.tagAdd}
-                  aria-label="Add a tag"
-                  onClick={() => setAdding(true)}
-                >
-                  +
-                </button>
-              }
+        {/* For, not Index: a radio holds DOM state, so a reordered list must
+            move the node rather than rewrite its label. */}
+        <For each={tags()}>
+          {(tag) => (
+            <div
+              class={styles.tagSlot}
+              data-dragging={dragTag() === tag}
+              data-dropping={dropTag() === tag}
+              // A draggable ancestor stops Chrome placing a caret in a child
+              // input, so the slot gives up dragging while it is being renamed.
+              draggable={renaming() !== tag}
+              onDragStart={(event) => {
+                event.dataTransfer?.setData(TAG_MIME, tag);
+                setDragTag(tag);
+              }}
+              onDragOver={(event) => {
+                const data = event.dataTransfer;
+                if (!data) return;
+                const scene = hasDragMime(data, SCENE_MIME);
+                if (!scene && !hasDragMime(data, TAG_MIME)) return;
+                event.preventDefault();
+                if (scene) setDropTag(tag);
+              }}
+              onDragLeave={() => setDropTag(null)}
+              onDrop={(event) => dropOnTag(event, tag)}
+              onDragEnd={() => {
+                setDragTag(null);
+                setDropTag(null);
+              }}
+              onContextMenu={(event) => menu.open(event, tagMenu(tag))}
             >
-              <form
-                class={styles.tagForm}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  commitCreate(
-                    (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
-                  );
-                }}
+              <Show
+                when={renaming() === tag}
+                fallback={
+                  <RadioButton
+                    name="scene-tag"
+                    checked={selectedTag() === tag}
+                    onSelect={() => setPickedTag(tag)}
+                  >
+                    <span class={styles.tagName} title={tag}>
+                      {tag}
+                    </span>
+                  </RadioButton>
+                }
               >
-                <input
-                  name="tag"
-                  class={styles.tagInput}
-                  placeholder="New tag"
-                  ref={(el) => queueMicrotask(() => el.focus())}
-                  onBlur={(event) => commitCreate(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setAdding(false);
+                <form
+                  class={styles.tagForm}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    commitRename(
+                      tag,
+                      (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
+                    );
                   }}
-                />
-              </form>
-            </Show>
-          </Show>
-        </fieldset>
-      </Show>
+                >
+                  <input
+                    name="tag"
+                    class={styles.tagInput}
+                    value={tag}
+                    ref={(el) => {
+                      queueMicrotask(() => {
+                        el.focus();
+                        el.select();
+                      });
+                    }}
+                    onBlur={(event) => commitRename(tag, event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setRenaming(null);
+                    }}
+                  />
+                </form>
+              </Show>
+            </div>
+          )}
+        </For>
+
+        <Show
+          when={adding()}
+          fallback={
+            <button
+              type="button"
+              class={styles.tagAdd}
+              aria-label="Add a tag"
+              onClick={() => setAdding(true)}
+            >
+              +
+            </button>
+          }
+        >
+          <form
+            class={styles.tagForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              commitCreate(
+                (event.currentTarget.elements.namedItem('tag') as HTMLInputElement).value,
+              );
+            }}
+          >
+            <input
+              name="tag"
+              class={styles.tagInput}
+              placeholder="New tag"
+              ref={(el) => queueMicrotask(() => el.focus())}
+              onBlur={(event) => commitCreate(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setAdding(false);
+              }}
+            />
+          </form>
+        </Show>
+      </fieldset>
+
+      {menu.element}
     </section>
   );
 }

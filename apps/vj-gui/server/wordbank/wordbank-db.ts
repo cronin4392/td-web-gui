@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { defaultWordbank, type PhraseList, type Wordbank } from '../../domain/wordbank/wordbank';
-import { catalogDbPath, checkpointWal } from '../platform/catalog-db';
+import { catalogDbPath, checkpointWal, requireRestoredDb } from '../platform/catalog-db';
 
 const SCHEMA_VERSION = 1;
 
@@ -20,6 +20,7 @@ export function wordbankDbPath(): string {
 }
 
 export function openWordbankDb(path: string): DatabaseSync {
+  requireRestoredDb(path);
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL');
@@ -107,7 +108,6 @@ export function writeWordbank(db: DatabaseSync, wordbank: Wordbank): void {
     db.exec('ROLLBACK');
     throw err;
   }
-  // Outside the transaction, and after it: this file is tracked, and a commit
-  // that only lives in the -wal is one `git status` cannot see.
+  // A commit that only lives in the -wal is invisible to anything reading the file directly.
   checkpointWal(db);
 }
