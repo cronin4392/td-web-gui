@@ -53,9 +53,9 @@ ${USAGE}`);
   let failed = false;
   for (const path of args.paths) {
     const snapshot = snapshotPath(path);
-    // Ahead of the missing-snapshot check: a database already there needs nothing from a
-    // snapshot, and `predev` runs this on every start. Quiet and successful, so it can.
-    if (existsSync(path) && args.has('--if-missing')) continue;
+    // `predev` runs this on every start, so it has nothing to say about a database already
+    // there, and nothing it can do about a snapshot that isn't.
+    if (args.has('--if-missing') && (existsSync(path) || !existsSync(snapshot))) continue;
     if (!existsSync(snapshot)) {
       console.error(`✗ ${show(path)}: no snapshot at ${show(snapshot)}`);
       failed = true;

@@ -57,7 +57,8 @@ thing. They read SQLite through `node:sqlite`.
   with a moving, often reader-locked binary.
 - **A fresh clone has no `.db` at all, so `dev` restores one.** `predev` (and
   `prepreview`) run `db:restore --if-missing`, which fills in absent databases and
-  leaves existing ones alone, quietly and without failing on the second run.
+  leaves alone both an existing one and an absent one whose snapshot is missing too
+  — quietly, so it never fails a start it has nothing to contribute to.
   Nothing else is load-bearing enough to restore for you: `catalogDbPath`'s guard
   can't catch this case, because `data/snapshots/` is tracked and so is present in
   every clone. Every other way to reach a `.db` refuses rather than creates one
