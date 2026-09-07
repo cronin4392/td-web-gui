@@ -14,7 +14,8 @@ Rebuilds each database from data/snapshots/<name>.sql, its tracked text copy.
   --strip <VAR>       the variables the snapshot was exported with (repeatable),
                       so the unexported-changes check compares like with like
   --strip-column <name>
-                      the columns it was exported with (repeatable), for the same reason
+                      the columns it was exported with (repeatable), for the same reason;
+                      required alongside --strip
   --help              print this
 
 Stop the dev server first: Windows refuses the replace while the server holds the
@@ -41,8 +42,14 @@ function main(argv) {
     return 2;
   }
 
-  const strip = rootsFrom(args.all('--env'), args.all('--strip'));
   const stripColumns = args.all('--strip-column');
+  if (args.all('--strip').length > 0 && stripColumns.length === 0) {
+    console.error(`--strip needs --strip-column
+
+${USAGE}`);
+    return 2;
+  }
+  const strip = rootsFrom(args.all('--env'), args.all('--strip'));
   let failed = false;
   for (const path of args.paths) {
     const snapshot = snapshotPath(path);

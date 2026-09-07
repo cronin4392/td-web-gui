@@ -13,8 +13,8 @@ Writes each database out to data/snapshots/<name>.sql, the tracked text copy.
   --strip <VAR>    rewrite paths under this variable's value as relative to it
                    (repeatable), so no machine's content root reaches the snapshot
   --strip-column <name>
-                   confine --strip to columns of this name (repeatable); without one
-                   it rewrites every text column, authored prose included
+                   confine --strip to columns of this name (repeatable); required
+                   alongside --strip, which would otherwise rewrite authored prose
   --help           print this`;
 
 function main(argv) {
@@ -37,8 +37,14 @@ function main(argv) {
     return 2;
   }
 
-  const strip = rootsFrom(args.all('--env'), args.all('--strip'));
   const stripColumns = args.all('--strip-column');
+  if (args.all('--strip').length > 0 && stripColumns.length === 0) {
+    console.error(`--strip needs --strip-column
+
+${USAGE}`);
+    return 2;
+  }
+  const strip = rootsFrom(args.all('--env'), args.all('--strip'));
   let failed = false;
   for (const path of args.paths) {
     const target = snapshotPath(path);

@@ -77,6 +77,7 @@ thing. They read SQLite through `node:sqlite`.
   and `--strip-column folder` confines it to the one column a root is ever joined
   back onto — restore writes the stripped value straight back, so stripping an
   authored phrase that happened to start with a root would truncate it for good.
+  Both CLIs refuse `--strip` without it rather than fall back to every column.
 - **`pnpm db:export` is manual by design and stays that way.** Nothing runs it
   for you, so an unexported change is an unbacked-up one. It refuses rather than
   write nothing over a good snapshot: once for a database that isn't there, and

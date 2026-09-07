@@ -52,6 +52,13 @@ describe('db-export', () => {
     expect(run(EXPORT, []).code).toBe(2);
   });
 
+  it('exits 2 on --strip without --strip-column', () => {
+    seed(['Alpha']);
+    const { code, err } = run(EXPORT, ['--strip', 'VJ_SCENES_ROOT', 'data/scenes.db']);
+    expect(code).toBe(2);
+    expect(err).toContain('--strip needs --strip-column');
+  });
+
   it('exits 2 on an unknown option rather than reading it as a path', () => {
     const { code, err } = run(EXPORT, ['--nope', 'data/scenes.db']);
     expect(code).toBe(2);
@@ -110,6 +117,8 @@ describe('db-export', () => {
       '.env',
       '--strip',
       'VJ_TEST_ROOT',
+      '--strip-column',
+      'folder',
       'data/scenes.db',
     ]);
     expect(code).toBe(0);
@@ -152,6 +161,13 @@ describe('db-restore', () => {
     const { code, err } = run(RESTORE, ['data/scenes.db']);
     expect(code).toBe(1);
     expect(err).toContain('already exists');
+  });
+
+  it('exits 2 on --strip without --strip-column', () => {
+    snapshotOf(['Alpha']);
+    const { code, err } = run(RESTORE, ['--strip', 'VJ_SCENES_ROOT', 'data/scenes.db']);
+    expect(code).toBe(2);
+    expect(err).toContain('--strip needs --strip-column');
   });
 
   it('skips an existing database quietly under --if-missing', () => {
