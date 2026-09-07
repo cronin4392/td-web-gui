@@ -1,7 +1,11 @@
 @layer base {
-  /* `scrollbar-width` isn't inherited, so it has to be said on every scroller. */
   * {
+    /* `scrollbar-width` isn't inherited, so it has to be said on every scroller. */
     scrollbar-width: thin;
+
+    /* Entire app is uppercase text so trim the text-box to match */
+    text-transform: uppercase;
+    text-box: trim-both cap alphabetic;
   }
 
   html {
@@ -13,12 +17,6 @@
     color: var(--color-text);
     font-family: var(--font-mono);
     font-weight: var(--font-weight-normal);
-    /* letter-spacing: 0.08em; */
     letter-spacing: 0.07em;
-  }
-
-  * {
-    text-transform: uppercase;
-    text-box: trim-both cap alphabetic;
   }
 }
