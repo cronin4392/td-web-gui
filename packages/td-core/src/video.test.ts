@@ -309,6 +309,138 @@ describe('streams mapping (5.3)', () => {
   });
 });
 
+describe('per-stream enable', () => {
+  /** A connected peer with two announced streams, both encoding. */
+  async function withStreams(): Promise<Harness> {
+    const h = await setup({ receivers: 2 });
+    const peer = MockPeerConnection.latest();
+    peer.setConnectionState('connected');
+    peer.emitTrack('0');
+    peer.emitTrack('1');
+    h.td.socket().serverSend({
+      type: 'streams',
+      streams: [
+        { id: 'tile1', mid: '0' },
+        { id: 'tile2', mid: '1' },
+      ],
+    });
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: true, tile2: true } });
+    await settle();
+    return h;
+  }
+
+  it('reports undefined until TD has said, so a control can disable rather than lie', async () => {
+    const h = await setup();
+    // Distinct from `false`: nothing is known about this id yet, which is a
+    // different claim from "TD has an encoder for it and it is off".
+    expect(h.video.enabled('tile1')).toBeUndefined();
+    h.dispose();
+  });
+
+  it('sends stream-enable and applies the change optimistically', async () => {
+    const h = await withStreams();
+
+    h.video.setEnabled('tile1', false);
+    expect(h.video.enabled('tile1')).toBe(false); // before TD has answered
+    expect(h.td.socket().received.at(-1)).toEqual({
+      type: 'stream-enable',
+      id: 'tile1',
+      enabled: false,
+    });
+    h.dispose();
+  });
+
+  it('leaves the peer alone — a toggle costs no renegotiation', async () => {
+    const h = await withStreams();
+    const peer = MockPeerConnection.latest();
+    const before = h.signaling().length;
+
+    h.video.setEnabled('tile1', false);
+    await settle();
+
+    // The whole design rests on this: the track stays negotiated, so turning a
+    // stream back on takes effect on TD's next frame with no SDP round trip.
+    expect(MockPeerConnection.instances).toHaveLength(1);
+    expect(peer.closed).toBe(false);
+    expect(h.signaling()).toHaveLength(before);
+    h.dispose();
+  });
+
+  it('snaps back to TD when a write is refused', async () => {
+    const h = await withStreams();
+    h.video.setEnabled('tile1', false);
+    expect(h.video.enabled('tile1')).toBe(false);
+
+    // TD refused (an unknown id, or no generated encoder) and re-announced the
+    // truth — the same safety net an optimistic param edit has.
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: true, tile2: true } });
+    await settle();
+    expect(h.video.enabled('tile1')).toBe(true);
+    h.dispose();
+  });
+
+  it('follows a stream switched off inside TD', async () => {
+    const h = await withStreams();
+
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: false, tile2: true } });
+    await settle();
+
+    expect(h.video.enabled('tile1')).toBe(false);
+    expect(h.video.enabled('tile2')).toBe(true);
+    h.dispose();
+  });
+
+  it('replaces the state map wholesale rather than merging', async () => {
+    const h = await withStreams();
+
+    // tile2 has left the config. Merging would leave it reading `true` forever;
+    // dropping it returns it to "TD hasn't said", which disables its control.
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: true } });
+    await settle();
+    expect(h.video.enabled('tile2')).toBeUndefined();
+    h.dispose();
+  });
+
+  it('reports an off stream as `off`, not as connecting', async () => {
+    const h = await withStreams();
+    expect(h.video.streamStatus('tile1')).toBe('connected');
+
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: false, tile2: true } });
+    await settle();
+
+    // Nothing is pending: the track is healthy and TD is simply not filling it.
+    // Reporting `connecting` would promise a picture that isn't coming.
+    expect(h.video.streamStatus('tile1')).toBe('off');
+    expect(h.video.streamStatus('tile2')).toBe('connected');
+    h.dispose();
+  });
+
+  it('toggles against the current state, and does nothing before TD has said', async () => {
+    const h = await withStreams();
+
+    h.video.toggle('tile1');
+    expect(h.video.enabled('tile1')).toBe(false);
+    h.video.toggle('tile1');
+    expect(h.video.enabled('tile1')).toBe(true);
+
+    const sent = h.td.socket().received.length;
+    h.video.toggle('never-announced'); // nothing to invert — guessing would be wrong half the time
+    expect(h.td.socket().received).toHaveLength(sent);
+    h.dispose();
+  });
+
+  it('resolves the primary stream when no id is given', async () => {
+    const h = await withStreams();
+    h.td.socket().serverSend({ type: 'stream-state', streams: { tile1: false, tile2: true } });
+    await settle();
+
+    // Same defaulting as `stream()`/`streamStatus()`, so a single-stream app
+    // never has to name an id.
+    expect(h.video.enabled()).toBe(false);
+    h.dispose();
+  });
+});
+
 describe('per-stream status + rebuild on failure (5.5)', () => {
   it('reports a stream connected only once its track has arrived', async () => {
     const h = await setup();

@@ -29,6 +29,19 @@
  * with our own offer is resolved by the browser yielding (rollback + answer).
  * `offerRole: 'td'` flips the initial role in one option if the reference
  * WebRTC DAT turns out to insist on offering first.
+ *
+ * ## Turning a stream off
+ * `setEnabled(id, false)` stops TD *encoding* that stream; it does not touch the
+ * peer. Every configured stream keeps its track for the life of the connection,
+ * so the toggle costs no renegotiation in either direction and video resumes on
+ * TD's next frame. TD-side, an off stream stops the encoder and everything
+ * feeding it, so it costs nothing while off — which is what lets an instance
+ * announce more streams than it can afford to run at once.
+ *
+ * Ownership of the state is TD's, exactly as for a parameter: `setEnabled`
+ * applies optimistically and every client is corrected by the `stream-state`
+ * that follows — including when the flip came from TD's own parameter dialog
+ * rather than from a browser.
  */
 
 import { createSignal, getOwner, onCleanup, type Accessor } from 'solid-js';
@@ -46,6 +59,16 @@ const DEFAULT_DISCONNECTED_GRACE = 2_000;
  * the rebuild until media flows again. `closed` is terminal.
  */
 export type TDPeerStatus = 'connecting' | 'connected' | 'reconnecting' | 'closed';
+
+/**
+ * Per-stream status: the peer's own status, plus `'off'` for a stream whose
+ * TD-side encoder is stopped.
+ *
+ * `'off'` is its own state rather than a flavour of `'connecting'` because
+ * nothing is pending — the track is negotiated and healthy, TD is simply not
+ * filling it, and it resumes on the frame after {@link TDVideoStream.setEnabled}.
+ */
+export type TDStreamStatus = TDPeerStatus | 'off';
 
 /**
  * The slice of `MediaStream` this module uses. Stated structurally — like
@@ -157,10 +180,28 @@ export interface TDVideoStream {
   stream: (id?: string) => MediaStreamLike | undefined;
   /**
    * Reactive status for one stream: the peer status, except that a stream whose
-   * track hasn't arrived yet reads `connecting`/`reconnecting` rather than
-   * `connected`.
+   * encoder TD has stopped reads `off`, and one whose track hasn't arrived yet
+   * reads `connecting`/`reconnecting` rather than `connected`.
    */
-  streamStatus: (id?: string) => TDPeerStatus;
+  streamStatus: (id?: string) => TDStreamStatus;
+  /**
+   * Reactive: whether TD is currently encoding this stream. `undefined` until
+   * TD has said — either before the first `stream-state`, or for an id whose
+   * encoder TD hasn't generated. Distinguished from `false` so a control can
+   * disable itself rather than claim the stream is off.
+   */
+  enabled: (id?: string) => boolean | undefined;
+  /**
+   * Start or stop TD's encoder for this stream. Applied optimistically and
+   * reconciled against TD's next `stream-state`, exactly like a parameter edit
+   * — so a refusal snaps the control back rather than leaving it lying.
+   *
+   * The peer is untouched: the track stays negotiated, so this costs no
+   * renegotiation in either direction and video resumes on TD's next frame.
+   */
+  setEnabled: (id: string, enabled: boolean) => void;
+  /** {@link setEnabled} against the current state. A no-op until TD has said. */
+  toggle: (id: string) => void;
   /** Tear down and re-negotiate the peer from scratch. */
   rebuild: () => void;
   /** Close the peer, stop every received track, and unsubscribe from signaling. */
@@ -182,6 +223,10 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
 
   const [status, setStatus] = createSignal<TDPeerStatus>('connecting');
   const [streams, setStreams] = createSignal<StreamInfo[]>([]);
+  // id → whether TD is encoding it. Deliberately keyed by stream id, not mid:
+  // this survives a renegotiation that shifts mids, and is known from the
+  // `snapshot` onward — before any peer exists.
+  const [enabledMap, setEnabledMap] = createSignal<Readonly<Record<string, boolean>>>({});
   // mid → decoded stream. Keyed by `mid` (not stream id) because that's what
   // `ontrack` reports; the `streams` message is what maps ids onto it, and
   // re-arrives on every renegotiation in case mids shifted.
@@ -441,7 +486,35 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     return mid === undefined ? undefined : tracks().get(mid);
   }
 
-  function streamStatus(id?: string): TDPeerStatus {
+  /** Resolve a stream id the same way {@link midFor} does, for the enabled map. */
+  function idFor(id?: string): string | undefined {
+    return id ?? streams()[0]?.id;
+  }
+
+  function enabled(id?: string): boolean | undefined {
+    const key = idFor(id);
+    return key === undefined ? undefined : enabledMap()[key];
+  }
+
+  function setEnabled(id: string, value: boolean): void {
+    // Optimistic, then reconciled by TD's `stream-state` — the same contract a
+    // parameter edit has. A send that never goes out (socket down) therefore
+    // corrects itself on the reconnect's snapshot rather than sticking.
+    setEnabledMap((prev) => (prev[id] === value ? prev : { ...prev, [id]: value }));
+    connection.send({ type: 'stream-enable', id, enabled: value });
+  }
+
+  function toggle(id: string): void {
+    const current = enabledMap()[id];
+    // Nothing to invert before TD has said: guessing would send the wrong value
+    // as often as the right one.
+    if (current !== undefined) setEnabled(id, !current);
+  }
+
+  function streamStatus(id?: string): TDStreamStatus {
+    // Checked before the peer status: an off stream is not waiting on anything,
+    // and reporting it as `connecting` would promise a picture that isn't coming.
+    if (enabled(id) === false) return 'off';
     const peerStatus = status();
     if (peerStatus === 'connected' && !stream(id)) return 'connecting';
     return peerStatus;
@@ -600,6 +673,13 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
         // what rebinds `<Video>` when mids shift.
         setStreams(message.streams);
         break;
+      case 'stream-state':
+        // Wholesale, not merged: TD sends the whole truth every time, so an id
+        // that has left the config must stop reading as enabled/disabled and go
+        // back to "TD hasn't said". This is also what corrects an optimistic
+        // `setEnabled` TD refused.
+        setEnabledMap(message.streams);
+        break;
     }
   });
 
@@ -608,6 +688,7 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
     unsubscribe();
     teardownPeer();
     setStreams([]);
+    setEnabledMap({});
     setStatus('closed');
   }
 
@@ -617,5 +698,15 @@ export function createTDVideoStream(options: TDVideoStreamOptions): TDVideoStrea
 
   if (getOwner()) onCleanup(close);
 
-  return { status, streams, stream, streamStatus, rebuild: () => rebuild('manual'), close };
+  return {
+    status,
+    streams,
+    stream,
+    streamStatus,
+    enabled,
+    setEnabled,
+    toggle,
+    rebuild: () => rebuild('manual'),
+    close,
+  };
 }

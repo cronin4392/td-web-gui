@@ -46,6 +46,11 @@ Worth reading in `App.tsx`:
 - **`StatusBar` / `VideoWall`** — built from the bare `useTDConnection` /
   `useTDVideoStream` rather than from either factory, because neither names a
   parameter. One component serves both columns.
+- **The per-tile `<StreamToggle>`** — unchecking one stops that stream's encoder
+  and everything feeding it in TouchDesigner, which the wall's heading counts
+  ("_N_ encoding"). The peer is untouched, so the tile comes back on TD's next
+  frame; watch `videostreamout_tile2` and its `select_`/`fit_`/`flip_` chain stop
+  cooking while it's off.
 - **`AudioDevicePicker`** — a `<Select>` with **no** `options` prop, whose
   choices TouchDesigner announces because they can't be authored in advance,
   plus the reload button that refreshes them. Instance 1 only.

@@ -10,7 +10,7 @@ two are independent: separate WebSocket, separate WebRTC peer, separate
 reconnect lifecycle. Nothing but the web page knows they are related.
 
 The param map lives here. packages/td-core/touchdesigner/webserver-callbacks.py and packages/td-core/touchdesigner/parameter-execute.py
-are drop-in copies that read it back out via op.WebGuiServer.op('config').module.
+are drop-in copies that read it back out via parent.WebGuiServer.op('config').module.
 
 Setup: point the WebGuiServer component's Config File par at this file — it
 loads it into the `config` Text DAT the two scripts read. The instance name the
@@ -67,7 +67,7 @@ Value Change, so `reset` needs no watcher.
 Set by hand, because they're parameters on the DATs rather than values read
 from here:
         Web Server DAT          Callbacks DAT = the callbacks DAT named below;
-                                Port = `op.WebGuiServer.par.Port`.
+                                Port = `parent.WebGuiServer.par.Port`.
         WebRTC DAT              Callbacks DAT = packages/td-core/touchdesigner/webrtc-callbacks.py's DAT;
                                 ICE Servers = empty (browser and TD share a machine).
 """
@@ -89,6 +89,12 @@ WEBRTC = "webrtc1"
 # friendly stream id -> the TOP whose picture that stream carries.
 #   source: absolute path to the TOP you want on the web.
 #   label:  optional human-readable name, passed through to the browser.
+#   enabled: optional, default True — whether the stream starts encoding. Read
+#           only when the encoder is first created; after that the generated
+#           videostreamout_<id> TOP's Active par is the live state, which
+#           apps/example toggles per tile. All four start on here so the wall is
+#           populated on first load; turning one off stops its whole chain
+#           cooking, which is visible in TD immediately.
 # The encoder is generated per entry inside WebGuiServer, so these paths name the
 # last op in the wall that is about the picture, and the wall ends there.
 #

@@ -89,6 +89,7 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 | `rtc-offer`        | `{ sdp: string }`                                             |
 | `rtc-answer`       | `{ sdp: string }`                                             |
 | `rtc-ice`          | `{ candidate: string \| null, sdpMid?, sdpMLineIndex? }`      |
+| `stream-enable`    | `{ id: string, enabled: boolean }`                            |
 
 ### TD → web
 
@@ -103,6 +104,7 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 | `call`                                 | `{ id?: string, name: string, args?: JsonValue }`             |
 | `result`                               | `{ id: string, value?: JsonValue, error?: {code, message?} }` |
 | `streams`                              | `{ streams: { id, mid, label? }[] }`                          |
+| `stream-state`                         | `{ streams: { [id]: boolean } }`                              |
 | `rtc-offer` / `rtc-answer` / `rtc-ice` | as above                                                      |
 
 ```jsonc
@@ -110,6 +112,8 @@ closed system. The web logs a prominent warning and proceeds best-effort.
 { "type": "pulse",    "name": "reset" }
 { "type": "menus",    "menus": { "audiodevice": [{ "value": "default", "label": "Default" }] } }
 { "type": "streams",  "streams": [{ "id": "main", "mid": "0", "label": "Render A" }] }
+{ "type": "stream-enable", "id": "main", "enabled": false }
+{ "type": "stream-state",  "streams": { "main": false, "preview": true } }
 { "type": "error",    "code": "param_not_writable", "message": "…", "ref": "fps" }
 { "type": "rtc-ice",  "candidate": "candidate:…", "sdpMid": "0", "sdpMLineIndex": 0 }
 { "type": "call",     "id": "c1", "name": "print", "args": { "text": "hi" } }
@@ -153,6 +157,31 @@ assuming a fixed track order.
 **Signaling messages appear in both directions.** The browser offers on connect
 and on rebuild; TD offers for its own renegotiations, because only an offerer can
 add m-lines. Both sides must be able to send and receive an offer.
+
+**`stream-enable` starts and stops an _encoder_, not a track.** Every configured
+stream keeps its track for the life of the connection, so this is not signaling:
+nothing renegotiates, and a stream turned back on carries pixels again on TD's
+next frame. What it actually flips is the generated `videostreamout_<id>` TOP's
+`Active` par — which stops that TOP **and everything feeding it**, so a disabled
+stream costs nothing at all. That is what lets a project announce more streams
+than the machine can afford to run at once.
+
+It is deliberately not an `update`: what it drives is an operator td-core
+generates, so it needs no `REGISTRY` entry and can't collide with the parameter
+namespace.
+
+**`stream-state` is the authoritative map, replaced wholesale.** Sent after
+`snapshot` — before any peer exists, so a reloaded page renders its toggles
+without waiting on WebRTC — and again whenever a stream is switched on or off by
+**either** side: TD watches its own encoders, so flipping one in TD's parameter
+dialog reaches the browser exactly like a parameter change does. Merging it would
+leave an id that has left the config stuck at its last known state. A stream whose
+encoder has not been generated is **absent** rather than `false`, since "unknown"
+and "off" call for different UI.
+
+A refused `stream-enable` replies `error` with `ref` set to the stream id
+(`unknown_stream`, `stream_unavailable`) _and_ re-announces `stream-state`, which
+is what snaps the sender's optimistic toggle back.
 
 **`call`/`result` are symmetric**, like signaling — either side can invoke a
 named handler the other registered. `id` is present for a call awaiting a
@@ -324,6 +353,8 @@ An `error` is **surfaced, never fatal**. It routes to the connection's
 | `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.     |
 | `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.            |
 | `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                 |
+| `unknown_stream`      | yes   | `stream-enable` named an id that isn't in `STREAMS`. `ref` is that id.                               |
+| `stream_unavailable`  | yes   | Configured, but its encoder hasn't been generated — `WebGuiServerExt.Rebuild()` hasn't run.          |
 
 A failed `call` replies with a `result` carrying one of these `error.code`
 values instead — never the `error` message above, since these are scoped to

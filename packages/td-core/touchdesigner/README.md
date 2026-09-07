@@ -20,10 +20,12 @@ exactly that operator's registered parameters. Add a registry entry and the
 watcher follows.
 
 You never create a Video Stream Out TOP yourself either. The same extension reads
-`STREAMS` and generates a `select_<id> → flip_<id> → videostreamout_<id>` chain
-per entry, inside the component — so a stream is one config line naming the TOP
-you want on the web, and the mirroring TD's WebRTC encoder introduces is dealt
-with in the generated `flip_<id>`.
+`STREAMS` and generates a
+`select_<id> → fit_<id> → flip_<id> → videostreamout_<id>` chain per entry,
+inside the component — so a stream is one config line naming the TOP you want on
+the web. The generated `fit_<id>` caps the resolution the encoder sees (the
+entry's `width`, default 480, aspect preserved) and `flip_<id>` deals with the
+mirroring TD's WebRTC encoder introduces.
 
 Saving the config is the whole of the work: the extension also generates a
 `config_watch` DAT Execute DAT pointed at the config DAT itself, so an edit to
@@ -39,9 +41,11 @@ the staged copy during an Embody portable `.tox` export — so the component shi
 its machinery and none of your project's output.
 
 Everything project-specific lives in your config: which operators and parameters
-to expose, and which TOPs carry which video streams. The three scripts find it
-through the `WebGuiServer` component's global OP shortcut, which is what lets
-them be dropped in unchanged no matter where the component sits.
+to expose, and which TOPs carry which video streams. The scripts find it
+through the `WebGuiServer` component's parent shortcut, which is what lets
+them be dropped in unchanged no matter where the component sits, and lets
+several WebGuiServer components live in one project without one stealing
+another's shortcut.
 
 **→ [Full walkthrough: ../docs/touchdesigner-setup.md](../docs/touchdesigner-setup.md)**
 

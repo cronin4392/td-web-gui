@@ -22,7 +22,7 @@ your config, is the only one you edit.
 ## What you are building
 
 ```
-op.WebGuiServer                    ← a Base COMP with a global OP shortcut
+parent.WebGuiServer                ← a Base COMP with a parent shortcut
 ├── Identifier      (String par)   ← names this instance to the web app
 ├── Port            (Int par)      ← the Web Server DAT's port
 ├── Config File     (File par)     ← path to your config .py
@@ -72,12 +72,17 @@ and a color is four separate pars; the browser never has to. See
 Create a **Base COMP** anywhere in your project. Name it whatever you like —
 `WebGuiServer` is a good default, but the name is not what matters.
 
-**Set its global OP shortcut.** On the Common page, set `Global OP Shortcut` to
-`WebGuiServer`. All three scripts find the component through `op.WebGuiServer`,
-which is what lets them be dropped in unchanged no matter where you put it.
+**Set its parent shortcut.** On the Common page, set `Parent Shortcut` to
+`WebGuiServer`. Every script finds the component through `parent.WebGuiServer`,
+resolved from any descendant DAT — which is what lets them be dropped in
+unchanged no matter where you put the component, and lets several WebGuiServer
+components live in one project, each resolving to its own nearest ancestor. A
+**global** OP shortcut is deliberately not used for this — it's unique
+project-wide, so a second WebGuiServer component would steal the first one's.
 
 > This is the single most common setup mistake. Without the shortcut, every
-> script raises `no global OP shortcut 'WebGuiServer'` on its first call.
+> script raises `no parent OP shortcut 'WebGuiServer' found above this DAT` on
+> its first call.
 
 Add four custom parameters to the component:
 
@@ -96,7 +101,7 @@ Inside the component.
 `Tdcoredir`**, as an expression rather than a typed-in path:
 
 ```python
-op.WebGuiServer.par.Tdcoredir.eval() + '/webserver-callbacks.py'
+parent.WebGuiServer.par.Tdcoredir.eval() + '/webserver-callbacks.py'
 ```
 
 Set `File` that way on each DAT below and turn on **Sync to File**. One folder
@@ -105,7 +110,7 @@ on another machine — is a one-field fix instead of one per DAT. The generated
 Parameter Execute DATs get the same expression automatically.
 
 **`config`** — a **Text DAT** named exactly `config`. This one is the exception:
-set `File` to `op.WebGuiServer.par.Configfile` (your config lives in your
+set `File` to `parent.WebGuiServer.par.Configfile` (your config lives in your
 project, not in this package) and turn on **Sync to File**. The scripts read your
 registry back out of this DAT's compiled module, so the name `config` is
 load-bearing.
@@ -122,12 +127,12 @@ names can't contain hyphens, so it won't literally be `webserver-callbacks`.
 
 **`webserver1`** — a **Web Server DAT**:
 
-| Parameter       | Value                      |
-| --------------- | -------------------------- |
-| `Active`        | On                         |
-| `Port`          | `op.WebGuiServer.par.Port` |
-| `Local Address` | **`127.0.0.1`**            |
-| `Callbacks DAT` | `webserver1_callbacks`     |
+| Parameter       | Value                          |
+| --------------- | ------------------------------ |
+| `Active`        | On                             |
+| `Port`          | `parent.WebGuiServer.par.Port` |
+| `Local Address` | **`127.0.0.1`**                |
+| `Callbacks DAT` | `webserver1_callbacks`         |
 
 **Set `Local Address` deliberately.** Left blank, the Web Server DAT listens on
 **all** network interfaces — which means anything that can reach your machine
@@ -230,7 +235,7 @@ You can still pulse it by hand from the textport, which is the thing to reach fo
 if you have edited the generated DATs directly and want them back in line:
 
 ```python
-op.WebGuiServer.Rebuild()
+parent.WebGuiServer.Rebuild()
 ```
 
 `Rebuild()` is idempotent and diff-based — it compares the config against the
@@ -258,22 +263,22 @@ rather than two that can disagree.
 Start your web app and watch TD's textport. A healthy connect logs nothing at
 all; every failure mode below prints a specific warning.
 
-| Symptom                                                                     | Cause                                                                                                                                                               |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no global OP shortcut 'WebGuiServer'`                                      | Step 1 — the shortcut isn't set.                                                                                                                                    |
-| `WebGuiServer has no 'config' DAT`                                          | The Text DAT isn't named exactly `config`, or `Config File` is empty.                                                                                               |
-| `operator '...' not found - REGISTRY paths should be absolute`              | A registry path is missing its leading `/`.                                                                                                                         |
-| `operator '...' has no par '...'`                                           | Wrong case (`intensity` vs `Intensity`), or the par doesn't exist.                                                                                                  |
-| `has no ParGroup '...'`                                                     | A `number[]` entry names a component (`Colorr`) instead of the group (`Color`).                                                                                     |
-| Web can write, but TD-side changes never appear                             | Step 4 — the extension isn't wired, so no `parexec_…` DATs were generated. Check the component for them.                                                            |
-| No `parexec_…` DATs at all                                                  | The extension isn't wired, or `config` can't be read. `Rebuild()` leaves the network alone when the registry is unreadable rather than deleting every watcher.      |
-| `Tdcoredir is empty - generated DATs have no callback code`                 | Step 1 — the `Td Core Dir` par isn't set.                                                                                                                           |
-| Extension page filled in, but `op.WebGuiServer.Rebuild()` says no attribute | Step 4 — the `Extension` sequence count is still `0`, the Object field uses `op(...)` instead of `me.op(...)`, or the Name field is blank. All three fail silently. |
-| One operator's changes never appear, others do                              | Its `parexec_…` DAT is missing or its registry entry names an operator that doesn't exist. Run `op.WebGuiServer.Rebuild()` and re-read the textport warnings.       |
-| `readout '...': '...' is a DAT, but this entry reads a CHOP`                | A `chan` entry pointing at a DAT, or a `row`/`col` entry pointing at a CHOP.                                                                                        |
-| `readout '...': '...' has no channel '...'`                                 | The CHOP exists but that channel doesn't. Channel names are case-sensitive.                                                                                         |
-| `readout '...' names only an operator`                                      | A whole-table entry missing its `'type': 'string[][]'`.                                                                                                             |
-| `'...' is in both REGISTRY and READOUTS`                                    | A name collision. The `REGISTRY` entry wins and the readout is ignored — rename one of them.                                                                        |
+| Symptom                                                                         | Cause                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no parent OP shortcut 'WebGuiServer' found above this DAT`                     | Step 1 — the shortcut isn't set.                                                                                                                                    |
+| `WebGuiServer has no 'config' DAT`                                              | The Text DAT isn't named exactly `config`, or `Config File` is empty.                                                                                               |
+| `operator '...' not found - REGISTRY paths should be absolute`                  | A registry path is missing its leading `/`.                                                                                                                         |
+| `operator '...' has no par '...'`                                               | Wrong case (`intensity` vs `Intensity`), or the par doesn't exist.                                                                                                  |
+| `has no ParGroup '...'`                                                         | A `number[]` entry names a component (`Colorr`) instead of the group (`Color`).                                                                                     |
+| Web can write, but TD-side changes never appear                                 | Step 4 — the extension isn't wired, so no `parexec_…` DATs were generated. Check the component for them.                                                            |
+| No `parexec_…` DATs at all                                                      | The extension isn't wired, or `config` can't be read. `Rebuild()` leaves the network alone when the registry is unreadable rather than deleting every watcher.      |
+| `Tdcoredir is empty - generated DATs have no callback code`                     | Step 1 — the `Td Core Dir` par isn't set.                                                                                                                           |
+| Extension page filled in, but `parent.WebGuiServer.Rebuild()` says no attribute | Step 4 — the `Extension` sequence count is still `0`, the Object field uses `op(...)` instead of `me.op(...)`, or the Name field is blank. All three fail silently. |
+| One operator's changes never appear, others do                                  | Its `parexec_…` DAT is missing or its registry entry names an operator that doesn't exist. Run `parent.WebGuiServer.Rebuild()` and re-read the textport warnings.   |
+| `readout '...': '...' is a DAT, but this entry reads a CHOP`                    | A `chan` entry pointing at a DAT, or a `row`/`col` entry pointing at a CHOP.                                                                                        |
+| `readout '...': '...' has no channel '...'`                                     | The CHOP exists but that channel doesn't. Channel names are case-sensitive.                                                                                         |
+| `readout '...' names only an operator`                                          | A whole-table entry missing its `'type': 'string[][]'`.                                                                                                             |
+| `'...' is in both REGISTRY and READOUTS`                                        | A name collision. The `REGISTRY` entry wins and the readout is ignored — rename one of them.                                                                        |
 
 More in [troubleshooting.md](troubleshooting.md).
 
@@ -443,6 +448,21 @@ about the picture. Your chain ends there: **don't add a Flip TOP, and don't
 compensate for the mirroring TD's WebRTC encoder introduces.** That is handled
 downstream of `source`, and doing it twice cancels out.
 
+Three optional keys govern what a stream costs, since a Video Stream Out TOP
+encodes every frame at full resolution and a wall of them will drop your frame
+rate:
+
+| Key       | Default | Effect                                                                                                  |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------- |
+| `width`   | `480`   | Pixel cap applied by the generated `fit_<id>`. Aspect preserved; a smaller source isn't upscaled.       |
+| `fps`     | `15`    | Encode rate on the generated `videostreamout_<id>`, independent of the project rate.                    |
+| `enabled` | `True`  | Whether this stream **starts** encoding. See [Turning streams on and off](#turning-streams-on-and-off). |
+
+```python
+'tile1': {'source': '/project1/videowall/level_tile1', 'width': 960, 'fps': 30},
+'tile2': {'source': '/project1/videowall/level_tile2', 'enabled': False},
+```
+
 > Derivative's own WebRTC palette component compensates in CSS instead, on the
 > video container. Don't copy that: going fullscreen in Chrome drops the styling
 > and the mirror comes back
@@ -469,6 +489,40 @@ offered up front:
 the surplus streams have nowhere to land; `webrtc-callbacks.py` prints a warning
 naming both counts.
 
+### Turning streams on and off
+
+A stream's on/off state is the generated `videostreamout_<id>` TOP's **Active**
+par, and nothing else. Off stops that TOP **and everything feeding it** — the
+whole `select_`/`fit_`/`flip_` chain stops cooking — so a disabled stream costs
+nothing at all. On a live four-tile wall each running encoder measured ~0.25 ms of
+CPU cook time per frame plus GPU, which is what you get back.
+
+The web drives it with `<StreamToggle stream="tile1" />`; you can also flip
+Active in TD's parameter dialog and the browser follows, because the extension
+generates a `parexec_stream_active` Parameter Execute DAT watching every encoder.
+
+**The peer is never renegotiated.** Every configured stream keeps its track for
+the life of the connection, so a stream comes back on TD's next frame with no SDP
+round trip — and `receivers` still has to cover every entry in `STREAMS`, not just
+the running ones.
+
+That combination is what lets a project **offer more streams than it can afford
+to run at once**: list them all, start the expensive ones `'enabled': False`, and
+let the operator pick which are live.
+
+```python
+STREAMS = {
+    'main':    {'source': '/project1/render_out',  'label': 'Main'},
+    'cam1':    {'source': '/project1/cam1',        'label': 'Cam 1', 'enabled': False},
+    'cam2':    {'source': '/project1/cam2',        'label': 'Cam 2', 'enabled': False},
+}
+```
+
+`enabled` is read **only when the encoder is first created**. After that the
+Active par is the live state, so saving `config.py` (which rebuilds) never undoes
+a toggle. The generated operators are dropped when TouchDesigner exits, so each
+session starts from the config's defaults again.
+
 ### One viewer at a time
 
 A Video Stream Out TOP's `WebRTC Connection` parameter holds a **single** value,
@@ -479,6 +533,15 @@ peer stays happily `connected`, with no error to show for it.
 The callbacks make this visible rather than mysterious: the newcomer gets a
 non-fatal `video_single_viewer` error and TD logs a warning. Serving two browsers
 simultaneously needs a second full set of Video Stream Out TOPs.
+
+## Multiple WebGuiServer components in one project
+
+Because every script resolves the component through its **parent** shortcut
+rather than a global one, you can repeat the whole setup — a second Base COMP
+named `WebGuiServer` (or any name, matched by its own `Parent Shortcut`), with
+its own `config`, `Port`, and `Identifier` — anywhere else in the same TD
+project. Each generated watcher resolves upward to its own nearest ancestor,
+so the two never cross-talk.
 
 ## Multiple TD instances
 
