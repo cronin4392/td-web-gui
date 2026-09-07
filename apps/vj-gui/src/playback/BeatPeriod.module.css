@@ -5,6 +5,13 @@
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(2rem, max-content);
-    gap: var(--spacing-s);
+
+    & > label:first-of-type {
+      --radio-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    & > label:last-of-type {
+      --radio-radius: 0 var(--radius) var(--radius) 0;
+    }
   }
 }

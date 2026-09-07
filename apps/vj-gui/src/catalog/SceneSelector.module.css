@@ -14,11 +14,24 @@
     min-width: 0;
     flex-direction: row;
     align-items: center;
-    gap: var(--spacing-s);
     /* `scroll`, not `auto`: a conditional scrollbar would jump the row's height
        as tags come and go. The wheel handler maps vertical wheel to this axis. */
     overflow-x: scroll;
     overflow-y: hidden;
+
+    /* "All" opens the strip; the last tag closes it. Custom properties inherit,
+       so the slot can say this without naming the radio inside it. */
+    & > label {
+      --radio-radius: var(--radius) 0 0 var(--radius);
+    }
+
+    & > div:last-of-type {
+      --radio-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    &:not(:has(div)) > label {
+      --radio-radius: var(--radius);
+    }
   }
 
   .tagSlot {
@@ -49,6 +62,8 @@
   }
 
   .tagAdd {
+    /* The rail's pills are flush; the add button is not one of them. */
+    margin-left: var(--spacing-m);
     padding: var(--spacing-s);
     font-size: var(--text-m);
     font-weight: var(--font-weight-bold);

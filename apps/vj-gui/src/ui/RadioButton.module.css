@@ -11,6 +11,9 @@
     font-size: var(--text-m);
     padding: var(--spacing-m);
     border: 1px solid var(--color-border);
+    /* Set by the strip on its end children. Rounding the pill's own border beats
+       clipping it to a rounded parent, which slices the corner off the stroke. */
+    border-radius: var(--radio-radius, 0);
     background: var(--color-canvas);
     color: var(--color-text);
 
