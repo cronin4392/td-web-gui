@@ -25,33 +25,10 @@
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    min-width: 0;
-
-    /* The label is a row so a long tag name can ellipsis inside it. */
-    & > label {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-s);
-      min-width: 0;
-    }
 
     &[data-dragging='true'] {
       opacity: 0.4;
     }
-
-    /* A scene is hovering: this is the tag it would be filed under. */
-    &[data-dropping='true'] > label {
-      border-color: var(--color-accent);
-      background: color-mix(in srgb, var(--color-accent) 25%, transparent);
-    }
-  }
-
-  .tagName {
-    display: block;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .tagForm {

@@ -218,7 +218,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
             <div
               class={styles.tagSlot}
               data-dragging={dragTag() === tag}
-              data-dropping={dropTag() === tag}
               // A draggable ancestor stops Chrome placing a caret in a child
               // input, so the slot gives up dragging while it is being renamed.
               draggable={renaming() !== tag}
@@ -248,11 +247,10 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                   <RadioButton
                     name="scene-tag"
                     checked={selectedTag() === tag}
+                    highlighted={dropTag() === tag}
                     onSelect={() => setPickedTag(tag)}
                   >
-                    <span class={styles.tagName} title={tag}>
-                      {tag}
-                    </span>
+                    <span title={tag}>{tag}</span>
                   </RadioButton>
                 }
               >

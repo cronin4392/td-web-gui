@@ -68,4 +68,18 @@ describe('RadioButton', () => {
     setChecked(true);
     expect(radios()[0]!.checked).toBe(true);
   });
+
+  it('marks the label while highlighted', () => {
+    const [highlighted, setHighlighted] = createSignal(false);
+    mount(() => (
+      <RadioButton name="tag" checked={false} highlighted={highlighted()} onSelect={() => {}}>
+        Ambient
+      </RadioButton>
+    ));
+
+    const label = host!.querySelector('label')!;
+    expect(label.dataset.highlighted).not.toBe('true');
+    setHighlighted(true);
+    expect(label.dataset.highlighted).toBe('true');
+  });
 });

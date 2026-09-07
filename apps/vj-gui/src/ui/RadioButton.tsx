@@ -5,13 +5,17 @@ export interface RadioButtonProps {
   /** Shared across the group — this is what makes arrow-key navigation work. */
   name: string;
   checked: boolean;
+  highlighted?: boolean;
   onSelect: () => void;
   children: JSX.Element;
 }
 
 export function RadioButton(props: RadioButtonProps): JSX.Element {
   return (
-    <label class={`${styles.button} ${props.checked ? styles.checked : ''}`}>
+    <label
+      class={`${styles.button} ${props.checked ? styles.checked : ''}`}
+      data-highlighted={props.highlighted}
+    >
       <input
         type="radio"
         class="u-sr-only"
