@@ -10,7 +10,7 @@ export function useRadioGroupName(): (() => string) | undefined {
 export interface RadioGroupProps {
   /** Shared across the group — this is what makes arrow-key navigation work. */
   name: string;
-  /** Which pair of corners the strip's end pills round. */
+  /** Lays the strip out, and picks which pair of corners its end pills round. */
   direction: 'horizontal' | 'vertical';
   label: string;
   class?: string;

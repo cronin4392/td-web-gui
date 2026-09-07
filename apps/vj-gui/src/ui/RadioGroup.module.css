@@ -1,6 +1,6 @@
 @layer components {
-  /* Grid in both directions so a strip can tune its own tracks — a beat period
-     wants a width floor — without having to restate the layout. */
+  /* Grid in both directions so a strip can tune its own tracks — a width floor,
+     say — without having to restate the layout. */
   .group {
     display: grid;
 

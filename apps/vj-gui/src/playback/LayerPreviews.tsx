@@ -93,14 +93,14 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
         <ParamRadios
           layer={props.layer}
           name="layout"
-          legend="Layout"
+          label="Layout"
           prefix="L"
           options={LAYOUT_OPTIONS}
         />
         <ParamRadios
           layer={props.layer}
           name="color"
-          legend="Color"
+          label="Color"
           prefix="C"
           options={COLOR_OPTIONS}
         />
@@ -287,7 +287,7 @@ function levelStyle(level: number | undefined): JSX.CSSProperties {
 function ParamRadios(props: {
   layer: LayerId;
   name: 'layout' | 'color';
-  legend: string;
+  label: string;
   prefix: string;
   options: readonly SelectOption[];
 }): JSX.Element {
@@ -298,7 +298,7 @@ function ParamRadios(props: {
     <RadioGroup
       name={`layer-${props.layer}-${props.name}`}
       direction="vertical"
-      label={`Layer ${props.layer} ${props.legend}`}
+      label={`Layer ${props.layer} ${props.label}`}
     >
       <For each={props.options}>
         {(option, index) => (
