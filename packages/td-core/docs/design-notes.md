@@ -11,6 +11,7 @@ worth reading first.
 - [Scope and targets](#scope-and-targets)
 - [Security model](#security-model)
 - [The web authors its schema](#the-web-authors-its-schema)
+- [Factories are runtime-scoped, bare exports are not](#factories-are-runtime-scoped-bare-exports-are-not)
 - [Parameter modes](#parameter-modes)
 - [Readouts](#readouts)
 - [TD-announced menus](#td-announced-menus)
@@ -91,6 +92,61 @@ If TD ever needs to drive _more_ metadata to the web (`min`/`max`/labels/units),
 the escape hatch is a dedicated message alongside the snapshot — deliberately not
 folded into `snapshot`, which stays a flat `{name: value}` map in both directions.
 `menus` is what that hatch looks like.
+
+## Factories are runtime-scoped, bare exports are not
+
+`createTDClient()` gives each factory **its own** connection and video contexts,
+rather than every factory sharing one pair of module-level ones. The bare exports
+(`createTDSignal`, `useTDConnection`, `useTDVideoStream`, `createTDHandler`, and
+the unbound components) deliberately keep the old behavior: nearest provider of
+any factory. See [api.md § Scoping](api.md#scoping) for the rule as a user meets
+it; this is why it is drawn there.
+
+**The failure it prevents type-checks.** With one shared context, nesting
+providers from two different factories made the innermost win for _everything_ —
+so `Mixer.signal('intensity')` rendered inside a `<Render.Provider>` bound to
+**render's** connection while type-checking against **mixer's** schema. The
+name is legal in the schema the compiler is looking at, so nothing complains; the
+value simply never arrives (render has no `intensity` to send) and a write is
+refused as `unknown_param`. Every guarantee the factory exists to give — "this
+`name` is checked, in JSX, where you write it" — was silently void in exactly the
+situation the library is built for: several TD instances on one page.
+
+It was also unfixable from the app side. The only recourse was "never nest
+providers from different factories", a rule nothing enforces and nothing reports
+breaking. Making the factory a runtime identity rather than a compile-time
+wrapper turns that from a discipline into a property.
+
+**A missing provider throws rather than falling back.** With no provider of its
+own factory above it, a bundle member raises `no TD connection in context` — it
+does not quietly take the nearest provider of some other factory. A fallback
+would reintroduce the exact bug in the one place it is hardest to notice, and it
+would make the guarantee conditional ("your factory's instance, unless there
+isn't one, in which case someone else's"). It is a real behavior change for code
+that leaned on the old accident, and the loud version is the point: the bare
+exports are there for anyone who genuinely wants nearest-provider binding, and
+choosing them says so.
+
+**Why the bare exports keep nearest-of-any.** They have no factory to scope
+_to_. A component built on `createTDSignal` or `useTDConnection` is untyped by
+construction — that is what it is for: one status bar, one video wall, one custom
+knob, rendered under whichever instance's provider it lands in. Scoping those
+would need an argument saying which factory, which is the instance prop the
+context is there to avoid. So the two forms divide cleanly: reach through a
+bundle when you mean a **named** instance, import bare when you mean **whichever
+one you're inside**.
+
+The same reasoning is why there is no `Factory.createHandler`.
+`createTDHandler`'s whole contribution over `connection.handle()` is an
+`onCleanup`, and `Factory.useConnection().handle(...)` is already the typed,
+factory-scoped path — one line, with the unregister function in hand. A bundle
+member would have added a third way to say it and a second lifetime rule to
+learn.
+
+**Multiple providers from one factory still nest nearest-wins.** That is not an
+exception, it is the same rule: scoping is per factory, and within a factory the
+nearest provider is the answer. It is how one factory serves N instances of a
+shared schema, and it is unchanged.
 
 ## Parameter modes
 
@@ -577,6 +633,27 @@ Findings that cost real debugging time. All measured on 2025.33070.
 **`par.val` on an expression-driven parameter is destructive.** It flips the mode
 to `CONSTANT` and permanently detaches the expression. See
 [Parameter modes](#parameter-modes).
+
+**A DAT's module is rebuilt every time the DAT cooks, and a callbacks DAT
+cooks more often than it looks.** Every module-level global goes back to its
+default — for `webserver-callbacks.py` that is the cached Web Server DAT, the
+client set, and the WebRTC peer tables. The DAT has no inputs and does not sync
+its file, so it looks inert; but its `file` par is an expression through the
+parent shortcut, and structural churn anywhere above it (a COMP pulsing
+`reinitnet` to swap a `.tox`) re-evaluates that expression and cooks the DAT.
+Measured: forcing the cook between a parameter write and the Parameter Execute
+callback it queues loses the broadcast 8 times out of 8, because `_broadcast`
+found the cached DAT back at `None` and returned. Readouts survive it — the next
+change re-sends — but a REGISTRY param is broadcast exactly once, so the browser
+holds the stale value until it reconnects. Anything that must outlive a cook
+either has to be re-resolvable from the network — `_server_dat()` finds the Web
+Server DAT again, `_live_clients()` reconciles the socket set against
+`webSocketConnections` — or, when the network does not record it at all, has to
+live in the component's storage instead: `_peers()` keeps the browser-to-peer
+pairing there, since nothing on the network says which browser owns which peer.
+The exception is `_pending_calls`, whose entries hold Python callbacks and so
+cannot be stored; a TD→web `call()` in flight across a cook is dropped without
+firing its `call_timeout`.
 
 **An unknown menu key silently selects entry 0.** Assigning a Menu parameter a
 key it doesn't have raises nothing and takes its _first_ entry — and the

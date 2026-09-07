@@ -1,8 +1,8 @@
 """
 td-core project config — copy this file into your project and edit it.
 
-This is the ONE file you write per project. The other six scripts in this
-folder are project-agnostic and are dropped in unchanged:
+This is the ONE file you write per project. Every other script in this folder is
+project-agnostic and dropped in unchanged — the ones you place yourself being:
 
         webserver-callbacks.py   Web Server DAT callbacks  (params + inbound signaling)
         webgui-server-ext.py     WebGuiServer extension    (generates the watchers and

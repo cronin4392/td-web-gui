@@ -3,16 +3,44 @@
 The other half of the bridge. Project-agnostic Python files you drop into any
 project unchanged, plus a config template you edit.
 
+## The quick way: drop in the .tox
+
+[`WebGuiServer.tox`](WebGuiServer.tox) is the finished component — the Web Server
+DAT, the WebRTC DAT, their callbacks, and the extension, already wired. Drag it
+into your project and you have skipped
+[the whole walkthrough](../docs/touchdesigner-setup.md) except the two parameters
+only you can fill in:
+
+1. **Td Core Dir** — this folder, so the DATs sync to these files rather than the
+   copies frozen inside the `.tox`.
+2. **Config File** — your config, copied from
+   [`config-template.py`](config-template.py).
+
+Set those two and it starts itself: the component's `exit_watch` runs `Rebuild()`
+on create, which generates every watcher and stream chain your config asks for.
+`Identifier` and `Port` are yours to name; the parent shortcut is already set.
+
+Building it by hand instead is still worth doing once if you want to know what
+each piece is for — that is what the walkthrough is.
+
 | File                                               | Loaded into                                                            | Edit?                               |
 | -------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------- |
 | [`webserver-callbacks.py`](webserver-callbacks.py) | Web Server DAT's Callbacks DAT                                         | Never                               |
 | [`webgui-server-ext.py`](webgui-server-ext.py)     | A Text DAT named `WebGuiServerExt`, wired as the component's extension | Never                               |
 | [`parameter-execute.py`](parameter-execute.py)     | Nothing by hand — the extension generates the DATs that load it        | Never                               |
+| [`chop-execute.py`](chop-execute.py)               | Nothing by hand — the extension generates the DATs that load it        | Never                               |
+| [`dat-execute.py`](dat-execute.py)                 | Nothing by hand — the extension generates the DATs that load it        | Never                               |
 | [`webrtc-callbacks.py`](webrtc-callbacks.py)       | WebRTC DAT's Callbacks DAT — video only                                | Never                               |
 | [`config-execute.py`](config-execute.py)           | Nothing by hand — the extension generates the DAT that loads it        | Never                               |
 | [`exit-execute.py`](exit-execute.py)               | Nothing by hand — the extension generates the DAT that loads it        | Never                               |
 | [`pre-release.py`](pre-release.py)                 | Nothing by hand — the extension generates the DAT that loads it        | Never                               |
 | [`config-template.py`](config-template.py)         | A Text DAT named `config`                                              | **Yes** — copy it into your project |
+
+[`WebGuiServer.tox`](WebGuiServer.tox) is those files already assembled into the
+component — see above. It ships with an empty config and no identity, and holds
+no generated operators: they are a build product of your config, so a `.tox`
+carrying this project's would land yours with DATs pointed at operators it does
+not have.
 
 You never create a Parameter Execute DAT yourself. `WebGuiServerExt` reads the
 config's `REGISTRY` and generates one per operator it references, each watching

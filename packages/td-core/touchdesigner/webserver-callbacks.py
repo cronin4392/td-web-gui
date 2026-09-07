@@ -94,13 +94,13 @@ PROTOCOL = 1  # wire protocol version, sent in the `welcome` reply
 
 clients = set()  # open WebSocket client connections, used for broadcast
 
-# Live WebRTC peers, both directions — signaling must reach the one browser
-# that owns a peer, and a closing socket must take its peer down with it.
-peer_by_client = {}
-client_by_peer = {}
+# Storage key for the live WebRTC peers — which browser owns which peer. Held
+# on the component rather than in a global here; see _peers().
+_PEERS_KEY = "webguiPeers"
 
 # Cached Web Server DAT so broadcast_param_change() can send from outside a
-# callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`.
+# callback (e.g. a Parameter Execute DAT). Set on every callback that has `dat`,
+# and re-resolved by _server_dat() when a cook of this DAT wipes it.
 _server = None
 
 # Keys already warned about, so a project missing a backing operator/par/
@@ -156,6 +156,34 @@ def _handlers():
 def _remember(dat):
     global _server
     _server = dat
+
+
+def _server_dat():
+    """The Web Server DAT these are the callbacks for.
+
+    Latched from whichever callback last carried `dat`, and re-resolved from
+    the component whenever that latch is empty — which happens far more often
+    than "before the first request". This DAT's `file` par is an expression
+    through the parent shortcut, so structural churn anywhere above it (a COMP
+    reinitialising its network, say) re-evaluates the expression, cooks the
+    DAT, and builds the module again from nothing. Every global here goes back
+    to its default in that window, `_server` included.
+
+    A send that lands in that window and trusts the bare latch reaches nobody.
+    Readouts survive it, since the next change re-sends; a REGISTRY param does
+    not, because it is broadcast exactly once, so the browser keeps the stale
+    value until it reconnects and asks for a fresh snapshot.
+    """
+    global _server
+    if _server is not None and _server.valid:
+        return _server
+    _server = None
+    for child in _webgui().findChildren(type=webserverDAT, maxDepth=1):
+        target = child.par.callbacks.eval()
+        if target is not None and target.path == me.path:
+            _server = child
+            break
+    return _server
 
 
 def _warn_once(key, reason):
@@ -471,24 +499,38 @@ def readout_watches():
     return watches
 
 
-def _mark_readout_dirty(name):
-    """Queue a readout for this frame's flush, booking the flush if needed."""
+def _schedule_flush():
+    """Book the end-of-frame flush unless one is already booked. Returns False
+    when there is no callbacks DAT to address the deferred call to, which is the
+    caller's cue to flush inline."""
     global _readout_flush_scheduled
-    if name in _registry():
-        return  # shadowed by a param; _readout_names has already warned
-    _dirty_readouts.add(name)
     if _readout_flush_scheduled:
-        return
+        return True
     dat = _webgui().op(_config().CALLBACKS)
     if dat is None:
-        # Nothing to address the deferred call to; send inline instead of
-        # dropping it.
-        flush_readouts()
-        return
+        return False
     _readout_flush_scheduled = True
     # endFrame, not delayFrames=1: still reaches the browser in the frame it
     # changed, and every callback fired during this frame's cook coalesces.
     run("op(%r).module.flush_readouts()" % dat.path, endFrame=True)
+    return True
+
+
+def _forget_readout(name):
+    """Drop a name from the flush queue once it is settled — sent, or given up
+    on. The only place `_dirty_readouts` shrinks."""
+    _dirty_readouts.discard(name)
+
+
+def _mark_readout_dirty(name):
+    """Queue a readout for this frame's flush, booking the flush if needed."""
+    if name in _registry():
+        return  # shadowed by a param; _readout_names has already warned
+    _dirty_readouts.add(name)
+    if not _schedule_flush():
+        # Nothing to address the deferred call to; send inline instead of
+        # dropping it.
+        flush_readouts()
 
 
 def broadcast_channel_change(channel):
@@ -532,26 +574,48 @@ def flush_readouts():
     message per frame. Re-reading at flush time (rather than carrying each
     callback's `val`) is what makes that correct — the value sent is the one
     that survived the frame.
+
+    A name stays queued until it has actually been sent. Clearing the queue up
+    front is what used to lose a change outright: a readout that only moves on
+    a user action then stayed stale in the browser until the next change or a
+    reconnect. A read that RAISES is still dropped — a readout's operator is a
+    fixture of the project, not something a scene load replaces, so a failing
+    read is a config error that retrying cannot fix.
+
+    With nobody connected the queue is dropped rather than held: a browser that
+    connects later opens with a snapshot, which reads every readout fresh, so
+    there is nothing to preserve — and requeueing would book a flush every
+    frame for as long as the page stays closed.
     """
     global _readout_flush_scheduled
     _readout_flush_scheduled = False
-    names = sorted(_dirty_readouts)
-    _dirty_readouts.clear()
-    if not names or not clients:
+    if not _dirty_readouts:
+        return
+    if not _live_clients():
+        for name in list(_dirty_readouts):
+            _forget_readout(name)
         return
     # Re-checked against the config rather than trusted from the mark, since
     # the config DAT syncs to file and can change between mark and flush.
     serveable = set(_readout_names())
     params = {}
-    for name in names:
+    for name in sorted(_dirty_readouts):
         if name not in serveable:
+            _forget_readout(name)
             continue
         try:
             params[name] = _read_readout(name)
         except _WireTypeError as e:
             _warn_once(("readout", name), str(e))
+            _forget_readout(name)
     if params:
+        # Forgotten only once the send has returned, so the queue can never be
+        # emptied by something that didn't reach the socket.
         _broadcast({"type": "update", "params": params})
+        for name in params:
+            _forget_readout(name)
+    if _dirty_readouts:
+        _schedule_flush()
 
 
 def _snapshot():
@@ -648,17 +712,71 @@ def broadcast_menus_if_changed():
     return True
 
 
+def _forget_client(client):
+    """Drop a socket and everything keyed on it."""
+    clients.discard(client)
+    _abandon_calls(client)
+    _close_peer(client)
+
+
+def _live_clients():
+    """`clients`, reconciled against the sockets the Web Server DAT itself
+    reports open.
+
+    Maintaining the set from the callbacks alone is not enough in either
+    direction. `onWebSocketClose` does not fire for every teardown, so dead ids
+    accumulate — measured at four for a single browser tab, which silently
+    disables `call()`, since that refuses to fire unless exactly one client is
+    connected. And re-cooking this DAT empties the set while the sockets stay
+    open, so live clients go missing until the heartbeat re-adds them.
+    `webSocketConnections` is authoritative for both.
+
+    Membership only — no teardown. This runs on every broadcast, up to once a
+    frame, and TD documents the member as no more than "a string list of all
+    the Web Socket connections": nothing about when it updates relative to the
+    callbacks. So a socket it omits for a moment must cost that browser only a
+    skipped send, never its WebRTC peer. `_sweep_clients` does the closing.
+    """
+    # getattr, matching _readouts()/_streams(): a build without the member
+    # leaves the callback-maintained set as the only source, which is the old
+    # behaviour rather than an AttributeError out of a broadcast.
+    server = _server_dat()
+    reported = getattr(server, "webSocketConnections", None) if server else None
+    if reported is None:
+        return clients
+    clients.clear()
+    clients.update(reported)
+    return clients
+
+
+def _sweep_clients():
+    """Close what `_live_clients` deliberately leaves behind — the peers and
+    pending calls of a socket the Web Server DAT no longer reports.
+
+    Separate from the reconcile because this half is destructive and the
+    reconcile is per-frame. Driven by the heartbeat ping (~5s), so an id has to
+    be absent while a client is demonstrably talking to us, rather than absent
+    for the one frame of a broadcast."""
+    live = _live_clients()
+    for gone in [c for c in _peers() if c not in live]:
+        _close_peer(gone)
+    for gone in {p.get("client") for p in _pending_calls.values()} - live - {None}:
+        _abandon_calls(gone)
+
+
 def _send(client, message):
-    if _server is not None:
-        _server.webSocketSendText(client, json.dumps(message))
+    server = _server_dat()
+    if server is not None:
+        server.webSocketSendText(client, json.dumps(message))
 
 
 def _broadcast(message):
-    if _server is None:
+    server = _server_dat()
+    if server is None:
         return
     text = json.dumps(message)
-    for client in list(clients):
-        _server.webSocketSendText(client, text)
+    for client in list(_live_clients()):
+        server.webSocketSendText(client, text)
 
 
 def _report(client, name, problem):
@@ -797,14 +915,18 @@ def call(name, args=None, on_result=None, on_error=None, client=None, timeout=10
     """
     target = client
     if target is None:
-        if len(clients) != 1:
+        # Reconciled first: a stale id left behind by a teardown that never
+        # reported itself is enough to make this refuse on a page that IS the
+        # only one connected.
+        live = _live_clients()
+        if len(live) != 1:
             if on_error:
                 on_error(
                     "call_disconnected",
-                    "%d client(s) connected; call() needs exactly one" % len(clients),
+                    "%d client(s) connected; call() needs exactly one" % len(live),
                 )
             return
-        target = next(iter(clients))
+        target = next(iter(live))
     call_id = _next_call_id()
     message = {"type": "call", "id": call_id, "name": name}
     if args is not None:
@@ -901,7 +1023,7 @@ def attach_streams(connection):
     warns about it.
     """
     webrtc, _ = _webrtc()
-    if webrtc is None or connection not in client_by_peer:
+    if webrtc is None or _client_of(connection) is None:
         return  # browser went away during the wait
 
     for stream_id in _streams():
@@ -928,7 +1050,7 @@ def reattach_streams():
     TOPs feeding them are new, and a new TOP has no WebRTC parameters set. Skip
     this and the peer stays `connected` with every tile black.
     """
-    for connection in list(client_by_peer):
+    for connection in list(_peers().values()):
         _attach_streams_next_frame(connection)
 
 
@@ -1015,11 +1137,58 @@ def _enable_stream(name, enabled):
     return None, before != enabled
 
 
+def _peers():
+    """Which browser socket owns which WebRTC peer, as `client -> connection`.
+
+    Kept in the component's storage rather than in a global here, because it is
+    the one piece of state in this module that a cook cannot rebuild afterwards
+    — and cooks are routine, see _server_dat. `clients` comes back from the Web
+    Server DAT and `_server` from the component, but nothing on the network
+    records which browser a peer belongs to. Losing that strands every open
+    connection: _close_peer stops closing them, so an encoder leaks per
+    refresh; send_signaling can't find the browser to answer; and
+    reattach_streams walks an empty map and leaves the tiles black behind a
+    peer that is still `connected`.
+
+    Not reconciled against the DAT's `peerConnections` the way `clients` is
+    reconciled against `webSocketConnections`: a connection is entered here in
+    the same breath as `openConnection`, and whether the DAT lists it before it
+    next cooks is undocumented, so a reconcile could drop a peer mid-negotiation
+    and leave the tiles black. Entries are removed when their socket goes, which
+    _sweep_clients already drives off the authoritative socket list.
+    """
+    comp = _webgui()
+    pairs = comp.fetch(_PEERS_KEY, None, search=False)
+    if pairs is None:
+        pairs = {}
+        comp.store(_PEERS_KEY, pairs)
+        # A peer belongs to a session, not to the file, so a saved .toe opens
+        # with none rather than with whatever was connected when it was saved.
+        comp.storeStartupValue(_PEERS_KEY, {})
+    return pairs
+
+
+def _client_of(connection):
+    """The browser socket owning `connection`. Searched rather than kept as a
+    second map keyed the other way, which is one more thing to disagree."""
+    for client, held in _peers().items():
+        if held == connection:
+            return client
+    return None
+
+
+def _remember_peer(client, connection):
+    pairs = _peers()
+    pairs[client] = connection
+    _webgui().store(_PEERS_KEY, pairs)
+
+
 def _close_peer(client):
-    connection = peer_by_client.pop(client, None)
+    pairs = _peers()
+    connection = pairs.pop(client, None)
     if connection is None:
         return
-    client_by_peer.pop(connection, None)
+    _webgui().store(_PEERS_KEY, pairs)
     webrtc, _ = _webrtc()
     if webrtc is not None:
         webrtc.closeConnection(connection)  # otherwise a peer/encoder leaks per refresh
@@ -1028,7 +1197,7 @@ def _close_peer(client):
 def send_signaling(connection, message):
     """Send one signaling message to the browser owning `connection`. Called
     by webrtc-callbacks.py, which has the SDP/ICE but not the sockets."""
-    client = client_by_peer.get(connection)
+    client = _client_of(connection)
     if client is not None:
         _send(client, message)
 
@@ -1052,7 +1221,7 @@ def _handle_rtc_offer(client, sdp):
     # Out TOP holds ONE connection, so attach_streams re-points this
     # project's TOPs at whoever negotiated last and the earlier browser's
     # tiles freeze — newest-wins, with no error shown to the victim.
-    others = [c for c in peer_by_client if c != client]
+    others = [c for c in _peers() if c != client]
     if others:
         print(
             "webserver-callbacks: warning - %d other browser(s) already hold a "
@@ -1072,8 +1241,7 @@ def _handle_rtc_offer(client, sdp):
 
     _close_peer(client)
     connection = webrtc.openConnection()
-    peer_by_client[client] = connection
-    client_by_peer[connection] = client
+    _remember_peer(client, connection)
 
     # Order is load-bearing: tracks must exist before the answer is built, or
     # the video m-line comes back `a=inactive`.
@@ -1086,7 +1254,7 @@ def _handle_rtc_offer(client, sdp):
 def _handle_rtc_answer(client, sdp):
     """Apply the browser's answer to an offer TD initiated (a track change)."""
     webrtc, _ = _webrtc()
-    connection = peer_by_client.get(client)
+    connection = _peers().get(client)
     if webrtc is None or connection is None:
         return
     webrtc.setRemoteDescription(connection, "answer", sdp)
@@ -1096,7 +1264,7 @@ def _handle_rtc_ice(client, message):
     """Add a remote ICE candidate. `candidate: null` is end-of-candidates and
     is dropped rather than forwarded — TD finishes checking on its own."""
     webrtc, _ = _webrtc()
-    connection = peer_by_client.get(client)
+    connection = _peers().get(client)
     candidate = message.get("candidate")
     if webrtc is None or connection is None or not candidate:
         return
@@ -1282,9 +1450,7 @@ def onWebSocketOpen(dat: webserverDAT, client: str, uri: str):
 
 
 def onWebSocketClose(dat: webserverDAT, client: str):
-    clients.discard(client)
-    _abandon_calls(client)
-    _close_peer(client)
+    _forget_client(client)
     return
 
 
@@ -1341,6 +1507,9 @@ def onWebSocketReceiveText(dat: webserverDAT, client: str, data: str):
             _send(client, {"type": "menus", "menus": _menus()})
 
     elif mtype == "ping":
+        # The only periodic beat in the protocol, so where the destructive half
+        # of client reconciliation lives — see _sweep_clients.
+        _sweep_clients()
         _send(client, {"type": "pong"})
 
     elif mtype == "rtc-offer":

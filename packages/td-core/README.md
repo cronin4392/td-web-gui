@@ -74,8 +74,13 @@ same pass as your own components.
 ### 1. Set up TouchDesigner
 
 The package ships the TouchDesigner half of the bridge in
-[`touchdesigner/`](touchdesigner/) — six project-agnostic Python files you drop
+[`touchdesigner/`](touchdesigner/) — the project-agnostic Python files you drop
 in unchanged, plus a config template you edit.
+
+Quickest path: drag in
+[`touchdesigner/WebGuiServer.tox`](touchdesigner/WebGuiServer.tox), the finished
+component, and set two parameters — **Td Core Dir** (that folder) and **Config
+File** (your config). It generates its own watchers from there.
 
 **→ [Full walkthrough: docs/touchdesigner-setup.md](docs/touchdesigner-setup.md)**
 
@@ -113,7 +118,7 @@ export interface MixerParams {
   cues: string[][]; // a readout
 }
 
-export const readonly = ['fps', 'cues'];
+export const readonly = ['fps', 'cues'] as const satisfies readonly (keyof MixerParams)[];
 ```
 
 Readouts sit in the same interface as parameters — they ride the same wire
@@ -188,7 +193,13 @@ props, and carries a stable `td-*` class hook.
 | `<StreamToggle>`               | Starts and stops that stream's TouchDesigner-side encoder.           |
 
 **Connection** — `createTDClient<Schema>()` for typed UI;
-`createTDConnection(url)` standalone, with no context or component tree.
+`createTDConnection(url)` standalone, with no context or component tree. Each
+factory is scoped to its own providers, so several instances can live on one
+page — nested or side by side — and a control still reads the instance its
+schema says it does. Bare exports (`useTDConnection`, `createTDSignal`, the
+unbound components) take the nearest provider of any factory instead, which is
+what makes an instance-agnostic custom control possible. See
+[api.md § Scoping](docs/api.md#scoping).
 Reconnect with backoff, handshake watchdog, heartbeat, rAF throttle,
 backpressure, and read-only parameter handling — all per-connection options with
 sane defaults.
@@ -206,7 +217,9 @@ the parameter namespace, so they bind by name like anything else.
 
 **TouchDesigner** — [`touchdesigner/`](touchdesigner/): the DAT callbacks
 implementing the other half of the protocol, an extension that generates every
-watcher DAT from your config, and a commented config template.
+watcher DAT from your config, a commented config template, and
+`WebGuiServer.tox` — all of it pre-assembled, for dropping straight into a
+project.
 
 ## Documentation
 

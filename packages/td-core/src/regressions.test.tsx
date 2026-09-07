@@ -1,13 +1,17 @@
 /**
- * Regressions for four defects that all shared one shape: a lifecycle opened in
- * one place and closed in another, with no owner tying the two together.
+ * Regressions for defects 1a–1d, which all shared one shape: a lifecycle opened
+ * in one place and closed in another, with no owner tying the two together —
+ * plus 2, where a bundle resolved its instance by tree position rather than by
+ * the factory it came from.
  */
 
 import { createSignal } from 'solid-js';
 import { render } from 'solid-js/web';
 import { describe, expect, it } from 'vitest';
 import { createTDConnection } from './connection';
-import { createTDClient } from './context';
+import { createTDClient, createTDSignal } from './context';
+import { Value } from './components/Value';
+import type { TDBinding } from './params';
 import { createMockTD, flush, MockTDSocket } from './testing/mockTD';
 import { createManualScheduler } from './testing/scheduler';
 
@@ -175,5 +179,67 @@ describe('regressions', () => {
     expect(stopped).toEqual(['first']);
     video.close();
     expect(stopped).toEqual(['first', 'second']);
+  });
+
+  it('2: a bundle nested inside another factory’s provider still binds its own', async () => {
+    const a = createMockTD({ snapshot: { level: 1 } });
+    const b = createMockTD({ snapshot: { level: 2 } });
+    const A = createTDClient<Params>();
+    const B = createTDClient<Params>();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    let fromA!: TDBinding<number>;
+    let fromB!: TDBinding<number>;
+    let fromBare!: TDBinding<number>;
+    render(
+      () => (
+        <A.Provider url="ws://a" options={{ WebSocket: a.WebSocket }}>
+          <B.Provider url="ws://b" options={{ WebSocket: b.WebSocket }}>
+            {(() => {
+              fromA = A.signal('level');
+              fromB = B.signal('level');
+              fromBare = createTDSignal<number>('level');
+              return null;
+            })()}
+            <A.Value name="level" data-testid="a-value" />
+            <B.Value name="level" data-testid="b-value" />
+            <Value name="level" data-testid="bare-value" />
+            <A.Toggle name="bang" data-testid="a-toggle" />
+          </B.Provider>
+        </A.Provider>
+      ),
+      host,
+    );
+    await flush();
+
+    const textOf = (id: string) => host.querySelector(`[data-testid="${id}"]`)!.textContent;
+    const updatesTo = (socket: MockTDSocket) =>
+      socket.received.filter((m: any) => m?.type === 'update').map((m: any) => m.params);
+
+    expect(fromA.value()).toBe(1);
+    expect(fromB.value()).toBe(2);
+    expect(textOf('a-value')).toBe('1');
+    expect(textOf('b-value')).toBe('2');
+
+    // The escape hatch: bare imports still resolve to the nearest provider.
+    expect(fromBare.value()).toBe(2);
+    expect(textOf('bare-value')).toBe('2');
+
+    fromA.setValue(11);
+    const toggle = host.querySelector<HTMLInputElement>('[data-testid="a-toggle"]')!;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+
+    expect(updatesTo(a.socket())).toEqual([{ level: 11 }, { bang: true }]);
+    expect(updatesTo(b.socket())).toEqual([]);
+
+    a.socket().serverSend({ type: 'update', params: { level: 33 } });
+    b.socket().serverSend({ type: 'update', params: { level: 44 } });
+    await flush();
+    expect(fromA.value()).toBe(33);
+    expect(fromB.value()).toBe(44);
+    expect(textOf('a-value')).toBe('33');
   });
 });

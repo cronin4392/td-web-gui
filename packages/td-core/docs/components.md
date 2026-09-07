@@ -13,8 +13,21 @@ const App = createTDClient<Params>()
 ```
 
 They are also exported unbound (`import { RangeInput } from 'td-core'`) for cases
-where you don't want the schema typing. Both forms are the same component and
-bind through the same context.
+where you don't want the schema typing. Both forms are the same component, and
+they differ in **which provider they find**:
+
+| Form                                | Binds to                                              |
+| ----------------------------------- | ----------------------------------------------------- |
+| `<App.RangeInput name="intensity">` | the nearest `<App.Provider>` — this factory's, always |
+| `<RangeInput name="intensity">`     | the nearest `<Provider>` of **any** factory           |
+
+With one provider above them the two are identical, which is the usual case. They
+diverge only where providers from different factories nest: a typed control
+reaches past another factory's provider to its own, while an unbound one takes
+whichever provider is closest. That is the point of the unbound form — one custom
+control, reusable under any instance — and the reason a typed control can be
+rendered inside another instance's subtree and still read its own. See
+[api.md § Scoping](api.md#scoping).
 
 - [Shared behavior](#shared-behavior)
 - [Which component for which parameter](#which-component-for-which-parameter)
@@ -375,8 +388,10 @@ place to escalate it into a render crash.
 
 ## `<Video>`
 
-Renders a `<video>`. Requires `video` on the `<Provider>`; without it, it throws
-a pointed error rather than rendering black.
+Renders a `<video>`. Requires `video` on the provider it binds — the nearest
+`<App.Provider>` for `<App.Video>`, the nearest provider of any factory for a
+bare `<Video>`. Without it, it throws a pointed error rather than rendering
+black.
 
 | Prop     | Type     | Description                                       |
 | -------- | -------- | ------------------------------------------------- |
