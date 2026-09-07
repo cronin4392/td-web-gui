@@ -76,9 +76,8 @@ export function scenesRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_SCENES_ROOT');
 }
 
-/** Answers '' rather than throwing when the root is unset, which is what the read path
- * wants: it also runs after a mutation has committed, where a throw would report a write
- * that did happen as a failure. A Scan still demands the real root. */
+// The read path also runs after a mutation has committed, where a throw would report a write
+// that did happen as a failure. A Scan still demands the real root.
 export function scenesRootIfSet(env: Record<string, string | undefined>): string {
   return optionalEnv(env, 'VJ_SCENES_ROOT');
 }

@@ -17,9 +17,8 @@ export function sortRoots(roots) {
     .sort((a, b) => b.length - a.length);
 }
 
-// Case- and separator-insensitive: these are Windows paths, so a stored value can differ
-// from the root in both. What is left over goes into the snapshot slash-separated, so the
-// tracked file reads the same whichever separator the writer happened to use.
+// Case- and separator-insensitive, and slash-separated on the way out: these are Windows
+// paths, so a stored value can differ from its root in both.
 function relativise(value, roots) {
   if (typeof value !== 'string') return value;
   const slashed = value.replace(/\\/g, '/');
@@ -63,9 +62,8 @@ export function snapshotPath(dbPath) {
 
 export function exportSql(path, { strip = [], stripColumns = [] } = {}) {
   const roots = sortRoots(strip);
-  // Restore writes the stripped value straight back and only the catalog read joins a root
-  // onto it again, so stripping a column no root is ever joined onto -- an authored phrase
-  // that happens to start with one -- truncates it for good. Empty names every column.
+  // Empty names every column, which truncates an authored value that starts with a root for
+  // good -- both CLIs refuse --strip without it.
   const strippable = new Set(stripColumns.map((name) => name.toLowerCase()));
   // Read-write: a read-only handle cannot create the `-shm` a WAL database needs.
   const db = new DatabaseSync(path);
@@ -139,16 +137,15 @@ export function snapshotRowCounts(sql) {
   return counts;
 }
 
-// Tables the live database emptied while the snapshot still holds rows — the one lossy
-// export. Walks the snapshot, so a table the rebuild dropped altogether counts as emptied.
+// Walks the snapshot, so a table the rebuild dropped altogether counts as emptied too.
 export function emptiedTables(rowCounts, snapshotSql) {
   return [...snapshotRowCounts(snapshotSql)]
     .filter(([table, count]) => count > 0 && (rowCounts.get(table) ?? 0) === 0)
     .map(([table]) => table);
 }
 
-// Answers with what it could not remove rather than throwing: once the database has been
-// replaced, a journal held open by a viewer is a leftover to warn about, not a failed restore.
+// Answers with what it could not remove: past the replace, a journal held open by a viewer is
+// a leftover to warn about, not a failed restore.
 export function discardJournals(path) {
   const left = [];
   for (const journal of [`${path}-wal`, `${path}-shm`]) {
@@ -173,16 +170,15 @@ export function restoreDb(path, snapshot) {
     } finally {
       db.close();
     }
-    // Replaces the target in one step rather than unlinking it first: a rename that fails
-    // on a locked file leaves the old database — and its own -wal — whole.
+    // One step rather than unlinking first: a rename that fails on a locked file leaves the
+    // old database, and its own -wal, whole.
     renameSync(staging, path);
   } catch (err) {
     rmSync(staging, { force: true });
     discardJournals(staging);
     throw err;
   }
-  // Past the rename, so a journal that resists deletion cannot report a replace that
-  // succeeded as failed. One left from the replaced database would replay into its successor.
+  // Past the rename, so a journal that resists deletion cannot fail a replace that succeeded.
   return discardJournals(path);
 }
 

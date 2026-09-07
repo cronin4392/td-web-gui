@@ -1,6 +1,3 @@
-// A `.db` read under an un-checkpointed WAL opens cleanly and passes an integrity
-// check while missing recent writes, so this exits non-zero rather than stay quiet.
-
 import { DatabaseSync } from 'node:sqlite';
 import { existsSync, statSync } from 'node:fs';
 
@@ -33,8 +30,7 @@ if (paths.length === 0) {
 let failed = false;
 for (const path of paths) {
   const name = show(path);
-  // `.db` files are untracked, so a fresh clone has none. Opening one would create an
-  // empty database that `db:restore --if-missing` then skips, losing the snapshot's rows.
+  // Opening an absent one would create the empty database `db:restore --if-missing` then skips.
   if (!existsSync(path)) {
     console.log(`- ${name}: no database there — nothing to checkpoint`);
     continue;

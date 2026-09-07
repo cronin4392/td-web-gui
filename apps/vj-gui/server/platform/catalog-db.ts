@@ -40,9 +40,8 @@ export function catalogDbPath(envVar: string, filename: string): string {
   return join(dir, filename);
 }
 
-/** Refuses to open a catalog that was never restored. `openCatalogDb` would create
- * an empty one, which `db:restore --if-missing` then skips, so every authored row in
- * the snapshot silently stays out of the database a Sync is about to write to. */
+// An empty database created here is one `db:restore --if-missing` then skips, leaving the
+// snapshot's authored rows out for good.
 export function requireRestoredDb(path: string): void {
   if (existsSync(path)) return;
   const snapshot = join(dirname(path), 'snapshots', `${basename(path, '.db')}.sql`);

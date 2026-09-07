@@ -46,7 +46,6 @@ export function effectsRoot(env: Record<string, string | undefined>): string {
   return requiredEnv(env, 'VJ_EFFECTS_ROOT');
 }
 
-/** Answers '' rather than throwing when the root is unset — see scenesRootIfSet. */
 export function effectsRootIfSet(env: Record<string, string | undefined>): string {
   return optionalEnv(env, 'VJ_EFFECTS_ROOT');
 }
