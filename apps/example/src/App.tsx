@@ -1,10 +1,19 @@
-import { For, Show } from 'solid-js';
-import { createTDClient, useTDConnection, useTDVideoStream, Video } from 'td-core';
+import { createSignal, For, Show } from 'solid-js';
+import {
+  createTDClient,
+  createTDHandler,
+  TDCallError,
+  useTDConnection,
+  useTDVideoStream,
+  Video,
+} from 'td-core';
 import {
   example1Readonly,
   example2Readonly,
   instances,
   VIDEO_TILES,
+  type Example1Calls,
+  type Example1Handlers,
   type Example1Params,
   type Example2Params,
 } from './td.config';
@@ -14,7 +23,12 @@ import {
 // `Example2.TextInput` are the same component behind different `name` types, and
 // each binds to whichever `<Provider>` it renders inside. That is what makes the
 // two columns below independent without either knowing the other exists.
-const Example1 = createTDClient<Example1Params>();
+//
+// Instance 1 also carries `Calls`/`Handlers` generics — the two independent
+// namespaces for "what TD exposes" (`call`/`notify`) and "what the web
+// exposes" (`handle`) — so `Example1.call('print', ...)` autocompletes and
+// typos are compile errors, same as a param name.
+const Example1 = createTDClient<Example1Params, Example1Calls, Example1Handlers>();
 const Example2 = createTDClient<Example2Params>();
 
 const [example1, example2] = instances;
@@ -115,6 +129,102 @@ function AudioDevicePicker() {
       <p class="caption">
         Options come from TouchDesigner, not from this app — see <code>menus</code> in the wire
         format. Plug in an interface, then hit reload.
+      </p>
+    </section>
+  );
+}
+
+/** Instance 1's named-call demo — the bidirectional channel from prds/CALLS.md. */
+function CallsDemo() {
+  const conn = useTDConnection();
+  const [text, setText] = createSignal('');
+  const [printResult, setPrintResult] = createSignal<string>();
+  const [echoResult, setEchoResult] = createSignal<string>();
+  const [callError, setCallError] = createSignal<string>();
+
+  createTDHandler<{ text: string }>('alert', (args) => {
+    alert(args.text);
+  });
+
+  function describe(error: unknown): string {
+    return error instanceof TDCallError ? error.code : String(error);
+  }
+
+  async function printInTD() {
+    setCallError(undefined);
+    try {
+      const result = await Example1.call('print', { text: text() });
+      setPrintResult(JSON.stringify(result));
+    } catch (error) {
+      setCallError(describe(error));
+    }
+  }
+
+  async function echoFromTD() {
+    setCallError(undefined);
+    try {
+      const result = await Example1.call('echo', { hello: 'world' });
+      setEchoResult(JSON.stringify(result));
+    } catch (error) {
+      setCallError(describe(error));
+    }
+  }
+
+  async function callUnknown() {
+    setCallError(undefined);
+    try {
+      // Raw connection, not `Example1.call`: the typed wrapper has no way to
+      // name a handler that isn't in `Example1Calls`, which is the whole point.
+      await conn.call('does-not-exist');
+    } catch (error) {
+      setCallError(describe(error));
+    }
+  }
+
+  return (
+    <section>
+      <h3>Calls</h3>
+      <label>
+        Text
+        <input
+          type="text"
+          value={text()}
+          onInput={(e) => setText(e.currentTarget.value)}
+          placeholder="Type something to print in TD…"
+        />
+      </label>
+      <div class="td-call-buttons">
+        <button type="button" onClick={printInTD} disabled={conn.status() !== 'synced'}>
+          print in TD
+        </button>
+        <button type="button" onClick={echoFromTD} disabled={conn.status() !== 'synced'}>
+          echo
+        </button>
+        <button type="button" onClick={callUnknown} disabled={conn.status() !== 'synced'}>
+          call unknown handler
+        </button>
+      </div>
+      <Show when={printResult()}>
+        <p class="td-call-result">
+          print result: <code>{printResult()}</code>
+        </p>
+      </Show>
+      <Show when={echoResult()}>
+        <p class="td-call-result">
+          echo result: <code>{echoResult()}</code>
+        </p>
+      </Show>
+      <Show when={callError()}>
+        <p class="td-call-error">
+          call error: <code>{callError()}</code>
+        </p>
+      </Show>
+      <p class="caption">
+        TD can call back: from its Textport,{' '}
+        <code>
+          parent.WebGuiServer.Notify('alert', {'{'}'text': 'hello from TD'{'}'})
+        </code>{' '}
+        pops a browser alert.
       </p>
     </section>
   );
@@ -305,6 +415,8 @@ function Example1Panel() {
       </section>
 
       <AudioDevicePicker />
+
+      <CallsDemo />
 
       <section>
         <p>Position</p>

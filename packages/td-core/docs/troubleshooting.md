@@ -9,6 +9,7 @@ web-side one in the browser console.
 - [One parameter doesn't work](#one-parameter-doesnt-work)
 - [One readout doesn't work](#one-readout-doesnt-work)
 - [Web → TD works, TD → web doesn't](#web--td-works-td--web-doesnt)
+- [Calls](#calls)
 - [Dropdowns](#dropdowns)
 - [Video](#video)
 - [Reactivity and build](#reactivity-and-build)
@@ -220,6 +221,57 @@ Re-cooking the callbacks DAT rebuilds its module and empties the `clients` set
 while the sockets stay open, so broadcasts go nowhere. It self-heals within one
 heartbeat interval (~5s) — the next inbound message re-registers the client. Wait
 a beat before investigating.
+
+## Calls
+
+**A `call()` never resolves — the Promise just hangs.**
+
+It doesn't hang forever: it rejects `call_timeout` after `callTimeout` (default
+10s). If you're seeing that, work down this list:
+
+1. **Is the name actually in `HANDLERS`?** A typo'd name replies
+   `unknown_handler` immediately rather than timing out — so a _timeout_
+   specifically means TD never got the message at all, or a handler raised
+   before it could reply and the reply itself failed to arrive.
+2. **Is the socket actually `synced`?** A `call()` sent while disconnected
+   rejects `call_disconnected` immediately, but one sent right before a drop
+   can be in flight when the socket closes — same rejection, different timing.
+3. **Check the Textport for a traceback.** A handler that raises still replies
+   `handler_error` (see below) — a true no-reply hang means the handler itself
+   never returned, e.g. it's blocking on synchronous I/O or an infinite loop on
+   TD's main thread, which also freezes the rest of the project. That's the
+   bug to fix, not the call.
+
+**Error `unknown_handler`**
+
+The name isn't in `HANDLERS` (web → TD) or wasn't registered with
+`createTDHandler`/`connection.handle()` (TD → web) at the time the call
+arrived. For the TD → web direction specifically, check that the component
+calling `createTDHandler` is actually mounted — it unregisters on unmount, so
+a call arriving after the component that owned the handler went away gets this
+same error rather than being silently dropped.
+
+**A handler's exception shows up as `handler_error`, not a crash**
+
+Expected — both sides catch around the invocation so a broken handler can't
+take the socket down. **Check the Textport** for the TD-side traceback, or the
+browser console for the web-side one; the `result` reply's `error.message`
+usually has just the exception text, not the full trace.
+
+**Error `result_not_serializable`**
+
+The handler's return value isn't valid JSON — a TD object (an `OP`, a `Par`), a
+Python object with no JSON encoding, a circular structure, `NaN`/`Infinity`.
+Convert it to plain data (`str(op_ref.path)`, a dict/list of primitives) before
+returning it.
+
+**`parent.WebGuiServer.Call(...)` invokes `on_error('call_disconnected', ...)` immediately**
+
+TD's outbound `call()` needs exactly one connected client to reply to — with
+zero or more than one browser connected, there's nothing to guess at, so it
+refuses immediately rather than picking one. Use `Notify()` instead if you
+don't need a reply and want to reach every connected client, or pass an
+explicit `client=` if you have one in hand (e.g. from `onWebSocketOpen`).
 
 ## Dropdowns
 
