@@ -1,59 +1,43 @@
 """
-WebGuiServer extension — generates the watcher DATs that carry TD -> web changes.
+WebGuiServer extension — generates the operators the config implies.
 
-Three kinds, all derived from the config, so adding an entry to either map is
-the whole of the work — no DAT to create, no `OPs` string to keep in sync:
+WATCHERS carry TD -> web changes: one Parameter Execute DAT per operator
+(parameter-execute.py), one CHOP/DAT Execute DAT per readout (chop-execute.py,
+dat-execute.py). STREAM CHAINS carry TD -> web video: one select/flip/videostreamout
+chain per STREAMS entry (webrtc-callbacks.py).
 
-        REGISTRY  -> one Parameter Execute DAT per operator, watching exactly that
-                     operator's registered parameters      (parameter-execute.py)
-        READOUTS  -> one CHOP Execute DAT per CHOP, watching exactly the channels
-                     those readouts read                   (chop-execute.py)
-                  -> one DAT Execute DAT per DAT           (dat-execute.py)
+Three more operators aren't derived from the config but keep the above derived
+from it: config_watch re-runs Rebuild when config.py changes on disk
+(config-execute.py); exit_watch re-runs Rebuild on Create (covers an External
+.tox reinit, which recreates children but not the extension) and deletes every
+generated op on Exit so none of it saves into the project (exit-execute.py; read
+that file before relying on the Exit half — TD has no pre-save callback); pre_release
+is Embody's export hook, dropping the same build product from a staged .tox copy
+so a shipped component doesn't carry another project's watchers (pre-release.py).
 
-Nothing here is project specific — drop this into any project unchanged, like
-the other scripts. It reads the same config the callbacks read, through the same
-`op.WebGuiServer` global shortcut.
+Nothing here is project specific. Reads the same config as the callbacks, via
+`op.WebGuiServer`.
 
-Set on the WebGuiServer component:
-        Tdcoredir     Folder par pointing at this directory. The three callback
-                      scripts above are resolved inside it, and every generated DAT
-                      syncs its text from there — so a hot-reload of one of those
-                      files reaches all of its DATs at once. The same par already
-                      locates the hand-placed callbacks scripts.
+Set on the WebGuiServer component: Tdcoredir (Folder par) — where the three
+callback scripts above resolve from, and where every generated DAT syncs its
+text, so editing one of those files hot-reloads every DAT built from it.
 
-Why one DAT per operator rather than one watching everything: a Parameter
-Execute DAT's `OPs` and `Parameters` fields are a cross product, so a single DAT
-covering N operators watches every registered parameter NAME on every one of
-them. Custom names rarely collide across operators, but built-in ones (`file`,
-`index`, `device`) collide constantly, and the `Built-In` toggle is per-DAT.
-Splitting per operator makes each watch an exact set of (operator, parameters)
-pairs and scopes `Built-In` to the operators that actually need it. A CHOP
-Execute DAT's `CHOP`/`Channel` fields are a cross product in the same way, and
-channel names (`tx`, `level`, `chan1`) collide across CHOPs far more readily
-than parameter names do.
-
-        Correctness does not depend on any of that — the broadcast functions in
-        webserver-callbacks.py re-check the owning operator and the parameter or
-        channel name against the config before sending, so an over-broad watch was
-        only ever wasted work. This is about cost, and about the watch being legible.
+One DAT per operator rather than one covering all of them, because a Parameter/CHOP
+Execute DAT's OPs/Parameters (or CHOP/Channel) fields are a cross product — a
+single DAT would watch every named parameter or channel on every operator it
+covers, and built-in names (`file`, `index`) collide constantly. Correctness
+doesn't depend on this (broadcast re-checks the operator and name before sending)
+but the watch stays legible and cheap.
 """
 
 import math
 
-# The File expression each generated DAT gets, by kind, matching how the
-# hand-placed callbacks DATs resolve their own sources. Resolved inside the
-# component's Tdcoredir rather than configured separately: the component already
-# knows where the td-core scripts live, and a second par holding a path into the
-# same folder is one more thing to get out of step.
-#
-# Expressions rather than baked absolute paths, so repointing Tdcoredir — on
-# another machine, or a moved checkout — moves every generated DAT at once
-# instead of waiting for the next Rebuild to notice.
+# Resolved inside Tdcoredir as an expression (not a baked path) so repointing
+# Tdcoredir moves every generated DAT's source at once.
 _TDCOREDIR = "op.WebGuiServer.par.Tdcoredir.eval() + '/%s'"
 
-# The three watcher kinds. Each names its target operator through a DIFFERENT
-# parameter, which is also how _kindOf recognises an existing DAT — read off the
-# operator itself rather than remembered in a tag that could go stale.
+# Each kind names its target through a different par, which is also how
+# _watchedBy tells kinds apart without a tag that could go stale.
 _PAREXEC = "par"
 _CHOPEXEC = "chop"
 _DATEXEC = "dat"
@@ -79,27 +63,74 @@ _WATCH = {
     },
 }
 
-# Marks a DAT as created and owned by this extension. Reconciliation only ever
-# deletes operators carrying this tag — a generated component that deletes by
-# name pattern alone eventually eats something a human made.
+# Named for its role, not a watcher prefix: it generates the watchers, it isn't one.
+_CONFIG_WATCH_NAME = "config_watch"
+_CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
+
+# Parent shortcut, unlike the generated DATs' global op. shortcut: this DAT lives
+# inside the component so it can resolve upward to its OWN WebGuiServer, letting
+# two instances in one project each read their own Config File.
+_CONFIG_FILE_EXPR = "parent.WebGuiServer.par.Configfile"
+
+_EXIT_WATCH_NAME = "exit_watch"
+_EXIT_WATCH_FILE = _TDCOREDIR % "exit-execute.py"
+
+# Name is not ours to choose — Embody looks for a Text DAT named exactly this,
+# among the exported COMP's direct children.
+_RELEASE_HOOK_NAME = "pre_release"
+_RELEASE_HOOK_FILE = _TDCOREDIR % "pre-release.py"
+
+# Per-stream chain, in flow order: select_ fetches the source TOP across the COMP
+# boundary, flip_ unmirrors it (TD's WebRTC output is mirrored in X even though
+# the viewer isn't — forum.derivative.ca/t/stunned-by-webrtcpanel/293915), and
+# videostreamout_ encodes it.
+_SELECT_PREFIX = "select_"
+_FLIP_PREFIX = "flip_"
+_STREAMOUT_PREFIX = "videostreamout_"
+
+# Pinned rather than left at the TOP's default me.time.rate expression, so a
+# 60fps project with many streams doesn't spend its whole GPU budget encoding.
+_STREAM_FPS = 30
+
+# Reconciliation only deletes operators carrying this tag.
 GENERATED_TAG = "webgui-generated"
 
-# Shown on each generated DAT, since the thing a reader most needs to know about
-# an operator they didn't create is that editing it is pointless.
+# Distinguishes a STREAMS chain op from a watcher — a watcher is "ours and not a
+# stream op", so anything of ours that's neither reads as an orphan.
+STREAM_TAG = "webgui-stream"
+
+# Without this, config_watch (a DAT Execute DAT pointed at a DAT) would be
+# indistinguishable from an orphaned READOUTS watcher and get deleted by the
+# first Rebuild it triggers.
+CONFIG_TAG = "webgui-config-watch"
+
+# Without this, exit_watch (an Execute DAT naming no operator) reads as an
+# orphan and gets deleted by the Rebuild that runs on open. Also excluded from
+# _generatedWatchers so DestroyGenerated doesn't delete it mid-callback.
+EXIT_TAG = "webgui-exit-watch"
+
+# Same reasoning as EXIT_TAG: pre_release names no operator, so it needs the tag
+# to survive Rebuild, and the exclusion from _generatedWatchers so the export
+# hook doesn't delete itself mid-callback.
+RELEASE_TAG = "webgui-pre-release"
+
 GENERATED_COMMENT = (
-    "Generated from the config REGISTRY / READOUTS by "
+    "Generated from the config REGISTRY / READOUTS / STREAMS by "
     "WebGuiServerExt. Edits are overwritten on the next Rebuild."
 )
 
-# Layout: generated DATs stack in a column to the right of the component's
-# hand-built operators. Vertical step is computed from the tallest actual tile
-# rather than assumed, then snapped up to the 200 grid.
 _GRID = 200
-_GAP = 60
+
+# Notes hug their host below (_NOTE_GAP_BELOW) but leave a wide gap above the
+# next row up (_NOTE_GAP_ABOVE) — the asymmetry alone shows which op a note belongs to.
+_NOTE_WIDTH = 300
+_NOTE_HEIGHT = 110
+_NOTE_GAP_BELOW = 20
+_NOTE_GAP_ABOVE = 150
 
 
 class WebGuiServerExt:
-    """Keeps the generated Parameter Execute DATs in step with the config."""
+    """Keeps the generated watcher DATs and video chains in step with the config."""
 
     def __init__(self, ownerComp):
         self.ownerComp = ownerComp
@@ -107,68 +138,226 @@ class WebGuiServerExt:
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
     def onInitTD(self):
-        """Rebuild once the network around us has settled.
-
-        Deferred rather than immediate because this component may be a
-        TDN-strategy COMP, and TDN reconstruction calls ImportNetwork with
-        clear_first=True — it deletes every child and recreates them from the
-        .tdn. Work done during init would be thrown away by that import.
-
-        The delay handles the save strip/restore cycle, where the import
-        completes within a few frames. It deliberately does NOT try to outwait
-        project open, where ReconstructTDNComps runs at frame 60: no fixed delay
-        is honest there. Instead the extension reinitializes after the import
-        (TD re-inits extensions inside a TDN COMP on open, after every save, and
-        on manual reimport), and because Rebuild reconciles against whatever is
-        live at the moment it runs, that later init converges. Correctness comes
-        from Rebuild being idempotent, not from guessing the right delay.
-        """
+        # Deferred: a TDN-strategy COMP's ImportNetwork(clear_first=True) can
+        # delete/recreate every child right after init, discarding immediate work.
+        # No fixed delay can honestly outwait project open (ReconstructTDNComps
+        # runs at frame 60) — correctness comes from Rebuild being idempotent and
+        # re-running after the later reinit, not from guessing the right delay.
         run("args[0].Rebuild()", self, delayFrames=5)
 
     def onDestroyTD(self):
-        """Nothing to tear down.
-
-        The extension holds no timers, threads, or callback registrations, and
-        the generated DATs are meant to outlive a reinit — tearing them down here
-        would delete the bridge every time this file is edited.
-        """
+        # No-op deliberately: this can't tell an application close from a plain
+        # reinit (the common case), and the generated DATs are meant to outlive
+        # a reinit. "TD is closing" is exit_watch's onExit, not this.
         pass
 
     # ── public ────────────────────────────────────────────────────────────────
 
     def Rebuild(self):
-        """Make the generated watcher DATs match the config's REGISTRY + READOUTS.
+        """Make the generated operators match the config. Idempotent, diff-based,
+        safe to call from anywhere at any time; writes nothing when nothing changed."""
+        # An extension can outlive its component (onInitTD's Rebuild is deferred
+        # 5 frames), and the pre_release hook opens that window every export by
+        # scheduling a Rebuild against a copy Embody is about to delete.
+        if not self.ownerComp.valid:
+            return
 
-        Idempotent and diff-based: it compares what the config asks for against
-        the DATs that are live *right now*, and applies only the difference. It
-        caches nothing between runs, which is what makes it safe under TDN —
-        storage survives an import that deletes children, so a remembered "already
-        built" flag would outlive the DATs it described and leave the bridge
-        silently dead. Reading the live network cannot go stale that way.
+        # Restores the config DAT's link to config.py, which a .tox export strips.
+        self._ensureConfigSource()
 
-        Safe to call at any time, from any trigger, as often as you like. When
-        nothing has changed it writes nothing.
-        """
+        config_watch = self._ensureConfigWatcher()
+        exit_watch = self._ensureExitWatcher()
+        release_hook = self._ensureReleaseHook()
+
         desired = self._desiredWatches()
         if desired is None:
-            return  # config unreadable; _config() already explained why
+            chains = []  # config unreadable; _config() already explained why
+        else:
+            self._warnIfNoCoreDir()
+            self._rebuildWatchers(desired)
+            chains = self._rebuildStreams()
 
-        self._warnIfNoCoreDir()
+        self._layout(chains, [exit_watch, config_watch, release_hook])
+
+    def StreamTop(self, stream_id):
+        """The generated Video Stream Out TOP carrying `stream_id`, or None."""
+        return self.ownerComp.op(self._streamOpName(_STREAMOUT_PREFIX, stream_id))
+
+    def DestroyGenerated(self, comp=None):
+        """Delete every generated watcher DAT and stream chain, notes included.
+        Called from exit-execute.py's onExit, and from pre-release.py against a
+        staged .tox copy — see `comp`. Leaves the component exactly as Rebuild()
+        would restore it.
+
+        `comp` targets a component other than our own: Embody stages a .tox copy
+        under /sys/quiet with cooking disabled, so that copy's own extension can
+        never compile, and its pre_release hook borrows the live extension
+        instead, pointing it at the copy. (Embody clears the copy's opshortcut,
+        so op.WebGuiServer still resolves to the live component during this call.)
+        """
+        for dat in self._generatedWatchers(comp):
+            self._destroyWithNote(dat)
+        for chain_op in self._generatedStreamOps(comp):
+            self._destroyWithNote(chain_op)
+
+    # ── watchers ──────────────────────────────────────────────────────────────
+
+    def _rebuildWatchers(self, desired):
         keep, orphans = self._matchExisting(desired)
 
         for dat in orphans:
-            dat.destroy()
+            self._destroyWithNote(dat)
 
-        # Keyed on (kind, op path), so one operator can legitimately carry two
-        # watchers of different kinds and a CHOP path can never be mistaken for
-        # the parameter watcher of an operator with the same path.
+        # Keyed on (kind, op path) so one operator can carry two watcher kinds.
         for key in sorted(desired):
             dat = keep.get(key)
             if dat is None:
                 dat = self._createWatcher(key)
             self._applyWatch(dat, key, desired[key])
 
-        self._layout()
+    # ── config source ─────────────────────────────────────────────────────────
+
+    def _ensureConfigSource(self):
+        """Point the `config` DAT's File par at the component's Config File par.
+
+        Re-asserted every Rebuild because Embody's .tox export strips relative
+        file/syncfile references, and exit_watch's onCreate runs Rebuild the
+        moment the component lands in a project — so the strip is a non-event.
+        Safe against an unresolved path: a Text DAT with syncfile keeps its
+        existing text rather than clearing.
+        """
+        dat = self.ownerComp.op("config")
+        if dat is None:
+            return  # _config() reports the missing DAT when it's read
+
+        self._setExpr(dat.par.file, _CONFIG_FILE_EXPR)
+        self._setPar(dat.par.syncfile, 1)
+
+    # ── config watcher ────────────────────────────────────────────────────────
+
+    def _ensureConfigWatcher(self):
+        """Create or adopt the DAT Execute DAT that re-runs Rebuild when config.py
+        is saved. Returns None (rather than raising) when the config DAT is
+        missing or the name is taken by the wrong type."""
+        if self.ownerComp.op("config") is None:
+            return None  # _config() reports the missing DAT when it's read
+        dat = self.ownerComp.op(_CONFIG_WATCH_NAME)
+
+        if dat is not None and not isinstance(dat, datexecuteDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, so config.py edits cannot be "
+                "watched - rename it and Rebuild" % (_CONFIG_WATCH_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(datexecuteDAT, _CONFIG_WATCH_NAME)
+            dat.viewer = True
+            dat.comment = (
+                "Generated by WebGuiServerExt. Re-runs Rebuild when the config "
+                "DAT changes, i.e. when config.py is saved. Edits are "
+                "overwritten on the next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(CONFIG_TAG)
+
+        self._setPar(dat.par.dat, "config")
+        self._setPar(dat.par.tablechange, 1)
+        self._setPar(dat.par.execute, "end")  # coalesce a multi-part save into one rebuild
+        self._setPar(dat.par.active, 1)
+
+        self._setExpr(dat.par.file, _CONFIG_WATCH_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "DAT: config\nre-runs Rebuild on every change, so saving config.py\n"
+            "reaches the network without a restart",
+        )
+        return dat
+
+    # ── exit watcher ──────────────────────────────────────────────────────────
+
+    def _ensureExitWatcher(self):
+        """Create or adopt the Execute DAT bookending the build product's
+        lifecycle: Create rebuilds it, Exit drops it.
+
+        Create covers reloading this component from an External .tox while
+        live: that reload recreates every child (Create fires again) but does
+        NOT recompile the extension, so onInitTD never fires — routing through
+        this DAT's onCreate needs no extension access, just a node existing.
+        Start is left off since onInitTD already covers genuine startup.
+
+        Returns None (rather than raising) when the name is taken by the wrong type.
+        """
+        dat = self.ownerComp.op(_EXIT_WATCH_NAME)
+        if dat is not None and not isinstance(dat, executeDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, so the generated watchers cannot "
+                "be dropped on exit - rename it and Rebuild" % (_EXIT_WATCH_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(executeDAT, _EXIT_WATCH_NAME)
+            dat.viewer = True
+            dat.comment = (
+                "Generated by WebGuiServerExt. Rebuilds on Create (covers an "
+                "External .tox reinit, which reruns Create but not onInitTD), "
+                "and deletes the generated watchers and stream chains on Exit, "
+                "so TouchDesigner closing never saves them. Edits are "
+                "overwritten on the next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(EXIT_TAG)
+
+        self._setPar(dat.par.create, 1)
+        self._setPar(dat.par.exit, 1)
+        self._setPar(dat.par.active, 1)
+
+        self._setExpr(dat.par.file, _EXIT_WATCH_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "on Create: re-runs Rebuild (covers a live External .tox reinit)\n"
+            "on Exit: deletes the generated watchers and streams, so the\n"
+            "next open rebuilds them fresh from the live config",
+        )
+        return dat
+
+    # ── release hook ──────────────────────────────────────────────────────────
+
+    def _ensureReleaseHook(self):
+        """Create or adopt the pre_release Text DAT Embody looks for on export.
+        Carries no callbacks; it exists to be found by name, type, and file —
+        everything else is in pre-release.py. Returns None on a name clash."""
+        dat = self.ownerComp.op(_RELEASE_HOOK_NAME)
+        if dat is not None and not isinstance(dat, textDAT):
+            debug(
+                "WebGuiServerExt: '%s' is a %s, not a Text DAT, so Embody will "
+                "ignore it and exported .tox files will carry the generated "
+                "watchers and streams - rename it and Rebuild" % (_RELEASE_HOOK_NAME, dat.OPType)
+            )
+            return None
+        if dat is None:
+            dat = self.ownerComp.create(textDAT, _RELEASE_HOOK_NAME)
+            dat.comment = (
+                "Generated by WebGuiServerExt. Embody's pre_release export hook: "
+                "drops the generated watchers and stream chains from the staged "
+                "copy so they never ship in a .tox. Edits are overwritten on the "
+                "next Rebuild."
+            )
+        dat.tags.add(GENERATED_TAG)
+        dat.tags.add(RELEASE_TAG)
+
+        self._setExpr(dat.par.file, _RELEASE_HOOK_FILE)
+        self._setPar(dat.par.syncfile, 1)
+
+        self._setNoteText(
+            self._getOrCreateNote(dat),
+            "Embody pre_release hook\ndrops the generated watchers and streams from the\n"
+            "staged copy, so a .tox ships the machinery, not its output",
+        )
+        return dat
 
     # ── config ────────────────────────────────────────────────────────────────
 
@@ -180,14 +369,8 @@ class WebGuiServerExt:
         return dat.module
 
     def _callbacks(self):
-        """The Web Server DAT's callbacks module.
-
-        Reached for its par_names() and readout_watches(), so that "what backs
-        this config entry" has exactly one implementation. A `number[]` entry
-        names a ParGroup rather than a parameter, and a readout's source is
-        inferred from its entry's shape — a second copy of either rule here is
-        precisely how the watchers and the broadcast path would drift apart.
-        """
+        """The Web Server DAT's callbacks module — owns par_names() and
+        readout_watches() so that logic exists in exactly one place."""
         config = self._config()
         if config is None:
             return None
@@ -201,29 +384,17 @@ class WebGuiServerExt:
     # ── inference ─────────────────────────────────────────────────────────────
 
     def _inferParKindFromCasing(self, par_name):
-        """Infer whether a parameter name is custom, from its first letter.
-
-        INFERENCE, not a lookup — deliberately so, because it has to work for
-        operators that aren't in the project yet, where there is no parameter to
-        interrogate. It is nonetheless exact rather than a guess: TouchDesigner
-        *enforces* the distinction it reads. Custom parameter names must begin
-        with an uppercase letter ("if the first letter of the custom parameter is
-        not uppercase, the creation will fail and an error is returned") and
-        built-in parameter names are fully lowercase.
-
-        Returns True for custom, False for built-in. Drives the generated DAT's
-        Custom / Built-In toggles.
-        """
+        """True if custom, False if built-in. TD enforces the casing this reads —
+        custom parameter names must start uppercase — so this works even for
+        operators that don't exist yet, with no parameter to interrogate."""
         return bool(par_name) and par_name[0].isupper()
 
     def _parNames(self, entry):
-        """The parameter names a watcher must list for one registry entry.
+        """Parameter names a watcher must list for one registry entry.
 
-        A 'number[]' entry names a ParGroup ('Color'), while the parameters that
-        actually change are its components ('Colorr', 'Colorg', ...). Watching the
-        group name would watch nothing at all, and tuple parameters would silently
-        never broadcast — so the group is expanded through the callbacks module,
-        which already owns that resolution for the broadcast path.
+        A 'number[]' entry names a ParGroup ('Color') whose actual components are
+        'Colorr' etc — watching the group name watches nothing, so it's expanded
+        via the callbacks module, which already owns that resolution.
         """
         callbacks = self._callbacks()
         if callbacks is not None:
@@ -231,45 +402,32 @@ class WebGuiServerExt:
             if names:
                 return names
 
-        # The operator or parameter isn't resolvable right now — a not-yet-built
-        # operator, or a typo the callbacks have already warned about. Fall back
-        # to the registry's own spelling so the watch still works if the operator
-        # appears later. A ParGroup falls back to a prefix glob, which over-matches
-        # ('Colormode' alongside 'Colorr'); harmless, because broadcast_param_change
-        # matches against the real ParGroup components before it broadcasts.
+        # Operator/parameter not resolvable right now; fall back to the
+        # registry's own spelling. A ParGroup falls back to a prefix glob, which
+        # over-matches harmlessly — broadcast_param_change re-checks before sending.
         if entry["type"] == "number[]":
             return [entry["par"] + "*"]
         return [entry["par"]]
 
     def _readoutWatches(self):
-        """What READOUTS asks for: op path -> {'family', 'chans'}.
-
-        Delegated to the callbacks module, which owns the entry-shape rules. The
-        getattr guard is for a project whose callbacks DAT predates readouts:
-        Rebuild() runs at init, so an AttributeError here would take the
-        PARAMETER watchers down with it, and a params-only project should not
-        break because one of the two files is stale.
-        """
+        """What READOUTS asks for: op path -> {'family', 'chans'}."""
+        # getattr guards a callbacks DAT that predates readouts, so a params-only
+        # project doesn't break on a missing readout_watches().
         callbacks = self._callbacks()
         watches = getattr(callbacks, "readout_watches", None) if callbacks else None
         return watches() if watches else {}
 
     def _desiredWatches(self):
-        """What the config asks for: (kind, op path) -> watch spec.
-
-        Returns None when the config can't be read, so the caller can leave the
-        network alone rather than reconcile against an empty config and delete
-        every watcher.
-        """
+        """What the config asks for: (kind, op path) -> watch spec. None when the
+        config can't be read, so the caller leaves the network alone instead of
+        deleting every watcher against an empty config."""
         config = self._config()
         if config is None:
             return None
 
         watches = {}
         for entry in config.REGISTRY.values():
-            # Pulse entries are skipped: pulses are fired with Par.pulse(), which
-            # raises On Pulse rather than Value Change, and hold no state to
-            # broadcast anyway. Watching them would only widen the trigger surface.
+            # Pulses fire On Pulse, not Value Change, and hold no state to broadcast.
             if entry["type"] == "pulse":
                 continue
 
@@ -287,8 +445,8 @@ class WebGuiServerExt:
         for path, readout in self._readoutWatches().items():
             kind = _CHOPEXEC if readout["family"] == "CHOP" else _DATEXEC
             watch = watches.setdefault((kind, path), {"chans": []})
-            # A DAT Execute DAT watches the whole table and ignores this list;
-            # it is carried anyway so both readout kinds share one shape here.
+            # A DAT Execute DAT ignores this list (watches the whole table); kept
+            # so both readout kinds share one shape here.
             for chan in readout["chans"]:
                 if chan not in watch["chans"]:
                     watch["chans"].append(chan)
@@ -297,27 +455,38 @@ class WebGuiServerExt:
 
     # ── reconciliation ────────────────────────────────────────────────────────
 
-    def _generatedDats(self):
-        return [c for c in self.ownerComp.children if GENERATED_TAG in c.tags]
+    def _generatedWatchers(self, comp=None):
+        """Every watcher DAT we own: ours, and carrying no other role tag —
+        anything of ours that's neither a watcher, a chain op, nor one of the
+        role-tagged bridge DATs reads as an orphan.
+
+        Notes are excluded by type, not tag: copying the component drops the
+        `utility` flag, so on a copy a note would otherwise read as a watcher
+        and get destroyed twice — once as itself, once as its host's note,
+        which raises on the already-deleted op and would abort an export.
+        """
+        return [
+            c
+            for c in (comp or self.ownerComp).children
+            if GENERATED_TAG in c.tags
+            and c.type != "annotate"
+            and STREAM_TAG not in c.tags
+            and CONFIG_TAG not in c.tags
+            and EXIT_TAG not in c.tags
+            and RELEASE_TAG not in c.tags
+        ]
+
+    def _generatedStreamOps(self, comp=None):
+        """The other half of DestroyGenerated's set: every stream-chain op we own."""
+        return [c for c in (comp or self.ownerComp).children if STREAM_TAG in c.tags]
 
     def _watchedBy(self, dat):
-        """The (kind, watched op path) an existing generated DAT stands for.
-
-        Recognised by WHICH parameter names its target — each kind uses a
-        different one (`op` / `chop` / `dat`) and none carries another's. Read off
-        the operator itself rather than remembered in a tag, so it cannot go
-        stale; and matched on the path rather than the DAT's name, because a DAT
-        someone renamed is still doing its job and rebuilding it would be churn
-        for nothing.
-
-        Returns None for anything carrying our tag that is none of the three — a
-        leftover from an earlier shape of this component, or something tagged by
-        hand. The caller treats that as an orphan rather than raising.
-        """
+        """The (kind, watched op path) an existing generated DAT stands for, read
+        off the operator itself (not a tag, so it can't go stale) and matched by
+        path rather than name — a renamed DAT is still doing its job."""
         for kind, spec in _WATCH.items():
-            # .val, not .eval(): these are OP-style parameters, so eval() resolves
-            # to a list of operators rather than returning the path that was
-            # configured. We are matching on what the DAT is set to watch.
+            # .val, not .eval(): these are OP-style pars, whose eval() resolves to
+            # operators rather than the configured path string.
             par = getattr(dat.par, spec["target"], None)
             if par is not None:
                 return kind, par.val.strip()
@@ -327,57 +496,86 @@ class WebGuiServerExt:
         """Split the generated DATs into ones to keep and ones to destroy."""
         keep = {}
         orphans = []
-        for dat in self._generatedDats():
+        for dat in self._generatedWatchers():
             key = self._watchedBy(dat)
             if key is not None and key in desired and key not in keep:
                 keep[key] = dat
             else:
-                # Either the config no longer references this operator, or a
-                # second DAT ended up watching one that's already covered.
                 orphans.append(dat)
         return keep, orphans
 
     def _datName(self, kind, path):
-        """A legal, collision-free DAT name derived from the watched op path.
-
-        Deriving from the full path rather than the operator's own name means two
-        operators called 'params' in different networks can't land on the same
-        name. The per-kind prefix keeps a CHOP and a parameter watcher of
-        same-named operators apart, so there is no collision case to resolve.
-        """
+        """A legal, collision-free DAT name derived from the full watched op path."""
         return tdu.validName(_WATCH[kind]["prefix"] + path.strip("/").replace("/", "_"))
 
     def _createWatcher(self, key):
         kind, path = key
         dat = self.ownerComp.create(_WATCH[kind]["optype"], self._datName(kind, path))
+        dat.viewer = True
         dat.tags.add(GENERATED_TAG)
         dat.comment = GENERATED_COMMENT
         return dat
 
     def _setPar(self, par, value):
-        """Write a parameter only when it would actually change.
-
-        Skipping no-op writes is what keeps a Rebuild that changes nothing from
-        dirtying every generated DAT. Assignment puts the parameter in constant
-        mode, which is what these all want.
-        """
-        # Compared against .val, not .eval(). The OPs parameter is OP-style: its
-        # eval() resolves the pattern to a list of operators, so comparing it to
-        # the path string we mean to write is never equal and rewrites every
-        # time. .val is the literal configured string, which is the thing being
-        # reconciled — and it is only meaningful in constant mode, which the
-        # mode check above has already established.
+        # Compared against .val (not .eval()): the OPs par is OP-style, whose
+        # eval() resolves to a list of operators, never equal to the path string.
         if par.mode != ParMode.CONSTANT or par.val != value:
             par.val = value
 
     def _setExpr(self, par, expr):
-        """Put a parameter in expression mode, only when it isn't already there.
-
-        Separate from _setPar because assigning .val would silently drop the
-        parameter back to constant mode — the expression is the point here.
-        """
         if par.mode != ParMode.EXPRESSION or par.expr != expr:
             par.expr = expr
+
+    # ── notes ─────────────────────────────────────────────────────────────────
+
+    def _noteName(self, host):
+        return tdu.validName(host.name + "_note")
+
+    def _findUtilityChild(self, name, comp=None):
+        """Look up a direct utility child (e.g. a note annotation) by name.
+        Utility ops are invisible to op()/.children, so this needs
+        findChildren(includeUtility=True); maxDepth=1 avoids recursing into an
+        annotate's internal widget network. Skips stale (already-deleted)
+        matches, which DestroyGenerated's delete loop produces routinely."""
+        for child in (comp or self.ownerComp).findChildren(includeUtility=True, maxDepth=1):
+            if child.valid and child.name == name:
+                return child
+        return None
+
+    def _getOrCreateNote(self, host):
+        """The comment annotation for one generated operator, creating it if
+        missing — looked up fresh each time since a TDN reimport can drop these
+        hand-attached notes without recreating them."""
+        name = self._noteName(host)
+        note = self._findUtilityChild(name)
+        if note is None:
+            note = self.ownerComp.create(annotateCOMP, name)
+            note.name = name  # create() ignores the name arg for annotateCOMP
+            note.utility = True
+            note.tags.add(GENERATED_TAG)
+            note.par.Mode = "comment"
+        return note
+
+    def _destroyWithNote(self, host):
+        """Destroy a generated operator and its caption note together, so no note
+        is left pointing at nothing. Looked up beside the host (not `self`) so
+        this also works against DestroyGenerated's staged-copy target."""
+        note = self._findUtilityChild(self._noteName(host), host.parent())
+        if note is not None:
+            note.destroy()
+        host.destroy()
+
+    def _watchText(self, key, watch):
+        kind, path = key
+        if kind == _PAREXEC:
+            return "OP: %s\nparameters: %s" % (path, ", ".join(watch["pars"]))
+        if kind == _CHOPEXEC:
+            return "CHOP: %s\nchannels: %s" % (path, ", ".join(watch["chans"]))
+        return "DAT: %s\nwatches: whole table (Table Change)" % path
+
+    def _setNoteText(self, note, text):
+        if note.par.Bodytext.eval() != text:
+            note.par.Bodytext = text
 
     def _applyWatch(self, dat, key, watch):
         kind, path = key
@@ -388,44 +586,26 @@ class WebGuiServerExt:
             self._setPar(dat.par.pars, " ".join(watch["pars"]))
             self._setPar(dat.par.custom, int(watch["custom"]))
             self._setPar(dat.par.builtin, int(watch["builtin"]))
-            # Value Change is the only callback parameter-execute.py implements.
             self._setPar(dat.par.valuechange, 1)
         elif kind == _CHOPEXEC:
             self._setPar(dat.par.channel, " ".join(watch["chans"]))
-            # Value Change is the only callback chop-execute.py implements. The
-            # threshold callbacks (Off to On, While On, ...) describe a channel
-            # crossing zero, which is a different question from "what does this
-            # channel read now" — the only one a readout asks.
             self._setPar(dat.par.valuechange, 1)
         else:
-            # Table Change alone: as of 2025.30000 it "does everything now" and
-            # the other four (Row/Column/Cell/Size Change) are deprecated.
+            # Table Change alone: as of 2025.30000 the other four (Row/Column/
+            # Cell/Size Change) are deprecated in its favor.
             self._setPar(dat.par.tablechange, 1)
-            # End of Frame is the DAT Execute DAT's own coalescer — it calls the
-            # hook "at most one time per frame ... even if it triggered several
-            # times in one frame". Start of Frame would call it once per change,
-            # which for a table rewritten cell by cell is a burst per frame.
-            # CHOP Execute DATs have no equivalent parameter, which is why that
-            # side coalesces in webserver-callbacks.flush_readouts instead.
-            self._setPar(dat.par.execute, "end")
+            self._setPar(dat.par.execute, "end")  # coalesce a table rewritten cell by cell
 
         self._setPar(dat.par.active, 1)
 
         self._setExpr(dat.par.file, spec["file"])
-        # Sync to File rather than a one-shot load, so editing the callback script
-        # hot-reloads every generated DAT the way it already does for the
-        # hand-placed callbacks DATs.
         self._setPar(dat.par.syncfile, 1)
 
-    def _warnIfNoCoreDir(self):
-        """Warn once per rebuild when Tdcoredir can't supply a source path.
+        self._setNoteText(self._getOrCreateNote(dat), self._watchText(key, watch))
 
-        The File expression is set either way — it is correct wiring regardless,
-        and an unresolvable path surfaces as an error on the DAT itself. This
-        only turns the two silent setup mistakes into an actionable message.
-        getattr rather than direct access because a component set up before this
-        extension existed has no Tdcoredir par at all.
-        """
+    def _warnIfNoCoreDir(self):
+        """Warn once per rebuild when Tdcoredir can't supply a source path — the
+        File expression is set regardless, this only makes the mistake actionable."""
         par = getattr(self.ownerComp.par, "Tdcoredir", None)
         if par is None or not par.eval().strip():
             debug(
@@ -435,24 +615,120 @@ class WebGuiServerExt:
                 "not broadcast"
             )
 
+    # ── streams ───────────────────────────────────────────────────────────────
+
+    def _streams(self):
+        """The config's STREAMS map: stream id -> {'source': ..., 'label': ...}."""
+        config = self._config()
+        return getattr(config, "STREAMS", {}) if config is not None else {}
+
+    def _streamOpName(self, prefix, stream_id):
+        return tdu.validName(prefix + stream_id)
+
+    def _streamSource(self, stream_id, info):
+        source = info.get("source")
+        if not source:
+            debug("WebGuiServerExt: stream '%s' has no 'source' TOP" % stream_id)
+            return None
+        return source
+
+    def _rebuildStreams(self):
+        """Make the generated video chains match STREAMS. Returns the live chains
+        (each [select, flip, videostreamout]) in config order for _layout.
+        Matched by NAME rather than target, unlike the watchers — a chain's
+        identity IS its stream id, which is in the name."""
+        chains = []
+        wanted = set()
+        for stream_id, info in self._streams().items():
+            source = self._streamSource(stream_id, info)
+            if source is None:
+                continue  # _streamSource already explained why
+            chain = self._applyStream(stream_id, info, source)
+            if chain is None:
+                continue  # _applyStream already explained why
+            chains.append(chain)
+            wanted.update(o.name for o in chain)
+
+        # Also sweeps up a chain abandoned part-built above, which never reached `wanted`.
+        for o in self.ownerComp.children:
+            if STREAM_TAG in o.tags and o.name not in wanted:
+                self._destroyWithNote(o)
+
+        return chains
+
+    def _getOrCreateStreamOp(self, optype, prefix, stream_id):
+        """One stage of one stream's chain, created if missing, adopted by name if
+        it survived a TDN reimport. Refused (returns None) rather than rebuilt
+        when the name is taken by the wrong type — that operator belongs to
+        someone else."""
+        name = self._streamOpName(prefix, stream_id)
+        o = self.ownerComp.op(name)
+        if o is not None and not isinstance(o, optype):
+            debug(
+                "WebGuiServerExt: stream '%s' needs to create '%s', but a %s "
+                "already has that name - rename it, or rename the stream"
+                % (stream_id, name, o.OPType)
+            )
+            return None
+        if o is None:
+            o = self.ownerComp.create(optype, name)
+            o.comment = GENERATED_COMMENT
+        o.tags.add(GENERATED_TAG)
+        o.tags.add(STREAM_TAG)
+        return o
+
+    def _wire(self, source, dest):
+        # Compared by .id, not identity: two lookups of one operator need not
+        # hand back the same Python wrapper.
+        if dest.inputs and dest.inputs[0].id == source.id:
+            return
+        dest.inputConnectors[0].connect(source)
+
+    def _applyStream(self, stream_id, info, source):
+        """Build or update one stream's select -> flip -> videostreamout chain.
+        Returns the three operators, or None if any could not be created."""
+        select = self._getOrCreateStreamOp(selectTOP, _SELECT_PREFIX, stream_id)
+        flip = self._getOrCreateStreamOp(flipTOP, _FLIP_PREFIX, stream_id)
+        out = self._getOrCreateStreamOp(videostreamoutTOP, _STREAMOUT_PREFIX, stream_id)
+        if select is None or flip is None or out is None:
+            return None
+
+        self._setPar(select.par.top, source)
+        self._setPar(flip.par.flipx, 1)
+
+        self._setPar(out.par.mode, "webrtc")
+        self._setPar(out.par.fps, _STREAM_FPS)
+        self._setPar(out.par.active, 1)
+        # webrtc/webrtcconnection/webrtcvideotrack deliberately NOT set here —
+        # they're per-peer, set a frame after negotiation by
+        # webserver-callbacks.attach_streams. Setting them here would cut a
+        # live peer's video on every Rebuild.
+
+        self._wire(select, flip)
+        self._wire(flip, out)
+
+        self._setNoteText(self._getOrCreateNote(select), self._streamText(stream_id, info, source))
+        return [select, flip, out]
+
+    def _streamText(self, stream_id, info, source):
+        return "stream: %s (%s)\nsource: %s\nflipx -> WebRTC track '%s' @ %d fps" % (
+            stream_id,
+            info.get("label", stream_id),
+            source,
+            stream_id,
+            _STREAM_FPS,
+        )
+
     # ── layout ────────────────────────────────────────────────────────────────
 
-    def _layout(self):
-        """Stack the generated DATs in a column right of the hand-built operators.
-
-        Operators created from Python land at (0, 0) on top of each other unless
-        positioned, and these are created from Python. The anchor is computed from
-        whatever else is in the component rather than hardcoded, because this
-        component ships into projects whose layout this file cannot know.
-        """
-        generated = self._generatedDats()
-        if not generated:
-            return
-
-        # Annotations are excluded from the anchor. They are backgrounds and
-        # decoration rather than operators — a group annotation is deliberately
-        # wider than what it encloses, and Envoy draws a mascot out of them — so
-        # letting one set the anchor pushes the column off into empty space.
+    def _layout(self, chains, lifecycle):
+        """Place the generated operators right of the hand-built ones: lifecycle
+        column, then per-config watchers, then stream chains. Anchor is computed
+        from whatever's already in the component, since this ships into projects
+        whose layout it can't know."""
+        # Annotations excluded from the anchor — a group annotation is
+        # deliberately wider than what it encloses, which would push the anchor
+        # off into empty space.
         others = [
             c
             for c in self.ownerComp.children
@@ -465,11 +741,71 @@ class WebGuiServerExt:
             anchor_x = anchor_y = 0
         anchor_x = int(math.ceil(float(anchor_x) / _GRID) * _GRID)
 
-        # Step from the tallest actual tile, not a fixed offset — a column stepped
-        # by less than its own tile height overlaps.
-        tallest = max(d.nodeHeight for d in generated)
-        step = int(math.ceil((tallest + _GAP) / float(_GRID)) * _GRID)
+        # Every column is _NOTE_WIDTH wide regardless of its DATs' own width,
+        # since a note is centred on its host.
+        watchers_x = anchor_x + _NOTE_WIDTH + _GRID
+        chains_x = watchers_x + _NOTE_WIDTH + _GRID
 
-        for i, dat in enumerate(sorted(generated, key=lambda d: d.name)):
-            dat.nodeX = anchor_x
-            dat.nodeY = anchor_y - i * step
+        self._layoutLifecycleOps(anchor_x, anchor_y, lifecycle)
+        self._layoutWatchers(watchers_x, anchor_y)
+        self._layoutChains(chains_x, anchor_y, chains)
+
+    def _rowStep(self, ops):
+        """Vertical step clearing the tallest of `ops` plus its note."""
+        tallest = max(o.nodeHeight for o in ops)
+        unit = tallest + _NOTE_GAP_BELOW + _NOTE_HEIGHT + _NOTE_GAP_ABOVE
+        return int(math.ceil(unit / float(_GRID)) * _GRID)
+
+    def _placeNote(self, host, x):
+        """Put a generated operator's note directly above it, centred — created
+        here too, so layout alone keeps everything captioned even after a
+        Rebuild that only touched some entries."""
+        note = self._getOrCreateNote(host)
+        note.nodeX = x - (_NOTE_WIDTH - host.nodeWidth) // 2
+        note.nodeY = host.nodeY + host.nodeHeight + _NOTE_GAP_BELOW
+        note.nodeWidth = _NOTE_WIDTH
+        note.nodeHeight = _NOTE_HEIGHT
+
+    def _layoutLifecycleOps(self, x, top_y, lifecycle):
+        """The exit/config/pre_release column, left of the per-config watchers —
+        these build and tear down that column rather than watching anything in
+        it, so they read as upstream of it. Order is the caller's (lifecycle
+        order); any entry can be None on a name clash."""
+        pinned = [o for o in lifecycle if o is not None]
+        if not pinned:
+            return
+
+        step = self._rowStep(pinned)
+        for i, dat in enumerate(pinned):
+            dat.nodeX = x
+            dat.nodeY = top_y - i * step
+            self._placeNote(dat, x)
+
+    def _layoutWatchers(self, x, top_y):
+        """The per-config watcher column: one row per REGISTRY/READOUTS watch."""
+        watchers = sorted(self._generatedWatchers(), key=lambda d: d.name)
+        if not watchers:
+            return
+
+        step = self._rowStep(watchers)
+        for i, dat in enumerate(watchers):
+            dat.nodeX = x
+            dat.nodeY = top_y - i * step
+            self._placeNote(dat, x)
+
+    def _layoutChains(self, x, top_y, chains):
+        """One row per stream, in config order — that order is load-bearing
+        elsewhere too (webrtc-callbacks zips it against the SDP's video m-lines),
+        so the wall reads top to bottom the same way the browser numbers it."""
+        if not chains:
+            return
+
+        ops = [o for chain in chains for o in chain]
+        step_x = int(math.ceil((max(o.nodeWidth for o in ops) + _GRID) / float(_GRID)) * _GRID)
+        step_y = self._rowStep(ops)
+
+        for i, chain in enumerate(chains):
+            for j, o in enumerate(chain):
+                o.nodeX = x + j * step_x
+                o.nodeY = top_y - i * step_y
+            self._placeNote(chain[0], x)

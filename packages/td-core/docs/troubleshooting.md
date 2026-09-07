@@ -253,14 +253,14 @@ The provider didn't opt into video. Pass `video` to it.
 
 The classic case. In order of likelihood:
 
-1. **`Mode` on the Video Stream Out TOP isn't `WebRTC`.** The callbacks warn in
-   the textport: _"Mode is 'x', not 'webrtc'; it will negotiate but send no
-   video"_.
-2. **The TOP has no input**, or its input isn't cooking.
-3. **`STREAMS` paths are wrong.** Textport: _"stream 'x' has no TOP at '…'"_.
-4. **No NVIDIA GPU, or not on Windows.** The Video Stream Out TOP requires
+1. **`source` is wrong, or doesn't cook.** The generated `select_<id>` inside
+   `WebGuiServer` carries the error, and its viewer shows exactly what is being
+   encoded.
+2. **The chain was never generated.** Textport: _"no generated Video Stream Out
+   TOP for stream 'x'; call op.WebGuiServer.Rebuild()"_.
+3. **No NVIDIA GPU, or not on Windows.** The Video Stream Out TOP requires
    NVIDIA's hardware encoder. There is no software fallback.
-5. **Over 8 encoder sessions on a GeForce card.** That's a hard per-system limit.
+4. **Over 8 encoder sessions on a GeForce card.** That's a hard per-system limit.
 
 Note the peer will read `connected` in all of these — media is negotiated
 independently of whether pixels flow, which is why `streamStatus(id)` per tile is
@@ -286,8 +286,10 @@ track.
 
 **The image is mirrored.**
 
-Expected from TD's encoder. Fix it with a **Flip TOP (`flipx`)** ahead of each
-Video Stream Out TOP — not a CSS transform, which Chrome drops in fullscreen.
+TD's encoder mirroring is already corrected downstream of `source`, so a mirrored
+tile means your own chain is flipping too and the two cancel out. Take the flip
+out of your chain — and never compensate with a CSS transform, which Chrome drops
+in fullscreen.
 
 **A second browser froze the first one's tiles.**
 
