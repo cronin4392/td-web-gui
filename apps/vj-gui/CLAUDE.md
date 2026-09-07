@@ -91,7 +91,8 @@ thing. They read SQLite through `node:sqlite`.
   `--discard-changes`. That comparison runs through the same `--strip` roots and
   `--strip-column` names the export used, which is why both scripts pass them.
 - Snapshots are byte-deterministic — no timestamp header, rows ordered by primary
-  key. A re-export with nothing changed produces no diff, which is the only
+  key, or by every column for a table with none (`rowid` survives neither a round
+  trip nor SQLite's page reuse). A re-export with nothing changed produces no diff, which is the only
   reason the diffs are worth reading. Don't add anything per-run to them.
 - `-wal`/`-shm` are still machine-local and still ignored. `db:restore` deletes
   them when it replaces a file: a journal left from the old database replays into

@@ -53,7 +53,8 @@ function orderBy(db, table) {
   const pk = columnsOf(db, table)
     .filter((column) => Number(column.pk) > 0)
     .sort((a, b) => Number(a.pk) - Number(b.pk));
-  return pk.length > 0 ? pk.map((column) => ident(column.name)).join(', ') : 'rowid';
+  const columns = pk.length > 0 ? pk : columnsOf(db, table);
+  return columns.map((column) => ident(column.name)).join(', ');
 }
 
 export function snapshotPath(dbPath) {

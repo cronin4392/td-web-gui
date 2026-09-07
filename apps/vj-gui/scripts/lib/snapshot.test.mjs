@@ -62,12 +62,12 @@ describe('exportSql', () => {
     expect(names).toEqual(['Alpha', 'Mike', 'Zulu']);
   });
 
-  it('orders a keyless table by rowid', () => {
+  it('orders a keyless table by every column, not by rowid', () => {
     const path = make(dbPath(), [
       'CREATE TABLE recent (phrase TEXT NOT NULL)',
       `INSERT INTO recent VALUES ('second'), ('first')`,
     ]);
-    expect(exportSql(path).sql).toMatch(/'second'[\s\S]*'first'/);
+    expect(exportSql(path).sql).toMatch(/'first'[\s\S]*'second'/);
   });
 
   it('escapes quotes in values and identifiers', () => {
