@@ -25,7 +25,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-m);
-    padding: var(--spacing-s) var(--spacing-l);
+    padding: var(--spacing-m) var(--spacing-l);
     border: 0;
     border-radius: var(--radius);
     background: none;
