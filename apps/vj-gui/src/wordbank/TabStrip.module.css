@@ -13,6 +13,10 @@
     padding: var(--spacing-s) var(--spacing-m);
     font-size: var(--text-m);
     color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text);
+    }
   }
 
   .tabSelected {
