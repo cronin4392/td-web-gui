@@ -91,9 +91,9 @@ export interface GuiCalls {
  * Calls the GUI instance invokes on the web — what its `Notify`/`Call` may name.
  *
  * `selectLayer` is the rig's MIDI select button reaching the page. An event
- * rather than a param because it is the press that carries meaning: the
- * selection stays the web's own, and nothing about it need outlive a project
- * that is on its way out.
+ * rather than a param because it is the press that carries meaning; the
+ * selection itself is {@link InputParams.selectedLoader}, on the Input
+ * instance, which the page writes when the press lands.
  *
  * `layer` is a loader's `Scenekey` letter, but typed as a plain string: it
  * arrives off the wire, so it is a claim about a layer until
@@ -110,7 +110,7 @@ export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
 
 /**
  * Param schema for the `input` instance — the TS half of `READOUTS` in
- * `td/input-config.py`.
+ * `td/input-config.py`, plus the one `REGISTRY` entry that goes the other way.
  */
 export interface InputParams {
   bpm: number;
@@ -118,6 +118,16 @@ export interface InputParams {
    * multi-channel readout rather than three, so the bands always describe the
    * same frame. */
   audio: number[];
+  /**
+   * The selected layer's id, typed as a plain string: it comes off the wire, so
+   * it is a claim about a layer until {@link asLayerId} has agreed.
+   *
+   * The only writable name on this instance, and the only one the web drives
+   * rather than reads — the page parks its selection on a TD par so the rig's
+   * MIDI scripts can read it, and follows the par back so a press in TD moves
+   * the page. See `PlaybackProvider`.
+   */
+  selectedLoader: string;
 }
 
 /**
@@ -128,7 +138,8 @@ export interface InputParams {
  */
 export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
 
-/** Input readout names, declared read-only so their controls render disabled. */
+/** Input readout names, declared read-only so their controls render disabled.
+ * `selectedLoader` is deliberately absent: the page writes it. */
 export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**

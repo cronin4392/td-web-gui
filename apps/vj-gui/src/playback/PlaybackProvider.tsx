@@ -8,10 +8,18 @@ import {
   type JSX,
 } from 'solid-js';
 import { defaultLayer, type LayerId } from './layers';
-import { GuiClient, loadOnLayer, type LayerConnections, type LoaderConnection } from './clients';
+import {
+  GuiClient,
+  InputClient,
+  loadOnLayer,
+  type LayerConnections,
+  type LoaderConnection,
+} from './clients';
 import { asLayerId } from './wire';
 
 export interface PlaybackContextValue {
+  /** Falls back to {@link defaultLayer} until the Input project has synced, and
+   * for a par holding a letter that names no loader. */
   selectedLayer: Accessor<LayerId>;
   selectLayer: (layer: LayerId) => void;
   /** The selected layer's fader, `0` while nothing is connected — anything above
@@ -29,13 +37,24 @@ const PlaybackContext = createContext<PlaybackContextValue>();
  * to be drilled as props through LayerPreviews' three-level tree or each
  * catalog selector.
  *
- * The selection is this app's, but the rig's MIDI select button drives it too:
- * TD fires `selectLayer` and the page follows. Registered here rather than in
- * `LayerPreviews` so a press lands whether or not the tiles are on screen. Must
- * render inside `GuiProvider`.
+ * The selection lives on the Input project's `selectedLoader` par rather than in
+ * a signal here, so the rig's own Python can read which loader is selected — a
+ * browser-side signal is unreachable from TouchDesigner, and the projects are
+ * separate processes that can't read each other's operators. Writing the par
+ * *is* selecting: the write is optimistic, so a click moves the UI without
+ * waiting on TD, and TD's broadcast carries it to every other client. TD is
+ * authoritative on connect, so a reload restores the rig's selection rather
+ * than resetting it.
+ *
+ * The GUI project's MIDI select button drives it too, by firing `selectLayer` at
+ * the page. Registered here rather than in `LayerPreviews` so a press lands
+ * whether or not the tiles are on screen. Must render inside `GuiProvider` and
+ * `InputProvider`.
  */
 export function PlaybackProvider(props: { children: JSX.Element }): JSX.Element {
-  const [selectedLayer, selectLayer] = createSignal<LayerId>(defaultLayer);
+  const selection = InputClient.useConnection().signal('selectedLoader');
+  const selectedLayer = (): LayerId => asLayerId(selection.value()) ?? defaultLayer;
+  const selectLayer = (layer: LayerId): void => selection.setValue(layer);
   const [connections, setConnections] = createSignal<LayerConnections>({});
 
   // Not `createTDHandler`, which would bind `InputProvider` from here.

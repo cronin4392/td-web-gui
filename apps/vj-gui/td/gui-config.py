@@ -10,16 +10,18 @@ Loading a scene does NOT go through here: the web app calls each SceneLoader
 process directly (`loadScene` in td/scene-config.py), bypassing this project's
 MessageDispatcher entirely.
 
-Which loader the web app shows is its own state, not a value read from TD — so
-there's no `Selectedloader` entry here. The MIDI select button nudges it with a
-fire-and-forget call the web registered, which needs nothing in this file:
+Which loader the web app shows is not this project's: it is parked on the Input
+project's `Selectedloader` par (input-config.py), which is the project whose
+Python reads it. The MIDI select button here nudges it with a fire-and-forget
+call the web registered, which needs nothing in this file:
 
         op.GUI.op('Tools/WebGuiServer').Notify(
                 'selectLayer', {'layer': parent.ToxLoader.par.Scenekey.eval()}
         )
 
-An event rather than a parameter deliberately: nothing about the selection
-outlives this project, which is on its way out.
+An event rather than a parameter deliberately: the press is what this project
+has to say, and where the selection is kept is not its business — which is why
+moving it to the Input project cost this file nothing.
 
 The scenes are separate processes with their own config: td/scene-config.py.
 """
