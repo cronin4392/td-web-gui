@@ -7,6 +7,22 @@
     padding: var(--spacing-m);
   }
 
+  .search {
+    width: 12rem;
+    min-width: 0;
+    height: var(--button-size);
+    padding: 0 var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &:focus-visible {
+      border-color: var(--color-border-hover);
+    }
+  }
+
   .tags {
     display: flex;
     /* Without this the row grows to its content and pushes past the panel edge

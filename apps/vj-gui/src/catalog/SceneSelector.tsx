@@ -48,11 +48,18 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     return picked !== null && tags().includes(picked) ? picked : null;
   });
 
+  const [search, setSearch] = createSignal('');
+  const query = createMemo(() => search().trim().toLowerCase());
+
   const visibleScenes = createMemo(() => {
     const tag = selectedTag();
+    const needle = query();
     const showHidden = picker.showHidden();
     return scenes().filter(
-      (scene) => (showHidden || !scene.hidden) && (tag === null || scene.tags.includes(tag)),
+      (scene) =>
+        (showHidden || !scene.hidden) &&
+        (tag === null || scene.tags.includes(tag)) &&
+        scene.name.toLowerCase().includes(needle),
     );
   });
 
@@ -142,6 +149,14 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
   return (
     <section class={[styles.selector, props.class].filter(Boolean).join(' ')}>
       <PanelHeader title="Scenes">
+        <input
+          type="search"
+          class={styles.search}
+          placeholder="Search"
+          aria-label="Search scenes"
+          value={search()}
+          onInput={(event) => setSearch(event.currentTarget.value)}
+        />
         <PickerToolbar
           refreshing={picker.refreshing()}
           showHidden={picker.showHidden()}
@@ -155,7 +170,10 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
         {/* Faded while the selected layer is up: loading over a live layer cuts
             in front of the audience, so a tile has to be hovered to be read. */}
         <div class={styles.grid} data-live={selectedLevel() > 0}>
-          <For each={visibleScenes()} fallback={<p class={styles.empty}>No scenes yet.</p>}>
+          <For
+            each={visibleScenes()}
+            fallback={<p class={styles.empty}>{query() ? 'No scenes match.' : 'No scenes yet.'}</p>}
+          >
             {(scene) => (
               <div
                 class={styles.cell}
@@ -182,7 +200,10 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
                   }
                   title={scene.name}
                   disabled={!scene.path}
-                  onClick={() => void picker.loadTox(scene.path)}
+                  onClick={() => {
+                    setSearch('');
+                    void picker.loadTox(scene.path);
+                  }}
                 >
                   {/* Scrim — the label sits over arbitrary artwork. */}
                   <span class={styles.caption}>{scene.name}</span>
