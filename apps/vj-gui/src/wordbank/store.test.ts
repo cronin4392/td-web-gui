@@ -210,12 +210,12 @@ describe('lists', () => {
 // ---- phrases -------------------------------------------------------------
 
 describe('phrases', () => {
-  it('adds a phrase to the bottom of the list', () => {
+  it('adds a phrase to the top of the list', () => {
     const store = makeStore();
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'hello world');
     store.addPhrase(listId, 'cue two');
-    expect(store.state.lists[0]?.phrases).toEqual(['hello world', 'cue two']);
+    expect(store.state.lists[0]?.phrases).toEqual(['cue two', 'hello world']);
   });
 
   it('trims added phrases and ignores empty input', () => {
@@ -226,13 +226,13 @@ describe('phrases', () => {
     expect(store.state.lists[0]?.phrases).toEqual(['padded']);
   });
 
-  it('adding an existing phrase moves it to the bottom instead of duplicating', () => {
+  it('adding an existing phrase moves it to the top instead of duplicating', () => {
     const store = makeStore();
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'a');
     store.addPhrase(listId, 'b');
     store.addPhrase(listId, 'a');
-    expect(store.state.lists[0]?.phrases).toEqual(['b', 'a']);
+    expect(store.state.lists[0]?.phrases).toEqual(['a', 'b']);
   });
 
   it('the same phrase may appear in different lists', () => {
@@ -250,9 +250,9 @@ describe('phrases', () => {
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'a');
     store.addPhrase(listId, 'b');
-    store.addPhrase(listId, 'c'); // -> [a, b, c]
+    store.addPhrase(listId, 'c'); // -> [c, b, a]
     store.deletePhrase(listId, 1); // remove 'b'
-    expect(store.state.lists[0]?.phrases).toEqual(['a', 'c']);
+    expect(store.state.lists[0]?.phrases).toEqual(['c', 'a']);
   });
 
   it('reorders phrases within a list', () => {
@@ -260,9 +260,9 @@ describe('phrases', () => {
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'a');
     store.addPhrase(listId, 'b');
-    store.addPhrase(listId, 'c'); // -> [a, b, c]
-    store.reorderPhrase(listId, 0, 2); // move 'a' to the end
-    expect(store.state.lists[0]?.phrases).toEqual(['b', 'c', 'a']);
+    store.addPhrase(listId, 'c'); // -> [c, b, a]
+    store.reorderPhrase(listId, 0, 2); // move 'c' to the end
+    expect(store.state.lists[0]?.phrases).toEqual(['b', 'a', 'c']);
   });
 
   it('sorts alphabetically (case-insensitive) once, and it persists as manual order', () => {
@@ -274,9 +274,9 @@ describe('phrases', () => {
     store.sortPhrases(listId);
     expect(store.state.lists[0]?.phrases).toEqual(['Apple', 'banana', 'cherry']);
 
-    // Not a sticky mode: a subsequent add still lands at the bottom, not re-sorted.
+    // Not a sticky mode: a subsequent add still lands at the top, not re-sorted.
     store.addPhrase(listId, 'zeta');
-    expect(store.state.lists[0]?.phrases).toEqual(['Apple', 'banana', 'cherry', 'zeta']);
+    expect(store.state.lists[0]?.phrases).toEqual(['zeta', 'Apple', 'banana', 'cherry']);
   });
 });
 

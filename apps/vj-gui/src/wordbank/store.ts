@@ -44,11 +44,6 @@ function moveToFront(arr: readonly string[], item: string, limit?: number): stri
   return limit === undefined ? next : next.slice(0, limit);
 }
 
-/** Move `item` to the back, deduping any existing match. */
-function moveToBack(arr: readonly string[], item: string): string[] {
-  return [...arr.filter((p) => p !== item), item];
-}
-
 /** Phrases containing `query` (case-insensitive) across every list in tab order, then Recent; each phrase once. */
 export function searchPhrases(
   lists: readonly PhraseList[],
@@ -104,7 +99,7 @@ export interface WordbankStore {
   selectList: (id: string) => void;
   reorderLists: (fromIndex: number, toIndex: number) => void;
 
-  /** Add a phrase to the bottom of a list's phrases; moves an existing match to the bottom instead of duplicating. */
+  /** Add a phrase to the top of a list's phrases; moves an existing match to the top instead of duplicating. */
   addPhrase: (listId: string, phrase: string) => void;
   deletePhrase: (listId: string, index: number) => void;
   reorderPhrase: (listId: string, fromIndex: number, toIndex: number) => void;
@@ -269,7 +264,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     if (!trimmed) return;
     const idx = findListIndex(listId);
     if (idx === -1) return;
-    setState('lists', idx, 'phrases', (phrases) => moveToBack(phrases, trimmed));
+    setState('lists', idx, 'phrases', (phrases) => moveToFront(phrases, trimmed));
     markWordbankDirty();
   }
 
