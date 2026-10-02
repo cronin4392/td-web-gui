@@ -9,8 +9,6 @@ import styles from './ListPanel.module.css';
 export interface ListPanelProps {
   store: WordbankStore;
   list: PhraseList;
-  /** Live text of whichever field is being typed in. */
-  filter: string;
   onApply: (phrase: string) => void;
 }
 
@@ -20,16 +18,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
   const menu = createContextMenu();
   let addInputRef: HTMLTextAreaElement | undefined;
 
-  const isFiltered = createMemo(() => props.filter.trim().length > 0);
-
-  // Split so a filter keystroke only re-filters — it doesn't reallocate the
-  // per-phrase objects, letting <For>'s identity-based diffing leave
-  // unaffected rows (and their DOM) untouched.
-  const indexed = createMemo(() => props.list.phrases.map((phrase, index) => ({ phrase, index })));
-  const rows = createMemo(() => {
-    const q = props.filter.trim().toLowerCase();
-    return q ? indexed().filter((row) => row.phrase.toLowerCase().includes(q)) : indexed();
-  });
+  const rows = createMemo(() => props.list.phrases.map((phrase, index) => ({ phrase, index })));
 
   function toggleAdd() {
     if (adding()) {
@@ -107,14 +96,13 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
             <li
               class={styles.row}
               onDragOver={(event) => {
-                if (isFiltered() || !hasPhraseDragData(event.dataTransfer!)) return;
+                if (!hasPhraseDragData(event.dataTransfer!)) return;
                 event.preventDefault();
                 setDropIndex(dropIndexForRow(event, event.currentTarget, row.index));
               }}
               onDragLeave={() => setDropIndex(null)}
               onDrop={(event) => {
                 setDropIndex(null);
-                if (isFiltered()) return;
                 const payload = readPhraseDragData(event.dataTransfer!);
                 if (!payload) return;
                 event.preventDefault();
@@ -156,9 +144,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class={styles.empty}>
-            {isFiltered() ? 'No phrases match.' : 'No phrases yet — add one above.'}
-          </li>
+          <li class={styles.empty}>No phrases yet — add one above.</li>
         </Show>
       </ul>
 

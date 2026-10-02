@@ -18,10 +18,10 @@ export const TAB_MIME = 'application/x-td-tab-index';
 
 export interface PhraseDragPayload {
   phrase: string;
-  source: 'list' | 'recent';
-  /** Originating tab id, or `null` for a recent-list drag. */
+  source: 'list' | 'recent' | 'search';
+  /** Originating tab id, or `null` for a recent or search drag. */
   tabId: string | null;
-  /** Originating index within that tab's phrase list, or `null` for recent. */
+  /** Originating index within that tab's phrase list, or `null` for recent or search. */
   index: number | null;
 }
 

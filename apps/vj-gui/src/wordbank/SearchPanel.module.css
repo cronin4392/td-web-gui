@@ -1,0 +1,22 @@
+@layer components {
+  .panel {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+  }
+
+  .rows {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    overflow-y: auto;
+  }
+
+  .empty {
+    padding: var(--spacing-m) var(--spacing-s);
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
+  }
+}

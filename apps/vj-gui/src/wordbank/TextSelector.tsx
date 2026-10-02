@@ -8,6 +8,7 @@ import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { TabStrip } from './TabStrip';
 import { ListPanel } from './ListPanel';
+import { SearchPanel } from './SearchPanel';
 import styles from './TextSelector.module.css';
 
 export function TextSelector(props: {
@@ -18,7 +19,7 @@ export function TextSelector(props: {
   // handlers, where there is no reactive owner for the context lookup.
   const connection = GuiClient.useConnection();
 
-  // Typing in either text field filters the phrase lists below it, and a
+  // Typing in either text field searches every phrase list below it, and a
   // clicked phrase lands in the field that is focused — Text 1 if none is.
   const [filter, setFilter] = createSignal('');
   // A slot rather than a param name, so it survives a layer change.
@@ -93,20 +94,16 @@ export function TextSelector(props: {
         <TabStrip store={props.store} />
         <div class={styles.body} onMouseDown={() => (pressedSlot = focusedSlot())}>
           <Show
-            when={props.store.state.selectedListId !== RECENT_LIST_ID}
-            fallback={
-              <RecentPanel store={props.store} filter={filter()} onApply={applyToFocused} />
-            }
+            when={!filter().trim()}
+            fallback={<SearchPanel store={props.store} query={filter()} onApply={applyToFocused} />}
           >
-            <Show when={selectedList()}>
-              {(list) => (
-                <ListPanel
-                  store={props.store}
-                  list={list()}
-                  filter={filter()}
-                  onApply={applyToFocused}
-                />
-              )}
+            <Show
+              when={props.store.state.selectedListId !== RECENT_LIST_ID}
+              fallback={<RecentPanel store={props.store} onApply={applyToFocused} />}
+            >
+              <Show when={selectedList()}>
+                {(list) => <ListPanel store={props.store} list={list()} onApply={applyToFocused} />}
+              </Show>
             </Show>
           </Show>
         </div>

@@ -49,6 +49,17 @@ function moveToBack(arr: readonly string[], item: string): string[] {
   return [...arr.filter((p) => p !== item), item];
 }
 
+/** Phrases containing `query` (case-insensitive) across every list in tab order, then Recent; each phrase once. */
+export function searchPhrases(
+  lists: readonly PhraseList[],
+  recent: readonly string[],
+  query: string,
+): string[] {
+  const q = query.trim().toLowerCase();
+  const all = new Set([...lists.flatMap((l) => l.phrases), ...recent]);
+  return [...all].filter((phrase) => phrase.toLowerCase().includes(q));
+}
+
 /** The persisted `selectedListId` if it names one of `lists` (or the pinned Recent list); the first list otherwise. Never throws. */
 function loadSelectedListId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
   const fallback = lists[0]!.id;

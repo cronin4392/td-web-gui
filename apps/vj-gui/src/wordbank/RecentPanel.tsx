@@ -1,4 +1,4 @@
-import { For, Show, createMemo, type JSX } from 'solid-js';
+import { For, Show, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { createContextMenu } from '@/ui/ContextMenu';
 import { PhraseChip } from './PhraseChip';
@@ -6,19 +6,12 @@ import styles from './RecentPanel.module.css';
 
 export interface RecentPanelProps {
   store: WordbankStore;
-  /** Live text of whichever field is being typed in. */
-  filter: string;
   onApply: (phrase: string) => void;
 }
 
 export function RecentPanel(props: RecentPanelProps): JSX.Element {
   const menu = createContextMenu();
-
-  const rows = createMemo(() => {
-    const q = props.filter.trim().toLowerCase();
-    const recent = props.store.state.recent;
-    return q ? recent.filter((phrase) => phrase.toLowerCase().includes(q)) : recent;
-  });
+  const rows = () => props.store.state.recent;
 
   return (
     <div
@@ -52,9 +45,7 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class={styles.empty}>
-            {props.filter.trim() ? 'No phrases match.' : 'Nothing recent yet.'}
-          </li>
+          <li class={styles.empty}>Nothing recent yet.</li>
         </Show>
       </ul>
 

@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Wordbank } from '@domain/wordbank/wordbank';
-import { createWordbankStore, type CreateStoreOptions } from './store';
+import { createWordbankStore, searchPhrases, type CreateStoreOptions } from './store';
 
 class FakeStorage implements Storage {
   private map = new Map<string, string>();
@@ -370,5 +370,24 @@ describe('persistence', () => {
     uiStorage.setItem('td-web-gui:vj-gui:wordbank', 'nonexistent-id');
     const store = makeStore({ uiStorage });
     expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
+  });
+});
+
+describe('searchPhrases', () => {
+  const lists = [
+    { id: 'a', name: 'A', phrases: ['Hello World', 'Goodbye'] },
+    { id: 'b', name: 'B', phrases: ['hello again', 'Hello World'] },
+  ];
+
+  it('matches case-insensitively across every list, then recent, each phrase once', () => {
+    expect(searchPhrases(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
+      'Hello World',
+      'hello again',
+      'say hello',
+    ]);
+  });
+
+  it('returns nothing when no phrase matches', () => {
+    expect(searchPhrases(lists, [], 'zzz')).toEqual([]);
   });
 });
