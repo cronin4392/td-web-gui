@@ -5,11 +5,12 @@ Config for ALL TWELVE scene instances — sceneA (4007), sceneB (5007), sceneC
 The 8000 block is skipped; the GUI project owns it (8765), and the Z layers
 take half-blocks off 13000.
 
-One file for twelve TouchDesigner processes. The scene projects are the same
-project, so their registry, readouts, and streams are identical and there is
-nothing to keep in sync: point every WebGuiServer component's `Config File` par
-at this file. Each process loads its own copy into its own `config` Text DAT and
-only ever reads it, so sharing the file on disk is safe.
+One file for twelve WebGuiServer components: one each in A–H's processes, and
+all four Z layers in SceneLoaderZLayers.toe. Every scene is an instance of the
+same SceneLoader.tox, so their registry, readouts, and streams are identical and
+there is nothing to keep in sync: point every WebGuiServer component's `Config
+File` par at this file. Each server loads its own copy into its own `config`
+Text DAT and only ever reads it, so sharing the file on disk is safe.
 
 What differs between them lives on WebGuiServer's own parameters, not in
 here: `Identifier` (sceneA … sceneZ4 — the id the web app matches) and `Port`.
@@ -26,7 +27,10 @@ The GUI project's config is separate: gui-config.py, beside this file.
 
 CALLBACKS = "webserver1_callbacks"
 
-LOADER = "/Scene1/Loader"
+# One process may host several scenes (the Z layers), so each server finds its own.
+SCENE = parent.SceneLoader.path
+
+LOADER = SCENE + "/Loader"
 
 # `activeScene` is read-only because loading a scene is behaviour, not state, so
 # it goes through HANDLERS at the bottom of this file instead.
@@ -54,12 +58,12 @@ REGISTRY = {
     # expression- or export-driven par is refused (param_not_writable), so
     # re-attaching an expression here silently turns the web control read-only.
     "layout": {
-        "op": "/Scene1/Post/Layout",
+        "op": SCENE + "/Post/Layout",
         "par": "Layout",
         "type": "string",
     },
     "color": {
-        "op": "/Scene1/Post/Color",
+        "op": SCENE + "/Post/Color",
         "par": "Color",
         "type": "string",
     },
@@ -71,16 +75,16 @@ WEBRTC = "webrtc1"
 # WebGuiServer from this entry. It is the only encoder in the project — a
 # hand-placed Video Stream Out beside it would be a second one on the same TOP.
 STREAMS = {
-    "scene": {"source": "/Scene1/out1", "label": "Main"},
+    "scene": {"source": SCENE + "/out1", "label": "Main"},
 }
 
 READOUTS = {
     "performance": {
-        "op": "/Scene1/Tools/Performance/CookTimes/cook_times_dat",
+        "op": SCENE + "/Tools/Performance/CookTimes/cook_times_dat",
         "type": "string[][]",
     },
     "level": {
-        "op": "/Scene1/Inputs/null_params",
+        "op": SCENE + "/Inputs/null_params",
         "chan": "level",
     },
 }
