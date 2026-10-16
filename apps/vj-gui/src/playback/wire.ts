@@ -21,6 +21,8 @@ const loaderZ1Port = import.meta.env.VITE_TD_PORT_SCENE_Z1 ?? '13007';
 const loaderZ2Port = import.meta.env.VITE_TD_PORT_SCENE_Z2 ?? '13107';
 const loaderZ3Port = import.meta.env.VITE_TD_PORT_SCENE_Z3 ?? '13207';
 const loaderZ4Port = import.meta.env.VITE_TD_PORT_SCENE_Z4 ?? '13307';
+const loaderZ5Port = import.meta.env.VITE_TD_PORT_SCENE_Z5 ?? '13407';
+const loaderZ6Port = import.meta.env.VITE_TD_PORT_SCENE_Z6 ?? '13507';
 
 /** The scene projects, in layer order. Same schema, one `<Provider>` each. */
 export const loaderInstances = [
@@ -36,15 +38,17 @@ export const loaderInstances = [
   { id: 'sceneZ2', url: `ws://${host}:${loaderZ2Port}` },
   { id: 'sceneZ3', url: `ws://${host}:${loaderZ3Port}` },
   { id: 'sceneZ4', url: `ws://${host}:${loaderZ4Port}` },
+  { id: 'sceneZ5', url: `ws://${host}:${loaderZ5Port}` },
+  { id: 'sceneZ6', url: `ws://${host}:${loaderZ6Port}` },
 ] as const satisfies readonly TDInstanceConfig[];
 
 /** id of one entry in {@link loaderInstances}, e.g. `'sceneA'` — distinct from
- * {@link LayerId} (`'A'`–`'H'`, `'Z1'`–`'Z4'`), which names an external scene
+ * {@link LayerId} (`'A'`–`'H'`, `'Z1'`–`'Z6'`), which names an external scene
  * *loader*. */
 export type LoaderId = (typeof loaderInstances)[number]['id'];
 
 /** The loader id a scene instance's video tile stands for when selected as the
- * active layer — `'sceneA'` -> `'A'`, `'sceneZ4'` -> `'Z4'`. */
+ * active layer — `'sceneA'` -> `'A'`, `'sceneZ6'` -> `'Z6'`. */
 export function layerIdForLoader(instance: LoaderId): LayerId {
   return instance.slice('scene'.length) as LayerId;
 }
@@ -163,7 +167,7 @@ export interface LoaderCalls {
 
 /**
  * Param schema shared by **every** scene instance — the TS half of the contract
- * with `td/scene-config.py`, which is likewise one file for all twelve processes.
+ * with `td/scene-config.py`, which is likewise one file for all fourteen scene servers.
  *
  * The names in {@link loaderReadonly} are read-only — that file's `READOUTS`
  * plus its non-writable `REGISTRY` entries. The rest the web can drive.

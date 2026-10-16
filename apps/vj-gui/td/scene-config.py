@@ -1,19 +1,19 @@
 """
-Config for ALL TWELVE scene instances — sceneA (4007), sceneB (5007), sceneC
+Config for ALL FOURTEEN scene instances — sceneA (4007), sceneB (5007), sceneC
 (6007), sceneD (7007), sceneE (9007), sceneF (10007), sceneG (11007), sceneH
-(12007), sceneZ1 (13007), sceneZ2 (13107), sceneZ3 (13207), sceneZ4 (13307).
-The 8000 block is skipped; the GUI project owns it (8765), and the Z layers
-take half-blocks off 13000.
+(12007), sceneZ1 (13007), sceneZ2 (13107), sceneZ3 (13207), sceneZ4 (13307),
+sceneZ5 (13407), sceneZ6 (13507). The 8000 block is skipped; the GUI project
+owns it (8765), and the Z layers take half-blocks off 13000.
 
-One file for twelve WebGuiServer components: one each in A–H's processes, and
-all four Z layers in SceneLoaderZLayers.toe. Every scene is an instance of the
+One file for fourteen WebGuiServer components: one each in A–H's processes, and
+all six Z layers in SceneLoaderZLayers.toe. Every scene is an instance of the
 same SceneLoader.tox, so their registry, readouts, and streams are identical and
 there is nothing to keep in sync: point every WebGuiServer component's `Config
 File` par at this file. Each server loads its own copy into its own `config`
 Text DAT and only ever reads it, so sharing the file on disk is safe.
 
 What differs between them lives on WebGuiServer's own parameters, not in
-here: `Identifier` (sceneA … sceneZ4 — the id the web app matches) and `Port`.
+here: `Identifier` (sceneA … sceneZ6 — the id the web app matches) and `Port`.
 
 That is also why no name below is scene-prefixed. A wire name is scoped to its
 instance, so every process publishes a plain `level` and a plain `performance`,

@@ -28,7 +28,7 @@ AUDIO_CHOP = "/project1/Audio/out_audio_analysis"
 GUI_STATE = "/project1/GuiState"
 
 REGISTRY = {
-    # Which layer the web has selected, as its loader key ("A"-"H", "Z1"-"Z4") —
+    # Which layer the web has selected, as its loader key ("A"-"H", "Z1"-"Z6") —
     # the same `Scenekey` the GUI project's select button reports.
     #
     # It lives here rather than in the web alone because a browser signal is
