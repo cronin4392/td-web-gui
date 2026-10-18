@@ -71,6 +71,20 @@ relative to `apps/vj-gui`.
 | **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick        | Line, entry, saved text             |
 | **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged | History, recents                    |
 
+## Show info
+
+| Term                | Definition                                                                                                                           | Aliases to avoid                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| **Show info**       | The one shared record of the night: the Show rows, the Artist roster, and every Layer's Overrides, persisted through `/api/showinfo` | Metadata, event info, comp, preset    |
+| **Show row**        | One ordered line of Show info — typed text or an Alias, and on or off                                                                | Line, item, field                     |
+| **Alias**           | A Show row's pointer at a Named value (`artist`, `crew`, `event`, `venue`, `city`) in place of typed text                            | Variable, token, placeholder, binding |
+| **Artist roster**   | The ordered list of artists, each a name and optional crew; any number may be active                                                 | Lineup, performers, bill              |
+| **Active artist**   | A roster entry switched on, and so contributing its name and crew to the Named values                                                | Selected artist, current artist       |
+| **Named values**    | The text each Alias resolves to, derived from the Active artists and the on Show rows; never stored                                  | Variables, tags, fields               |
+| **Act text list**   | The on Show rows resolved in order, one string each — what a Layer shows when it has no Override                                     | Default texts, show texts             |
+| **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it slot by slot — what that Layer actually shows                      | Layer texts, merged texts             |
+| **Override**        | A Layer's own text for one slot (Text 1, Text 2); blank means "use the Act text list"                                                | Custom text, manual text, pin         |
+
 ## Relationships
 
 - A **Scene** and an **Effect** each resolve to exactly one **Tox**; the **Loader** cannot tell them apart.
@@ -86,7 +100,11 @@ relative to `apps/vj-gui`.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
-- Applying a **Phrase** writes it to the **Selected layer**'s text param and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
+- Applying a **Phrase** writes it to the **Selected layer**'s **Override** and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
+- **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. A **Show row** with an **Alias** has no text of its own — it reads the **Named value**, which is why the panel shows it read-only.
+- The **Layer text list** is the **Act text list** with each non-blank **Override** replacing its slot; a blank **Override** is stored as `''`, never as a placeholder, so the **Act text list** shows through.
+- Text 1 and Text 2 are **Override** slots now, not TouchDesigner params: they live in the web's database, and the **Layer text list** is what reaches TouchDesigner.
+- "Comp" (a Web-GUI-32280 preset) is not a vj-gui term; do not use it for any of the above.
 
 ## Example dialogue
 
