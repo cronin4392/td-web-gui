@@ -185,6 +185,10 @@ export interface LoaderParams {
    * {@link COLOR_OPTIONS} are the web-side copy of those menus. */
   layout: string;
   color: string;
+  /** Writable tables the web fills: the Layer text list, one value per row, and
+   * the named values, one `[alias, value]` row each. */
+  textList: string[][];
+  textVars: string[][];
 }
 
 /** Scene readout names, declared read-only so their controls render disabled. */

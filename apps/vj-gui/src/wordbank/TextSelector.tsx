@@ -1,51 +1,54 @@
-import { createMemo, createSignal, Show, type JSX } from 'solid-js';
-import { escapeNewlines } from 'td-core';
-import { layerTextParam } from '@/playback/wire';
-import { GuiClient, type LayerTextParamName } from '@/playback/clients';
+import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
+import { escapeNewlines, unescapeNewlines } from 'td-core';
+import { actTextList, isBlank } from '@domain/showinfo/showinfo';
 import { usePlayback } from '@/playback/PlaybackProvider';
-import { RECENT_LIST_ID, type createWordbankStore } from './store';
+import type { ShowInfoStore } from '@/showinfo/store';
+import { ShowInfoDialog } from '@/showinfo/ShowInfoDialog';
+import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
+import { RECENT_LIST_ID, SHOW_LIST_ID, type createWordbankStore } from './store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
+import { ShowPanel } from './ShowPanel';
 import { TabStrip } from './TabStrip';
 import { ListPanel } from './ListPanel';
 import { SearchPanel } from './SearchPanel';
 import styles from './TextSelector.module.css';
 
+const SLOTS = [0, 1] as const;
+type Slot = (typeof SLOTS)[number];
+
 export function TextSelector(props: {
   store: ReturnType<typeof createWordbankStore>;
+  showInfo: ShowInfoStore;
 }): JSX.Element {
   const { selectedLayer } = usePlayback();
-  // Resolved here, at render time: the phrase-apply path below runs from event
-  // handlers, where there is no reactive owner for the context lookup.
-  const connection = GuiClient.useConnection();
 
-  // Typing in either text field searches every phrase list below it, and a
-  // clicked phrase lands in the field that is focused — Text 1 if none is.
   const [filter, setFilter] = createSignal('');
-  // A slot rather than a param name, so it survives a layer change.
-  const [focusedSlot, setFocusedSlot] = createSignal<1 | 2 | null>(null);
+  const [showInfoOpen, setShowInfoOpen] = createSignal(false);
+  const [focusedSlot, setFocusedSlot] = createSignal<Slot | null>(null);
   // Clicking a chip blurs the field before the click lands, so the target is
   // read at mousedown — while that field still has focus — and used by the
   // click that follows.
-  let pressedSlot: 1 | 2 | null = null;
+  let pressedSlot: Slot | null = null;
 
-  // The one place that owns "commit a phrase to a TD text field" — shared by
-  // TextField's own drop target and RecentPanel/ListPanel's click-to-apply.
-  // This writes the signal directly, so it owes the same newline escaping the
-  // multiline <TextInput> does on its own commits; stored phrases keep real
-  // newlines.
-  function applyPhrase(name: LayerTextParamName, phrase: string) {
-    connection.signal(name).setValue(escapeNewlines(phrase));
+  const actTexts = createMemo(() => actTextList(props.showInfo.state.show));
+
+  function applyPhrase(slot: Slot, phrase: string) {
+    props.showInfo.setOverride(
+      selectedLayer(),
+      slot,
+      isBlank(phrase) ? '' : escapeNewlines(phrase),
+    );
     props.store.commitRecent(phrase);
   }
   function applyToFocused(phrase: string) {
-    const slot = focusedSlot() ?? pressedSlot ?? 1;
+    const slot = focusedSlot() ?? pressedSlot ?? 0;
     pressedSlot = null;
-    applyPhrase(layerTextParam(selectedLayer(), slot), phrase);
+    applyPhrase(slot, phrase);
     setFilter('');
   }
-  function clearText(name: LayerTextParamName) {
-    applyPhrase(name, '');
+  function clearText(slot: Slot) {
+    props.showInfo.setOverride(selectedLayer(), slot, '');
     setFilter('');
   }
   function endEdit() {
@@ -59,33 +62,51 @@ export function TextSelector(props: {
       props.store.state.lists[0],
   );
 
+  const showPhrases = createMemo(() => actTexts().map(unescapeNewlines));
+
   return (
     <div class={styles.selector}>
-      {/* `keyed` so switching loaders remounts the fields: <TextInput> binds its
-          param name once at setup, so a changed `name` prop would not rebind. */}
+      <PanelHeader title="Text">
+        <PanelHeaderButton
+          label="Show info"
+          pressed={showInfoOpen()}
+          onClick={() => setShowInfoOpen(true)}
+        >
+          ⓘ
+        </PanelHeaderButton>
+      </PanelHeader>
+      <ShowInfoDialog
+        store={props.showInfo}
+        open={showInfoOpen()}
+        onClose={() => setShowInfoOpen(false)}
+      />
+
+      {/* `keyed` so switching layers remounts the fields and drops any draft. */}
       <Show when={selectedLayer()} keyed>
         {(layer) => (
           <section class={styles.fields}>
-            <TextField
-              name={layerTextParam(layer, 1)}
-              label="Artist name"
-              commitRecent={props.store.commitRecent}
-              applyPhrase={applyPhrase}
-              onClear={clearText}
-              onFilter={setFilter}
-              onFocus={() => setFocusedSlot(1)}
-              onBlur={endEdit}
-            />
-            <TextField
-              name={layerTextParam(layer, 2)}
-              label="Event"
-              commitRecent={props.store.commitRecent}
-              applyPhrase={applyPhrase}
-              onClear={clearText}
-              onFilter={setFilter}
-              onFocus={() => setFocusedSlot(2)}
-              onBlur={endEdit}
-            />
+            <For each={SLOTS}>
+              {(slot) => (
+                <TextField
+                  label={`Text ${slot + 1}`}
+                  value={props.showInfo.state.overrides[layer]?.[slot] ?? ''}
+                  placeholder={actTexts()[slot] ?? `Text ${slot + 1}`}
+                  onCommit={(text) => applyPhrase(slot, text)}
+                  onClear={() => clearText(slot)}
+                  onFilter={setFilter}
+                  onFocus={() => setFocusedSlot(slot)}
+                  onBlur={endEdit}
+                />
+              )}
+            </For>
+            <button
+              type="button"
+              tabIndex={-1}
+              class={styles.clearLayer}
+              onClick={() => props.showInfo.clearOverrides(layer)}
+            >
+              Clear layer
+            </button>
           </section>
         )}
       </Show>
@@ -101,8 +122,15 @@ export function TextSelector(props: {
               when={props.store.state.selectedListId !== RECENT_LIST_ID}
               fallback={<RecentPanel store={props.store} onApply={applyToFocused} />}
             >
-              <Show when={selectedList()}>
-                {(list) => <ListPanel store={props.store} list={list()} onApply={applyToFocused} />}
+              <Show
+                when={props.store.state.selectedListId !== SHOW_LIST_ID}
+                fallback={<ShowPanel phrases={showPhrases()} onApply={applyToFocused} />}
+              >
+                <Show when={selectedList()}>
+                  {(list) => (
+                    <ListPanel store={props.store} list={list()} onApply={applyToFocused} />
+                  )}
+                </Show>
               </Show>
             </Show>
           </Show>

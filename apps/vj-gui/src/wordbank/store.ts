@@ -25,6 +25,12 @@ const DEFAULT_DEBOUNCE_MS = 200;
 
 /** Pinned first entry in the tab strip, backed by `state.recent` rather than `state.lists` — never a real list id. */
 export const RECENT_LIST_ID = '__recent__';
+/** Pinned after Recent; backed by the show-info store, not by `state.lists`. */
+export const SHOW_LIST_ID = '__show__';
+
+function isPinnedListId(id: string): boolean {
+  return id === RECENT_LIST_ID || id === SHOW_LIST_ID;
+}
 
 export interface WordbankState {
   lists: PhraseList[];
@@ -61,7 +67,7 @@ function loadSelectedListId(storage: Storage | undefined, lists: readonly Phrase
   if (!storage) return fallback;
   try {
     const stored = storage.getItem(UI_STORAGE_KEY);
-    if (stored === RECENT_LIST_ID) return stored;
+    if (stored !== null && isPinnedListId(stored)) return stored;
     return stored !== null && lists.some((l) => l.id === stored) ? stored : fallback;
   } catch {
     return fallback;
@@ -95,7 +101,7 @@ export interface WordbankStore {
   renameList: (id: string, name: string) => void;
   /** Delete a list (no-op if it's the last one); reassigns the selected list if needed. */
   deleteList: (id: string) => void;
-  /** Also accepts `RECENT_LIST_ID`, selecting the pinned Recent list. */
+  /** Also accepts the pinned `RECENT_LIST_ID` and `SHOW_LIST_ID`. */
   selectList: (id: string) => void;
   reorderLists: (fromIndex: number, toIndex: number) => void;
 
@@ -239,7 +245,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   }
 
   function selectList(id: string): void {
-    if (id !== RECENT_LIST_ID && findListIndex(id) === -1) return;
+    if (!isPinnedListId(id) && findListIndex(id) === -1) return;
     setState('selectedListId', id);
     markUiDirty(); // UI-only: does not touch the wordbank, so no wordbankDirty here.
   }
