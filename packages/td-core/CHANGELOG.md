@@ -12,6 +12,14 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Writable tables.** A whole-table readout on a Table DAT declared
+  `'writable': True` in `READOUTS` accepts `signal(name).setValue(rows)` from
+  the web: TD replaces the table's contents and broadcasts the result. Needs the
+  updated `webserver-callbacks.py`; `PROTOCOL_VERSION` is unchanged. See
+  [docs/protocol.md § Writable tables](docs/protocol.md#writable-tables).
+
 ### Changed
 
 - **BREAKING: `pulse`, `call`, `notify` and `handle` are gone from the

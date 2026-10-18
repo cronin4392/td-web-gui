@@ -322,6 +322,40 @@ function Example1Readouts() {
 }
 
 /**
+ * A table the web writes: a whole-table readout declared `writable: True` on a
+ * Table DAT. `setValue` replaces every row, and `<Table>` shows what TD holds
+ * once the write comes back.
+ */
+function Example1Setlist() {
+  const setlist = Example1.signal('setlist');
+  const [draft, setDraft] = createSignal('');
+  const send = () =>
+    setlist.setValue(
+      draft()
+        .split('\n')
+        .filter((line) => line.trim() !== '')
+        .map((line) => [line]),
+    );
+
+  return (
+    <section>
+      <h3>Writable table</h3>
+      <Example1.Table name="setlist" />
+      <label>
+        One row per line
+        <textarea rows={4} value={draft()} onInput={(e) => setDraft(e.currentTarget.value)} />
+      </label>
+      <button type="button" onClick={send}>
+        Replace table
+      </button>
+      <p class="caption">
+        Writes <code>/project1/readouts/setlist</code>. Sending nothing empties it.
+      </p>
+    </section>
+  );
+}
+
+/**
  * One instance's video wall — every stream that instance announces, rendered at
  * once. `<Provider video>` opens **one** WebRTC peer per instance and every tile
  * is a track on it, which is why the grid is driven by `video.streams()` (the id
@@ -513,6 +547,8 @@ function Example1Panel() {
       </section>
 
       <Example1Readouts />
+
+      <Example1Setlist />
 
       <VideoWall />
     </>
