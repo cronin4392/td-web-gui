@@ -1,6 +1,6 @@
 format: tdxn
 version: '2.2'
-build: 14
+build: 15
 generator: Embody/6.2.74
 td_build: 099.2025.33230
 network_path: /project1/WebGuiServer
@@ -117,9 +117,7 @@ tags:
 - tdn
 - tdxn
 storage:
-  webguiPeers:
-    127.0.0.1:50244: a2ff9deb-0d35-4d73-b49c-817c0794e346
-    127.0.0.1:61834: f42a28c5-39ff-4670-8782-d98ec4a4d165
+  webguiPeers: {}
 operators:
 - name: config
   type: textDAT
