@@ -1,6 +1,8 @@
 import { createStore, produce, unwrap } from 'solid-js/store';
 import {
+  actTextList,
   defaultShowDocument,
+  trimOverrides,
   type Alias,
   type Artist,
   type ShowDocument,
@@ -51,10 +53,10 @@ export interface ShowInfoStore {
   setArtistName: (id: string, name: string) => void;
   toggleArtist: (id: string) => void;
 
-  /** `slot` is the zero-based position in the layer's text list. */
   setOverride: (layer: string, slot: number, text: string) => void;
   clearOverrides: (layer: string) => void;
 
+  flush: () => void;
   dispose: () => void;
 }
 
@@ -71,6 +73,23 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
       saveTimer = undefined;
       void write();
     }, debounceMs);
+  }
+
+  function showEdited() {
+    const trimmed = trimOverrides(unwrap(state.overrides), actTextList(state.show).length);
+    setState(
+      produce((doc) => {
+        doc.overrides = trimmed;
+      }),
+    );
+    scheduleSave();
+  }
+
+  function flush() {
+    if (saveTimer === undefined) return;
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+    void write();
   }
 
   async function write() {
@@ -103,74 +122,74 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
   function addRow(): string {
     const row = makeRow();
     setState('show', 'rows', (rows) => [...rows, row]);
-    scheduleSave();
+    showEdited();
     return row.id;
   }
 
   function removeRow(id: string): void {
     setState('show', 'rows', (rows) => rows.filter((r) => r.id !== id));
-    scheduleSave();
+    showEdited();
   }
 
   function moveRow(fromIndex: number, toIndex: number): void {
     const { length } = state.show.rows;
     if (fromIndex === toIndex || !inRange(fromIndex, length) || !inRange(toIndex, length)) return;
     setState('show', 'rows', (rows) => moveItem(rows, fromIndex, toIndex));
-    scheduleSave();
+    showEdited();
   }
 
   function setRowText(id: string, text: string): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'text', text);
-    scheduleSave();
+    showEdited();
   }
 
   function setRowAlias(id: string, alias: Alias | null): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'alias', alias);
-    scheduleSave();
+    showEdited();
   }
 
   function toggleRow(id: string): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'on', (on) => !on);
-    scheduleSave();
+    showEdited();
   }
 
   function addArtist(): string {
     const artist = makeArtist();
     setState('show', 'artists', (artists) => [...artists, artist]);
-    scheduleSave();
+    showEdited();
     return artist.id;
   }
 
   function removeArtist(id: string): void {
     setState('show', 'artists', (artists) => artists.filter((a) => a.id !== id));
-    scheduleSave();
+    showEdited();
   }
 
   function moveArtist(fromIndex: number, toIndex: number): void {
     const { length } = state.show.artists;
     if (fromIndex === toIndex || !inRange(fromIndex, length) || !inRange(toIndex, length)) return;
     setState('show', 'artists', (artists) => moveItem(artists, fromIndex, toIndex));
-    scheduleSave();
+    showEdited();
   }
 
   function setArtistName(id: string, name: string): void {
     const i = artistIndex(id);
     if (i === -1) return;
     setState('show', 'artists', i, 'name', name);
-    scheduleSave();
+    showEdited();
   }
 
   function toggleArtist(id: string): void {
     const i = artistIndex(id);
     if (i === -1) return;
     setState('show', 'artists', i, 'active', (active) => !active);
-    scheduleSave();
+    showEdited();
   }
 
   function setOverride(layer: string, slot: number, text: string): void {
@@ -210,6 +229,7 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     toggleArtist,
     setOverride,
     clearOverrides,
+    flush,
     dispose,
   };
 }

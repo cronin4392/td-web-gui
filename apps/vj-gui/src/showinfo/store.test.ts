@@ -122,6 +122,14 @@ describe('overrides', () => {
     store.clearOverrides('A');
     expect(store.state.overrides).toEqual({ B: ['b'] });
   });
+
+  it('drops overrides past the end when the act text list shrinks, for good', () => {
+    const store = makeStore();
+    store.toggleArtist('a1');
+    expect(store.state.overrides).toEqual({ A: ['x'] });
+    store.toggleArtist('a1');
+    expect(store.state.overrides).toEqual({ A: ['x'] });
+  });
 });
 
 describe('persistence', () => {
@@ -150,6 +158,18 @@ describe('persistence', () => {
     store.toggleRow('r1');
     await vi.advanceTimersByTimeAsync(25);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('flush saves a pending edit at once, and only once', async () => {
+    vi.useFakeTimers();
+    const save = vi.fn();
+    const store = makeStore({ persistence: { save } });
+    store.toggleRow('r1');
+    store.flush();
+    expect(save).toHaveBeenCalledTimes(1);
+    store.flush();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it('dispose cancels a pending save', async () => {

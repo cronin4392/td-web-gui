@@ -139,10 +139,6 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   );
 }
 
-/**
- * The layer's Text 1 and Text 2 overrides, echoed over its tile so the operator
- * can see which layers say something of their own without selecting each one.
- */
 function LayerTexts(props: { layer: LayerId }): JSX.Element {
   const { state } = useShowInfo();
   const lines = () =>

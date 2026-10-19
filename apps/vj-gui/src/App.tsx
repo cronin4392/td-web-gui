@@ -33,6 +33,9 @@ export function App(props: AppProps): JSX.Element {
     persistence: { save: saveShowDocument },
   });
   onCleanup(() => showInfo.dispose());
+  const flushShowInfo = () => showInfo.flush();
+  window.addEventListener('pagehide', flushShowInfo);
+  onCleanup(() => window.removeEventListener('pagehide', flushShowInfo));
 
   return (
     <GuiProvider>

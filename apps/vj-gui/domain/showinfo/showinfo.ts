@@ -64,6 +64,15 @@ export function layerTextList(act: string[], overrides: string[]): string[] {
   });
 }
 
+export function trimOverrides(overrides: LayerOverrides, length: number): LayerOverrides {
+  const trimmed: LayerOverrides = {};
+  for (const [layer, texts] of Object.entries(overrides)) {
+    const kept = texts.slice(0, length);
+    if (kept.some((text) => !isBlank(text))) trimmed[layer] = kept;
+  }
+  return trimmed;
+}
+
 export function defaultShowDocument(): ShowDocument {
   const order: Alias[] = ['artist', 'event', 'city', 'venue'];
   return {

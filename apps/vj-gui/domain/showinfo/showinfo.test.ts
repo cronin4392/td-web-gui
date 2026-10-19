@@ -5,6 +5,7 @@ import {
   isShowDocument,
   layerTextList,
   namedValues,
+  trimOverrides,
   type Artist,
   type ShowInfo,
 } from './showinfo';
@@ -131,6 +132,21 @@ describe('layerTextList', () => {
 
   it('returns the act for empty overrides', () => {
     expect(layerTextList(act, [])).toEqual(act);
+  });
+});
+
+describe('trimOverrides', () => {
+  it('drops overrides past the new end', () => {
+    expect(trimOverrides({ A: ['x', 'y', 'z'] }, 2)).toEqual({ A: ['x', 'y'] });
+  });
+
+  it('drops a layer left with only blank overrides', () => {
+    expect(trimOverrides({ A: ['', 'y'], B: ['b'] }, 1)).toEqual({ B: ['b'] });
+  });
+
+  it('does not bring a dropped override back when the list grows again', () => {
+    const shrunk = trimOverrides({ A: ['x', 'y'] }, 1);
+    expect(layerTextList(['a', 'b'], shrunk.A ?? [])).toEqual(['x', 'b']);
   });
 });
 

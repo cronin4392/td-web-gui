@@ -20,6 +20,8 @@ export async function saveShowDocument(doc: ShowDocument): Promise<void> {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(doc),
+    // Lets the save fired from `pagehide` outlive the page.
+    keepalive: true,
   });
   if (!res.ok) throw new Error(`PUT ${ENDPOINT} -> ${res.status}`);
 }

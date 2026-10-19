@@ -5,11 +5,9 @@ import styles from './TextField.module.css';
 
 export interface TextFieldProps {
   label: string;
-  /** The stored override, with `\n` escapes; `''` when the layer uses the act text list. */
+  /** Carries `\n` escapes, while `onCommit` receives real newlines. */
   value: string;
-  /** Shown while `value` is blank — the act text list's entry for this slot. */
   placeholder: string;
-  /** Receives the committed text with real newlines. */
   onCommit: (text: string) => void;
   onClear: () => void;
   onFilter: (text: string) => void;
