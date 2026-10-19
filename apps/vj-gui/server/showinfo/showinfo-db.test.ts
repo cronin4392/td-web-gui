@@ -24,8 +24,8 @@ const doc: ShowDocument = {
       { id: 'r1', alias: null, text: 'Line one\nLine two', on: true },
     ],
     artists: [
-      { id: 'a2', name: 'Zed', crew: '', active: false },
-      { id: 'a1', name: 'Amy', crew: 'Crew A', active: true },
+      { id: 'a2', name: 'Zed', active: false },
+      { id: 'a1', name: 'Amy', active: true },
     ],
   },
   overrides: { A: ['hello', ''], Z6: ['', '', 'third'] },
@@ -51,6 +51,29 @@ describe('openShowInfoDb guard', () => {
     expect(() => openShowInfoDb(path)).toThrow(/db:restore/);
     expect(existsSync(path)).toBe(false);
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe('migration', () => {
+  it('drops crew rows and the crew column from a version 1 database', () => {
+    const v1 = new DatabaseSync(dbPath);
+    v1.exec(`
+      CREATE TABLE show_rows (id TEXT PRIMARY KEY, position INTEGER NOT NULL, alias TEXT, text TEXT NOT NULL, is_on INTEGER NOT NULL);
+      CREATE TABLE artists (id TEXT PRIMARY KEY, position INTEGER NOT NULL, name TEXT NOT NULL, crew TEXT NOT NULL, is_active INTEGER NOT NULL);
+      CREATE TABLE layer_overrides (layer TEXT NOT NULL, slot INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY (layer, slot));
+      INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1), ('r2', 1, 'crew', '', 1), ('r3', 2, 'city', 'Boston', 1);
+      INSERT INTO artists VALUES ('a1', 0, 'Variable', 'Rezinate', 1);
+      PRAGMA user_version = 1;
+    `);
+    v1.close();
+
+    expect(readShowDocument(open()).show).toEqual({
+      rows: [
+        { id: 'r1', alias: 'artist', text: '', on: true },
+        { id: 'r3', alias: 'city', text: 'Boston', on: true },
+      ],
+      artists: [{ id: 'a1', name: 'Variable', active: true }],
+    });
   });
 });
 

@@ -77,9 +77,9 @@ relative to `apps/vj-gui`.
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
 | **Show info**       | The one shared record of the night: the Show rows, the Artist roster, and every Layer's Overrides, persisted through `/api/showinfo` | Metadata, event info, comp, preset    |
 | **Show row**        | One ordered line of Show info — typed text or an Alias, and on or off                                                                | Line, item, field                     |
-| **Alias**           | A Show row's pointer at a Named value (`artist`, `crew`, `event`, `venue`, `city`) in place of typed text                            | Variable, token, placeholder, binding |
-| **Artist roster**   | The ordered list of artists, each a name and optional crew; any number may be active                                                 | Lineup, performers, bill              |
-| **Active artist**   | A roster entry switched on, and so contributing its name and crew to the Named values                                                | Selected artist, current artist       |
+| **Alias**           | A Show row's pointer at a Named value (`artist`, `event`, `venue`, `city`) in place of typed text                                    | Variable, token, placeholder, binding |
+| **Artist roster**   | The ordered list of artist names; any number may be active                                                                           | Lineup, performers, bill              |
+| **Active artist**   | A roster entry switched on, and so contributing its name to the Named values                                                         | Selected artist, current artist       |
 | **Named values**    | The text each Alias resolves to, derived from the Active artists and the on Show rows; never stored                                  | Variables, tags, fields               |
 | **Act text list**   | The on Show rows resolved in order, one string each — what a Layer shows when it has no Override                                     | Default texts, show texts             |
 | **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it slot by slot — what that Layer actually shows                      | Layer texts, merged texts             |

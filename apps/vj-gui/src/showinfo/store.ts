@@ -26,7 +26,7 @@ function makeRow(): ShowRow {
 }
 
 function makeArtist(): Artist {
-  return { id: crypto.randomUUID(), name: '', crew: '', active: true };
+  return { id: crypto.randomUUID(), name: '', active: true };
 }
 
 export interface CreateShowInfoStoreOptions {
@@ -49,7 +49,6 @@ export interface ShowInfoStore {
   removeArtist: (id: string) => void;
   moveArtist: (fromIndex: number, toIndex: number) => void;
   setArtistName: (id: string, name: string) => void;
-  setArtistCrew: (id: string, crew: string) => void;
   toggleArtist: (id: string) => void;
 
   /** `slot` is the zero-based position in the layer's text list. */
@@ -167,13 +166,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     scheduleSave();
   }
 
-  function setArtistCrew(id: string, crew: string): void {
-    const i = artistIndex(id);
-    if (i === -1) return;
-    setState('show', 'artists', i, 'crew', crew);
-    scheduleSave();
-  }
-
   function toggleArtist(id: string): void {
     const i = artistIndex(id);
     if (i === -1) return;
@@ -215,7 +207,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     removeArtist,
     moveArtist,
     setArtistName,
-    setArtistCrew,
     toggleArtist,
     setOverride,
     clearOverrides,

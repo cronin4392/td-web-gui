@@ -11,7 +11,7 @@ import {
 } from '../../domain/showinfo/showinfo';
 import { catalogDbPath, checkpointWal, requireRestoredDb } from '../platform/catalog-db';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export function showInfoDbPath(): string {
   return catalogDbPath('VJ_SHOWINFO_DB', 'showinfo.db');
@@ -31,6 +31,14 @@ function migrate(db: DatabaseSync): void {
     user_version: number;
   };
   if (version >= SCHEMA_VERSION) return;
+  if (version === 1) {
+    db.exec(`
+      DELETE FROM show_rows WHERE alias = 'crew';
+      ALTER TABLE artists DROP COLUMN crew;
+    `);
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+    return;
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS show_rows (
@@ -44,7 +52,6 @@ function migrate(db: DatabaseSync): void {
       id        TEXT PRIMARY KEY,
       position  INTEGER NOT NULL,
       name      TEXT NOT NULL,
-      crew      TEXT NOT NULL,
       is_active INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS layer_overrides (
@@ -79,16 +86,14 @@ export function readShowDocument(db: DatabaseSync): ShowDocument {
   }));
 
   const artists = (
-    db.prepare('SELECT id, name, crew, is_active FROM artists ORDER BY position').all() as {
+    db.prepare('SELECT id, name, is_active FROM artists ORDER BY position').all() as {
       id: string;
       name: string;
-      crew: string;
       is_active: number;
     }[]
   ).map((row): Artist => ({
     id: row.id,
     name: row.name,
-    crew: row.crew,
     active: row.is_active === 1,
   }));
 
@@ -120,10 +125,10 @@ export function writeShowDocument(db: DatabaseSync, doc: ShowDocument): void {
     }
 
     const insertArtist = db.prepare(
-      'INSERT INTO artists (id, position, name, crew, is_active) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO artists (id, position, name, is_active) VALUES (?, ?, ?, ?)',
     );
     for (const [position, artist] of doc.show.artists.entries()) {
-      insertArtist.run(artist.id, position, artist.name, artist.crew, artist.active ? 1 : 0);
+      insertArtist.run(artist.id, position, artist.name, artist.active ? 1 : 0);
     }
 
     const insertOverride = db.prepare(

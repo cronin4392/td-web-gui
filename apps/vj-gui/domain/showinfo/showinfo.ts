@@ -1,4 +1,4 @@
-export const aliases = ['artist', 'crew', 'event', 'venue', 'city'] as const;
+export const aliases = ['artist', 'event', 'venue', 'city'] as const;
 
 export type Alias = (typeof aliases)[number];
 
@@ -12,7 +12,6 @@ export interface ShowRow {
 export interface Artist {
   id: string;
   name: string;
-  crew: string;
   active: boolean;
 }
 
@@ -37,12 +36,7 @@ export function isBlank(text: string): boolean {
 
 function rowValues(row: ShowRow, show: ShowInfo): string[] {
   const active = show.artists.filter((a) => a.active);
-  const values =
-    row.alias === 'artist'
-      ? active.map((a) => a.name)
-      : row.alias === 'crew'
-        ? active.map((a) => a.crew)
-        : [row.text];
+  const values = row.alias === 'artist' ? active.map((a) => a.name) : [row.text];
   return values.filter((v) => !isBlank(v));
 }
 
@@ -51,7 +45,7 @@ export function actTextList(show: ShowInfo): string[] {
 }
 
 export function namedValues(show: ShowInfo): NamedValues {
-  const named: NamedValues = { artist: '', crew: '', event: '', venue: '', city: '' };
+  const named: NamedValues = { artist: '', event: '', venue: '', city: '' };
   const seen = new Set<Alias>();
   for (const row of show.rows) {
     if (!row.on || row.alias === null || seen.has(row.alias)) continue;
@@ -71,7 +65,7 @@ export function layerTextList(act: string[], overrides: string[]): string[] {
 }
 
 export function defaultShowDocument(): ShowDocument {
-  const order: Alias[] = ['artist', 'event', 'crew', 'city', 'venue'];
+  const order: Alias[] = ['artist', 'event', 'city', 'venue'];
   return {
     show: {
       rows: order.map((alias) => ({ id: crypto.randomUUID(), alias, text: '', on: true })),
@@ -99,12 +93,7 @@ function isShowRow(x: unknown): x is ShowRow {
 function isArtist(x: unknown): x is Artist {
   if (typeof x !== 'object' || x === null) return false;
   const a = x as Record<string, unknown>;
-  return (
-    typeof a.id === 'string' &&
-    typeof a.name === 'string' &&
-    typeof a.crew === 'string' &&
-    typeof a.active === 'boolean'
-  );
+  return typeof a.id === 'string' && typeof a.name === 'string' && typeof a.active === 'boolean';
 }
 
 export function isShowDocument(x: unknown): x is ShowDocument {

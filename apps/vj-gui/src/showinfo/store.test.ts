@@ -11,8 +11,8 @@ function doc(): ShowDocument {
         { id: 'r3', alias: 'venue', text: '', on: false },
       ],
       artists: [
-        { id: 'a1', name: 'Amy', crew: 'Crew A', active: true },
-        { id: 'a2', name: 'Bo', crew: '', active: false },
+        { id: 'a1', name: 'Amy', active: true },
+        { id: 'a2', name: 'Bo', active: false },
       ],
     },
     overrides: { A: ['x', 'y'] },
@@ -85,25 +85,19 @@ describe('rows', () => {
 });
 
 describe('artists', () => {
-  it('adds an active artist with blank name and crew', () => {
+  it('adds an active artist with a blank name', () => {
     const store = makeStore();
     const id = store.addArtist();
-    expect(store.state.show.artists.at(-1)).toEqual({ id, name: '', crew: '', active: true });
+    expect(store.state.show.artists.at(-1)).toEqual({ id, name: '', active: true });
   });
 
   it('edits, toggles, moves and removes by id', () => {
     const store = makeStore();
     store.setArtistName('a2', 'Bob');
-    store.setArtistCrew('a2', 'Crew B');
     store.toggleArtist('a2');
     store.moveArtist(1, 0);
     expect(store.state.show.artists.map((a) => a.id)).toEqual(['a2', 'a1']);
-    expect(store.state.show.artists[0]).toEqual({
-      id: 'a2',
-      name: 'Bob',
-      crew: 'Crew B',
-      active: true,
-    });
+    expect(store.state.show.artists[0]).toEqual({ id: 'a2', name: 'Bob', active: true });
     store.removeArtist('a1');
     expect(store.state.show.artists.map((a) => a.id)).toEqual(['a2']);
   });

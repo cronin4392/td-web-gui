@@ -101,11 +101,11 @@ export function ShowInfoPanel(props: {
   onClose?: () => void;
 }): JSX.Element {
   const { store } = props;
-  const artistValues = (alias: 'artist' | 'crew') =>
+  const activeArtists = () =>
     store.state.show.artists
-      .filter((artist) => artist.active)
-      .map((artist) => (alias === 'artist' ? artist.name : artist.crew))
-      .filter((value) => !isBlank(value));
+      .filter((artist) => artist.active && !isBlank(artist.name))
+      .map((artist) => artist.name)
+      .join(' · ');
 
   return (
     <section class={`${styles.panel} ${props.class ?? ''}`}>
@@ -147,7 +147,7 @@ export function ShowInfoPanel(props: {
                   <For each={aliases}>{(alias) => <option value={alias}>{alias}</option>}</For>
                 </select>
                 <Show
-                  when={row.alias === 'artist' || row.alias === 'crew' ? row.alias : undefined}
+                  when={row.alias === 'artist'}
                   fallback={
                     <MultilineText
                       label="Row text"
@@ -157,10 +157,10 @@ export function ShowInfoPanel(props: {
                     />
                   }
                 >
-                  {(alias) => (
+                  {(_artist) => (
                     <p class={styles.readout}>
                       <Show
-                        when={artistValues(alias()).join(' · ')}
+                        when={activeArtists()}
                         fallback={<span class={styles.empty}>no active artists</span>}
                       >
                         {(value) => unescapeNewlines(value())}
@@ -205,12 +205,6 @@ export function ShowInfoPanel(props: {
                   placeholder="Name"
                   value={artist.name}
                   onInput={(name) => store.setArtistName(artist.id, name)}
-                />
-                <MultilineText
-                  label="Crew"
-                  placeholder="Crew"
-                  value={artist.crew}
-                  onInput={(crew) => store.setArtistCrew(artist.id, crew)}
                 />
                 <RowControls
                   label={artist.name || `artist ${index() + 1}`}

@@ -9,8 +9,8 @@ import {
   type ShowInfo,
 } from './showinfo';
 
-function artist(name: string, crew: string, active = true): Artist {
-  return { id: crypto.randomUUID(), name, crew, active };
+function artist(name: string, active = true): Artist {
+  return { id: crypto.randomUUID(), name, active };
 }
 
 function show(opts: {
@@ -33,59 +33,35 @@ const texts = { event: 'Elements', city: 'Boston', venue: 'Phoenix\\nLanding' };
 
 describe('actTextList', () => {
   it('builds the list from the default rows', () => {
-    const s = show({ texts, artists: [artist('Variable', 'Rezinate')] });
-    expect(actTextList(s)).toEqual([
-      'Variable',
-      'Elements',
-      'Rezinate',
-      'Boston',
-      'Phoenix\\nLanding',
-    ]);
+    const s = show({ texts, artists: [artist('Variable')] });
+    expect(actTextList(s)).toEqual(['Variable', 'Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
   it('expands a b2b in roster order', () => {
     const s = show({
       texts,
       off: ['venue'],
-      artists: [artist('Variable', 'Rezinate'), artist('Audio Fields', 'Bassweight')],
+      artists: [artist('Variable'), artist('Audio Fields')],
     });
-    expect(actTextList(s)).toEqual([
-      'Variable',
-      'Audio Fields',
-      'Elements',
-      'Rezinate',
-      'Bassweight',
-      'Boston',
-    ]);
+    expect(actTextList(s)).toEqual(['Variable', 'Audio Fields', 'Elements', 'Boston']);
   });
 
   it('ignores an inactive artist between two active ones', () => {
     const s = show({
       texts,
       off: ['venue'],
-      artists: [
-        artist('Variable', 'Rezinate'),
-        artist('Skipped', 'Nobody', false),
-        artist('Audio Fields', 'Bassweight'),
-      ],
+      artists: [artist('Variable'), artist('Skipped', false), artist('Audio Fields')],
     });
-    expect(actTextList(s)).toEqual([
-      'Variable',
-      'Audio Fields',
-      'Elements',
-      'Rezinate',
-      'Bassweight',
-      'Boston',
-    ]);
+    expect(actTextList(s)).toEqual(['Variable', 'Audio Fields', 'Elements', 'Boston']);
   });
 
   it('moves the event to slot 1 with no active artists', () => {
-    const s = show({ texts, artists: [artist('Variable', 'Rezinate', false)] });
+    const s = show({ texts, artists: [artist('Variable', false)] });
     expect(actTextList(s)).toEqual(['Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
-  it('pulls the city up when an active artist has no crew', () => {
-    const s = show({ texts, artists: [artist('Variable', '')] });
+  it('skips an active artist with a blank name', () => {
+    const s = show({ texts, artists: [artist(' '), artist('Variable')] });
     expect(actTextList(s)).toEqual(['Variable', 'Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
@@ -94,8 +70,8 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Boston', 'Phoenix\\nLanding']);
   });
 
-  it('ignores typed text on artist and crew rows', () => {
-    const s = show({ texts: { artist: 'typed', crew: 'typed' } });
+  it('ignores typed text on artist rows', () => {
+    const s = show({ texts: { artist: 'typed' } });
     expect(actTextList(s)).toEqual([]);
   });
 
@@ -113,25 +89,16 @@ describe('actTextList', () => {
 
 describe('namedValues', () => {
   it('returns every key, blank when nothing contributes', () => {
-    expect(namedValues(show({}))).toEqual({ artist: '', crew: '', event: '', venue: '', city: '' });
+    expect(namedValues(show({}))).toEqual({ artist: '', event: '', venue: '', city: '' });
   });
 
   it('is blank when the only row with the alias is off', () => {
     expect(namedValues(show({ texts, off: ['city'] })).city).toBe('');
   });
 
-  it('uses the first active artist and their crew', () => {
-    const s = show({
-      artists: [artist('Gone', 'X', false), artist('Variable', 'Rezinate'), artist('Other', 'Y')],
-    });
-    const n = namedValues(s);
-    expect(n.artist).toBe('Variable');
-    expect(n.crew).toBe('Rezinate');
-  });
-
-  it('skips blank crews', () => {
-    const s = show({ artists: [artist('Variable', ' '), artist('Audio Fields', 'Bassweight')] });
-    expect(namedValues(s).crew).toBe('Bassweight');
+  it('uses the first active artist', () => {
+    const s = show({ artists: [artist('Gone', false), artist('Variable'), artist('Other')] });
+    expect(namedValues(s).artist).toBe('Variable');
   });
 
   it('takes the first of repeated aliases', () => {
@@ -168,11 +135,11 @@ describe('layerTextList', () => {
 });
 
 describe('defaultShowDocument', () => {
-  it('has five on rows in order with unique ids', () => {
+  it('has four on rows in order with unique ids', () => {
     const d = defaultShowDocument();
-    expect(d.show.rows.map((r) => r.alias)).toEqual(['artist', 'event', 'crew', 'city', 'venue']);
+    expect(d.show.rows.map((r) => r.alias)).toEqual(['artist', 'event', 'city', 'venue']);
     expect(d.show.rows.every((r) => r.on && r.text === '')).toBe(true);
-    expect(new Set(d.show.rows.map((r) => r.id)).size).toBe(5);
+    expect(new Set(d.show.rows.map((r) => r.id)).size).toBe(4);
     expect(d.show.artists).toEqual([]);
     expect(d.overrides).toEqual({});
   });
