@@ -1,3 +1,5 @@
 {
-  "td_build": "2025.33070"
+  "envoy": {
+    "enabled": true
+  }
 }
