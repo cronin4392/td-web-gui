@@ -78,6 +78,12 @@ _CONFIG_WATCH_FILE = _TDCOREDIR % "config-execute.py"
 # two instances in one project each read their own Config File.
 _CONFIG_FILE_EXPR = "parent.WebGuiServer.par.Configfile"
 
+_PACKAGE_SOURCES = {
+    "webserver1_callbacks": _TDCOREDIR % "webserver-callbacks.py",
+    "webrtc1_callbacks": _TDCOREDIR % "webrtc-callbacks.py",
+    "WebGuiServerExt": _TDCOREDIR % "webgui-server-ext.py",
+}
+
 _EXIT_WATCH_NAME = "exit_watch"
 _EXIT_WATCH_FILE = _TDCOREDIR % "exit-execute.py"
 
@@ -211,8 +217,9 @@ class WebGuiServerExt:
         if not self.ownerComp.valid:
             return
 
-        # Restores the config DAT's link to config.py, which a .tox export strips.
+        # Restores the links to config.py and the package scripts, which a .tox export strips.
         self._ensureConfigSource()
+        self._ensurePackageSources()
 
         config_watch = self._ensureConfigWatcher()
         exit_watch = self._ensureExitWatcher()
@@ -365,6 +372,15 @@ class WebGuiServerExt:
 
         self._setExpr(dat.par.file, _CONFIG_FILE_EXPR)
         self._setPar(dat.par.syncfile, 1)
+
+    def _ensurePackageSources(self):
+        # Re-linking WebGuiServerExt reinits this extension once; the next Rebuild finds nothing to change.
+        for name, expr in _PACKAGE_SOURCES.items():
+            dat = self.ownerComp.op(name)
+            if dat is None:
+                continue
+            self._setExpr(dat.par.file, expr)
+            self._setPar(dat.par.syncfile, 1)
 
     # ── config watcher ────────────────────────────────────────────────────────
 
