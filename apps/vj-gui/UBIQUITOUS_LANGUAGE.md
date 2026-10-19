@@ -68,7 +68,7 @@ relative to `apps/vj-gui`.
 | --------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
 | **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`    | Library, phrase library, text state |
 | **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                  | Tab, phrase tab, list               |
-| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's text param on pick        | Line, entry, saved text             |
+| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's Override on pick          | Line, entry, saved text             |
 | **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged | History, recents                    |
 
 ## Show info

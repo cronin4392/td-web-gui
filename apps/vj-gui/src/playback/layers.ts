@@ -8,8 +8,8 @@
  *
  * The page drives **sixteen** TouchDesigner servers, of **three** kinds:
  *
- *   - the GUI project (`td/gui-config.py`), which owns the fourteen loaders'
- *     text params — one of a kind, one schema; its MIDI select button nudges
+ *   - the GUI project (`td/gui-config.py`), which owns the color scheme and beat
+ *     period — one of a kind, one schema; its MIDI select button nudges
  *     the selection by calling `selectLayer` rather than by holding it;
  *   - the scene projects (`td/scene-config.py`), one process per live scene;
  *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
