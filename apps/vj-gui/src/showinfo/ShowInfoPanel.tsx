@@ -121,6 +121,44 @@ export function ShowInfoPanel(props: {
 
       <div class={styles.body}>
         <div class={styles.sectionHeader}>
+          <h3 class={styles.sectionTitle}>Artists</h3>
+          <button
+            type="button"
+            class={styles.iconButton}
+            aria-label="Add an artist"
+            onClick={() => store.addArtist()}
+          >
+            +
+          </button>
+        </div>
+        <ul class={styles.list}>
+          <For each={store.state.show.artists}>
+            {(artist, index) => (
+              <li class={styles.item} classList={{ [styles.off!]: !artist.active }}>
+                <MultilineText
+                  label="Artist name"
+                  placeholder="Name"
+                  value={artist.name}
+                  onInput={(name) => store.setArtistName(artist.id, name)}
+                />
+                <RowControls
+                  label={artist.name || `artist ${index() + 1}`}
+                  index={index()}
+                  count={store.state.show.artists.length}
+                  on={artist.active}
+                  onToggle={() => store.toggleArtist(artist.id)}
+                  onMove={(to) => store.moveArtist(index(), to)}
+                  onRemove={() => store.removeArtist(artist.id)}
+                />
+              </li>
+            )}
+          </For>
+          <Show when={store.state.show.artists.length === 0}>
+            <li class={styles.empty}>No artists yet.</li>
+          </Show>
+        </ul>
+
+        <div class={styles.sectionHeader}>
           <h3 class={styles.sectionTitle}>Show</h3>
           <button
             type="button"
@@ -182,44 +220,6 @@ export function ShowInfoPanel(props: {
           </For>
           <Show when={store.state.show.rows.length === 0}>
             <li class={styles.empty}>No rows yet.</li>
-          </Show>
-        </ul>
-
-        <div class={styles.sectionHeader}>
-          <h3 class={styles.sectionTitle}>Artists</h3>
-          <button
-            type="button"
-            class={styles.iconButton}
-            aria-label="Add an artist"
-            onClick={() => store.addArtist()}
-          >
-            +
-          </button>
-        </div>
-        <ul class={styles.list}>
-          <For each={store.state.show.artists}>
-            {(artist, index) => (
-              <li class={styles.item} classList={{ [styles.off!]: !artist.active }}>
-                <MultilineText
-                  label="Artist name"
-                  placeholder="Name"
-                  value={artist.name}
-                  onInput={(name) => store.setArtistName(artist.id, name)}
-                />
-                <RowControls
-                  label={artist.name || `artist ${index() + 1}`}
-                  index={index()}
-                  count={store.state.show.artists.length}
-                  on={artist.active}
-                  onToggle={() => store.toggleArtist(artist.id)}
-                  onMove={(to) => store.moveArtist(index(), to)}
-                  onRemove={() => store.removeArtist(artist.id)}
-                />
-              </li>
-            )}
-          </For>
-          <Show when={store.state.show.artists.length === 0}>
-            <li class={styles.empty}>No artists yet.</li>
           </Show>
         </ul>
       </div>
