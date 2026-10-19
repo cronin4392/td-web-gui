@@ -1,6 +1,6 @@
 format: tdxn
 version: '2.2'
-build: 15
+build: 16
 generator: Embody/6.2.74
 td_build: 099.2025.33230
 network_path: /project1/WebGuiServer
@@ -73,7 +73,6 @@ type_defaults:
     parameters:
       fps: 15
       mode: webrtc
-      webrtc: webrtc1
     size: [130, 90]
     color: [0.67, 0.67, 0.67]
     tags:
@@ -280,32 +279,24 @@ operators:
   dock: webrtc1
 - name: videostreamout_tile1
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile1
   position: [2400, 717]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile1
 - name: videostreamout_tile2
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile2
   position: [2400, 317]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile2
 - name: videostreamout_tile3
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile3
   position: [2400, -83]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
   - flip_tile3
 - name: videostreamout_tile4
   type: videostreamoutTOP
-  parameters:
-    webrtcvideotrack: tile4
   position: [2400, -483]
   comment: Generated from the config REGISTRY / READOUTS / STREAMS by WebGuiServerExt. Edits are overwritten on the next Rebuild.
   inputs:
