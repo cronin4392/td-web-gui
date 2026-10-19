@@ -30,7 +30,7 @@ import {
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the fourteen loaders' text params, the color ramp, the Color
+/** The GUI project: the color ramp, the Color
  * scheme catalog, and the MIDI select button's `selectLayer`. */
 export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
 
@@ -49,7 +49,6 @@ export type LayerConnections = Partial<Record<LayerId, LoaderConnection>>;
 
 export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
-export type { LayerTextParamName } from './wire';
 
 /**
  * Resolves `layer` to its live connection and loads `path` on it — the one

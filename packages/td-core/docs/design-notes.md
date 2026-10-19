@@ -248,6 +248,20 @@ web-side change at all. Declaring readouts in `<Provider readonly>` is still
 worth doing: it disables the control from the start instead of after the first
 refused edit.
 
+### One exception: a writable Table DAT
+
+A whole-table readout on a **Table DAT** can be declared `writable: True`, and
+an `update` then replaces the table's contents. This is how a web app hands TD
+a computed list of any length, which no parameter can hold.
+
+It is a readout and not a `REGISTRY` entry because everything else it needs
+already exists for readouts: a watcher on the DAT, the end-of-frame broadcast
+that echoes the write to every client, and a place in the snapshot. A
+`REGISTRY` entry assumes a `par` throughout. Only a Table DAT qualifies, since
+any other DAT regenerates its contents on its next cook and would silently
+undo the write. It is opt-in so that publishing a table never makes it
+editable by accident.
+
 ### The type is inferred from the entry's shape
 
 `chan: 'fps'` is a number, `chan: ['low','mid']` is a `number[]`, a `row`/`col`

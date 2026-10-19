@@ -2,7 +2,6 @@
 Config for the GUI instance — the scene-loader control surface, on port 8765.
 
 Backing operators this project expects:
-        /GUI/ExternalScenes/SceneA … SceneZ6  custom pars `Text`, `Text2`
         the Colors tool named by COLOR_TOOL below, and its color scheme COMPs
         the status bar's beat-period radio, named by BEAT_PERIOD_RADIO below
 
@@ -27,12 +26,6 @@ The scenes are separate processes with their own config: td/scene-config.py.
 """
 
 CALLBACKS = "webserver1_callbacks"
-
-# The fourteen external scene loaders, matching SCENE_KEYS in Tools/ExternalPorts.
-# Each exposes the same pair of text pars. A tuple rather than a string: the Z
-# keys are two characters, so iterating a string would split them.
-SCENE_IDS = ("A", "B", "C", "D", "E", "F", "G", "H", "Z1", "Z2", "Z3", "Z4", "Z5", "Z6")
-SCENE_PATH = "/GUI/ExternalScenes/Scene%s"
 
 # The Colors tool: owner of the active-scheme par, and the COMP the color groups
 # sit inside.
@@ -71,16 +64,6 @@ REGISTRY = {
         "type": "number",
     },
 }
-
-# sceneAText1 / sceneAText2 … sceneZ6Text1 / sceneZ6Text2. The web app derives
-# these same names from its scene id, so the two sides must agree on the spelling.
-for _scene in SCENE_IDS:
-    REGISTRY["scene%sText1" % _scene] = {"op": SCENE_PATH % _scene, "par": "Text", "type": "string"}
-    REGISTRY["scene%sText2" % _scene] = {
-        "op": SCENE_PATH % _scene,
-        "par": "Text2",
-        "type": "string",
-    }
 
 # Params only — the video comes from the scene instances, not from here. The web
 # side matches: App.tsx passes `video` to the scene providers, not the GUI one.

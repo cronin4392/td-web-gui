@@ -1,5 +1,7 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import { unescapeNewlines, type SelectOption } from 'td-core';
+import { useShowInfo } from '@/showinfo/context';
+import { TextDelivery } from '@/showinfo/TextDelivery';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
 import { RadioGroup } from '@/ui/RadioGroup';
@@ -11,12 +13,11 @@ import {
   LAYOUT_OPTIONS,
   LOADER_STREAM,
   layerIdForLoader,
-  layerTextParam,
   loaderInstances,
   performanceStat,
   type LoaderId,
 } from './wire';
-import { GuiClient, LoaderClient, LoaderProvider } from './clients';
+import { LoaderClient, LoaderProvider } from './clients';
 import { usePlayback } from './PlaybackProvider';
 import {
   atLeast,
@@ -68,6 +69,7 @@ function LayerPanel(props: { loader: LoaderId; compact?: boolean }): JSX.Element
   const Body = props.compact ? CompactLayerBody : LayerBody;
   return (
     <LoaderProvider loader={props.loader} video={!props.compact}>
+      <TextDelivery layer={layer} />
       <Body layer={layer} active={layer === selectedLayer()} onSelect={() => selectLayer(layer)} />
     </LoaderProvider>
   );
@@ -137,27 +139,18 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   );
 }
 
-/**
- * The layer's two captions, echoed over its tile so the operator can read what
- * every layer is saying without selecting each one. They live on the GUI
- * instance rather than the loader, so this reaches past `LoaderProvider` to the
- * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
- * shadow it.
- */
 function LayerTexts(props: { layer: LayerId }): JSX.Element {
-  const text1 = layerText(props.layer, 1);
-  const text2 = layerText(props.layer, 2);
-  const lines = () => [text1(), text2()].filter((text) => text !== undefined);
+  const { state } = useShowInfo();
+  const lines = () =>
+    (state.overrides[props.layer] ?? [])
+      .slice(0, 2)
+      .map((text) => unescapeNewlines(text).trim())
+      .filter(Boolean);
   return (
     <span class={styles.texts}>
       <For each={lines()}>{(line) => <span class={styles.textLine}>{line}</span>}</For>
     </span>
   );
-}
-
-function layerText(layer: LayerId, slot: 1 | 2): () => string | undefined {
-  const binding = GuiClient.signal(layerTextParam(layer, slot));
-  return () => unescapeNewlines(binding.value() ?? '').trim() || undefined;
 }
 
 /**
@@ -328,19 +321,15 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
   const connection = LoaderClient.useConnection();
   const layout = LoaderClient.signal('layout');
   const color = LoaderClient.signal('color');
-  const text1 = GuiClient.signal(layerTextParam(props.layer, 1));
-  const text2 = GuiClient.signal(layerTextParam(props.layer, 2));
+  const showInfo = useShowInfo();
 
   function clear(): void {
-    // The params go regardless: a layer whose process is down still shows its
-    // captions over the thumbnail, and those are the GUI's to clear.
     void connection
       .call('clearScene')
       .catch((error: unknown) => console.warn('[vj-gui] clear failed', error));
     layout.setValue(LAYOUT_OPTIONS[0].value);
     color.setValue(COLOR_OPTIONS[0].value);
-    text1.setValue('');
-    text2.setValue('');
+    showInfo.clearOverrides(props.layer);
   }
 
   return (

@@ -1,0 +1,121 @@
+@layer components {
+  .panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    padding: var(--spacing-m);
+  }
+
+  .body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    overflow-y: auto;
+  }
+
+  .sectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-m);
+  }
+
+  .sectionTitle {
+    font-size: var(--text-s);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-muted);
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    margin-bottom: var(--spacing-m);
+  }
+
+  .item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-s);
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+
+  .off {
+    opacity: 0.55;
+  }
+
+  .controls {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--spacing-s);
+  }
+
+  .select,
+  .text {
+    min-width: 0;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &::placeholder {
+      color: var(--color-text-faint);
+    }
+  }
+
+  .select {
+    flex-shrink: 0;
+    width: 6.5rem;
+  }
+
+  .text {
+    display: block;
+    flex: 1;
+    resize: vertical;
+  }
+
+  .readout {
+    flex: 1;
+    min-width: 0;
+    padding: var(--spacing-s) var(--spacing-m);
+    font-size: var(--text-m);
+    white-space: pre-line;
+    color: var(--color-text-muted);
+  }
+
+  .empty {
+    color: var(--color-text-faint);
+  }
+
+  .iconButton {
+    display: grid;
+    place-items: center;
+    padding: var(--spacing-s) var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: var(--text-s);
+    line-height: 1;
+    color: var(--color-text-muted);
+
+    &:hover:not(:disabled) {
+      border-color: var(--color-border-hover);
+      color: var(--color-text);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+    }
+  }
+
+  .danger:hover:not(:disabled) {
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}

@@ -53,17 +53,14 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
   return instance.slice('scene'.length) as LayerId;
 }
 
-/** Wire names of the per-loader text params, e.g. `sceneAText1`. */
-export type LayerTextParamName = `scene${LayerId}Text${1 | 2}`;
-
 /** Authored here, like {@link LAYOUT_OPTIONS}: TD announces menus, not radios. */
 export const BEAT_PERIODS = [1, 2, 4] as const;
 
 /**
- * Param schema for the `vj-gui` instance: a `text1`/`text2` pair per
- * scene loader, plus the selected Color scheme and beat period.
+ * Param schema for the `vj-gui` instance: the selected Color scheme and beat
+ * period.
  */
-export type GuiParams = Record<LayerTextParamName, string> & {
+export interface GuiParams {
   /**
    * Path of the Color scheme driving the GUI — TD's `Activecolorpath`, and the
    * `path` of one entry in the {@link GuiCalls} catalog.
@@ -76,7 +73,7 @@ export type GuiParams = Record<LayerTextParamName, string> & {
   /** Index into {@link BEAT_PERIODS}, which is what TD's radio par holds — not
    * the period in beats. */
   beatPeriod: number;
-};
+}
 
 /**
  * Calls the GUI instance exposes — the TS half of `HANDLERS` in
@@ -185,6 +182,9 @@ export interface LoaderParams {
    * {@link COLOR_OPTIONS} are the web-side copy of those menus. */
   layout: string;
   color: string;
+  /** Unlike `performance`, written by the web: TD only receives these. */
+  textList: string[][];
+  textVars: string[][];
 }
 
 /** Scene readout names, declared read-only so their controls render disabled. */
@@ -266,11 +266,3 @@ export function asLayerId(value: string | undefined): LayerId | undefined {
 
 /** Wire name of the video stream each loader publishes over WebRTC. */
 export const LOADER_STREAM = 'scene';
-
-/** Wire name of a scene's text param — the TS half of the naming contract above. */
-export function layerTextParam<N extends 1 | 2>(
-  layer: LayerId,
-  slot: N,
-): `scene${LayerId}Text${N}` {
-  return `scene${layer}Text${slot}`;
-}

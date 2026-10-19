@@ -1,0 +1,24 @@
+@layer components {
+  .dialog {
+    width: min(56rem, 92vw);
+    height: min(48rem, 85vh);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+
+    &::backdrop {
+      background-color: var(--color-overlay);
+    }
+
+    &[open] {
+      display: flex;
+    }
+  }
+
+  .panel {
+    flex: 1;
+  }
+}

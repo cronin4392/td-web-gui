@@ -295,11 +295,13 @@ def _read(name):
     return _to_string(value, where)
 
 
-# ── readouts (TD -> web only) ─────────────────────────────────────────────────
+# ── readouts (TD -> web) ──────────────────────────────────────────────────────
 #
 # A readout publishes a value with no parameter behind it — a CHOP channel, a
 # DAT cell, a whole DAT table. It rides the same `params` map as REGISTRY.
-# Nothing below ever writes: the web-facing refusal lives in _write/_pulse.
+# Nothing below ever writes: the one writable kind, a whole Table DAT declared
+# 'writable': True, is handled by _write_table, and every other refusal lives
+# in _write/_pulse.
 
 # Source kind, inferred from the entry's shape (the shapes are disjoint).
 _CHANNEL = "channel"  # 'chan': 'level'
@@ -1342,13 +1344,7 @@ def _write(name, value):
     entry = _registry().get(name)
     if entry is None:
         if name in _readouts():
-            # param_not_writable (not unknown_param) is what triggers the
-            # web's safety net: it marks the name read-only and re-requests a
-            # snapshot, so the optimistic edit snaps back.
-            return (
-                "param_not_writable",
-                "'%s' is a readout (READOUTS), which is TD -> web only" % name,
-            )
+            return _write_table(name, value)
         return "unknown_param", "no param '%s'" % name
     if entry["type"] == "pulse":
         return "unknown_param", "'%s' is pulse-only, send a pulse message" % name
@@ -1366,6 +1362,45 @@ def _write(name, value):
     # component can't leave the first two already written.
     for par, coerced in zip(pars, values):
         par.val = coerced
+    return None
+
+
+def _write_table(name, value):
+    entry = _readouts()[name]
+    if _readout_kind(entry) != _TABLE or entry.get("writable") is not True:
+        # param_not_writable (not unknown_param) is what triggers the
+        # web's safety net: it marks the name read-only and re-requests a
+        # snapshot, so the optimistic edit snaps back.
+        return (
+            "param_not_writable",
+            "'%s' is a readout (READOUTS); only a whole-table readout declared "
+            "'writable': True accepts writes" % name,
+        )
+    try:
+        _readout_type(name, entry, _TABLE)
+    except _WireTypeError as e:
+        return "param_not_writable", str(e)
+    try:
+        base = _readout_op(name, entry, _TABLE)
+    except _WireTypeError as e:
+        return "missing_param", str(e)
+    if not isinstance(base, tableDAT):
+        # Any other DAT regenerates its contents on its next cook, silently undoing the write.
+        return (
+            "param_not_writable",
+            "readout '%s': '%s' is not a Table DAT" % (name, entry["op"]),
+        )
+    rows = value if isinstance(value, list) else None
+    if rows is None or not all(
+        isinstance(row, list) and all(isinstance(cell, str) for cell in row) for row in rows
+    ):
+        return "param_type_mismatch", "readout '%s' expected rows of strings, got %r" % (
+            name,
+            value,
+        )
+    base.clear()
+    for row in rows:
+        base.appendRow(row)
     return None
 
 
