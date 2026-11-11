@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TextState } from '@domain/textstate/textstate';
 import { createTextStateStore, withSlot, type CreateTextStateStoreOptions } from './store';
 
-function doc(): TextState {
+function state(): TextState {
   return {
     show: {
       rows: [
@@ -18,7 +18,7 @@ function doc(): TextState {
 let stores: { dispose: () => void }[] = [];
 
 function makeStore(options: CreateTextStateStoreOptions = {}) {
-  const store = createTextStateStore({ initial: doc(), debounceMs: 20, ...options });
+  const store = createTextStateStore({ initial: state(), debounceMs: 20, ...options });
   stores.push(store);
   return store;
 }
@@ -66,7 +66,7 @@ describe('setShow', () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });
-    store.setShow(doc().show);
+    store.setShow(state().show);
     await vi.advanceTimersByTimeAsync(25);
     expect(save).not.toHaveBeenCalled();
   });
@@ -104,7 +104,7 @@ describe('persistence', () => {
     await vi.advanceTimersByTimeAsync(25);
     expect(save).toHaveBeenCalledTimes(1);
     const saved = save.mock.calls[0]![0] as TextState;
-    expect(saved.show).toEqual(doc().show);
+    expect(saved.show).toEqual(state().show);
     expect(saved.overrides).toEqual({ A: ['x', 'y'], B: ['ab'] });
   });
 

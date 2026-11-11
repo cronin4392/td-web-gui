@@ -73,7 +73,7 @@ describe('textStateApiHandler', () => {
   });
 
   it('PUT a valid text state writes it and returns 204', async () => {
-    const doc: TextState = {
+    const state: TextState = {
       show: {
         rows: [
           { id: 'a1', alias: 'artist', text: 'Variable', on: true },
@@ -83,11 +83,11 @@ describe('textStateApiHandler', () => {
       overrides: { A: ['Junglist'] },
     };
 
-    const res = await put(JSON.stringify(doc));
+    const res = await put(JSON.stringify(state));
 
     expect(res.status).toBe(204);
     expect(res.body).toBe('');
-    expect(readTextState(db)).toEqual(doc);
+    expect(readTextState(db)).toEqual(state);
   });
 
   it('PUT reports a write failure as a 500', async () => {

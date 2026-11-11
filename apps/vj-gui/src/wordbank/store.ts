@@ -1,5 +1,5 @@
 /**
- * App state + persistence (TEXT_SELECTOR.md §§2-3, 5).
+ * App state + persistence.
  *
  * `createWordbankStore()` is a factory (not a bare module singleton) so
  * tests can spin up isolated instances with a fake `persistence.save` /
@@ -8,7 +8,7 @@
  * Persistence is split by what the data *is*, not stored in one blob:
  * `lists`/`recent` are wordbank content and go through `persistence.save` (the
  * SQLite-backed `/api/wordbank`, via `saveWordbank()` in `wordbank-api.ts`);
- * `selectedListId` is a per-browser UI preference and stays in `localStorage`.
+ * `selectedTabId` is a per-browser UI preference and stays in `localStorage`.
  * Both share one debounce timer via two dirty flags, so switching lists
  * writes `localStorage` without rewriting the wordbank.
  */
@@ -25,18 +25,18 @@ const RECENT_LIMIT = 10;
 const DEFAULT_DEBOUNCE_MS = 200;
 
 /** Pinned first entry in the tab strip, backed by `state.recent` rather than `state.lists` — never a real list id. */
-export const RECENT_LIST_ID = '__recent__';
+export const RECENT_TAB_ID = '__recent__';
 /** Pinned after Recent; backed by the Act text list in the text state store, not by `state.lists`. */
 export const SHOW_TAB_ID = '__show__';
 
 function isPinnedTabId(id: string): boolean {
-  return id === RECENT_LIST_ID || id === SHOW_TAB_ID;
+  return id === RECENT_TAB_ID || id === SHOW_TAB_ID;
 }
 
 export interface WordbankState {
   lists: PhraseList[];
   recent: string[];
-  selectedListId: string;
+  selectedTabId: string;
 }
 
 // ---- pure helpers ----------------------------------------------------------
@@ -59,11 +59,11 @@ export function searchWordbank(
 ): string[] {
   const q = query.trim().toLowerCase();
   const all = new Set([...lists.flatMap((l) => l.phrases), ...recent]);
-  return [...all].filter((phrase) => phrase.toLowerCase().includes(q));
+  return [...all].filter((text) => text.toLowerCase().includes(q));
 }
 
-/** The persisted `selectedListId` if it names one of `lists` (or the pinned Recent list); the first list otherwise. Never throws. */
-function loadSelectedListId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
+/** The persisted `selectedTabId` if it names one of `lists` (or the pinned Recent list); the first list otherwise. Never throws. */
+function loadSelectedTabId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
   const fallback = lists[0]!.id;
   if (!storage) return fallback;
   try {
@@ -82,7 +82,7 @@ export interface CreateStoreOptions {
   initial?: Wordbank;
   /** Where wordbank writes (lists/phrases/recent) go. Omitted in tests that don't care about persistence. */
   persistence?: { save: (wordbank: Wordbank) => void | Promise<void> };
-  /** Where `selectedListId` — UI state, not wordbank content — is remembered. Defaults to `localStorage`. */
+  /** Where `selectedTabId` — UI state, not wordbank content — is remembered. Defaults to `localStorage`. */
   uiStorage?: Storage;
   /** Debounce window for writes, in ms. Default 200. */
   debounceMs?: number;
@@ -100,8 +100,8 @@ export interface WordbankStore {
   renameList: (id: string, name: string) => void;
   /** Delete a list (no-op if it's the last one); reassigns the selected list if needed. */
   deleteList: (id: string) => void;
-  /** Also accepts the pinned `RECENT_LIST_ID` and `SHOW_TAB_ID`. */
-  selectList: (id: string) => void;
+  /** Also accepts the pinned `RECENT_TAB_ID` and `SHOW_TAB_ID`. */
+  selectTab: (id: string) => void;
   reorderLists: (fromIndex: number, toIndex: number) => void;
 
   /** Add a phrase to the top of a list's phrases; moves an existing match to the top instead of duplicating. */
@@ -124,7 +124,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   const [state, setState] = createStore<WordbankState>({
     lists: wordbank.lists,
     recent: wordbank.recent,
-    selectedListId: loadSelectedListId(uiStorage, wordbank.lists),
+    selectedTabId: loadSelectedTabId(uiStorage, wordbank.lists),
   });
 
   let wordbankDirty = false;
@@ -151,7 +151,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   function writeUiStorage() {
     if (!uiStorage) return;
     try {
-      uiStorage.setItem(UI_STORAGE_KEY, state.selectedListId);
+      uiStorage.setItem(UI_STORAGE_KEY, state.selectedTabId);
     } catch {
       // A UI preference, not wordbank content — silently dropped on quota/private-mode failure.
     }
@@ -193,7 +193,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   function addList(): string {
     const list = makeList(nextListName());
     setState('lists', (lists) => [...lists, list]);
-    setState('selectedListId', list.id);
+    setState('selectedTabId', list.id);
     markWordbankDirty();
     markUiDirty();
     return list.id;
@@ -212,7 +212,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     if (state.lists.length <= 1) return; // last-list guard
     const idx = findListIndex(id);
     if (idx === -1) return;
-    const wasSelected = state.selectedListId === id;
+    const wasSelected = state.selectedTabId === id;
 
     setState('lists', (lists) => lists.filter((l) => l.id !== id));
 
@@ -221,16 +221,16 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
       const newIdx = Math.min(Math.max(0, idx - 1), state.lists.length - 1);
       const next = state.lists[newIdx];
       if (next) {
-        setState('selectedListId', next.id);
+        setState('selectedTabId', next.id);
         markUiDirty();
       }
     }
     markWordbankDirty();
   }
 
-  function selectList(id: string): void {
+  function selectTab(id: string): void {
     if (!isPinnedTabId(id) && findListIndex(id) === -1) return;
-    setState('selectedListId', id);
+    setState('selectedTabId', id);
     markUiDirty(); // UI-only: does not touch the wordbank, so no wordbankDirty here.
   }
 
@@ -298,7 +298,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     addList,
     renameList,
     deleteList,
-    selectList,
+    selectTab,
     reorderLists,
     addPhrase,
     deletePhrase,

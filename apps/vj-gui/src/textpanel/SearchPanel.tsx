@@ -1,5 +1,5 @@
 import { For, Show, createMemo, type JSX } from 'solid-js';
-import { searchWordbank, type WordbankStore } from './store';
+import { searchWordbank, type WordbankStore } from '@/wordbank/store';
 import { TextChip } from './TextChip';
 import styles from './SearchPanel.module.css';
 
@@ -23,7 +23,7 @@ export function SearchPanel(props: SearchPanelProps): JSX.Element {
               <TextChip
                 text={text}
                 source="search"
-                tabId={null}
+                listId={null}
                 index={null}
                 onApply={props.onApply}
               />

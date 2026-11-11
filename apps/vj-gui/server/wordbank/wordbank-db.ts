@@ -1,5 +1,5 @@
 /**
- * SQLite persistence for the phrase wordbank (TEXT_SELECTOR.md §5).
+ * SQLite persistence for the phrase wordbank.
  *
  * Owns the schema, the `PRAGMA user_version` migration + seed, and the two
  * operations `/api/wordbank` needs. No HTTP awareness — `plugin.ts` is the

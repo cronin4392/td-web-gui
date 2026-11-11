@@ -17,7 +17,7 @@ function open(): DatabaseSync {
   return db;
 }
 
-const doc: TextState = {
+const state: TextState = {
   show: {
     rows: [
       { id: 'r2', alias: 'venue', text: '', on: false },
@@ -156,13 +156,13 @@ describe('migration', () => {
 describe('round trip', () => {
   it('reads back exactly what was written, in order, blanks kept', () => {
     const db = open();
-    writeTextState(db, doc);
-    expect(readTextState(db)).toEqual(doc);
+    writeTextState(db, state);
+    expect(readTextState(db)).toEqual(state);
   });
 
   it('replaces the previous text state rather than merging into it', () => {
     const db = open();
-    writeTextState(db, doc);
+    writeTextState(db, state);
     const next: TextState = { show: { rows: [] }, overrides: {} };
     writeTextState(db, next);
     expect(readTextState(db)).toEqual(next);
@@ -170,15 +170,15 @@ describe('round trip', () => {
 
   it('survives reopening without reseeding', () => {
     const db = open();
-    writeTextState(db, doc);
+    writeTextState(db, state);
     db.close();
     openDbs = [];
-    expect(readTextState(open())).toEqual(doc);
+    expect(readTextState(open())).toEqual(state);
   });
 
   it('rolls back a write that fails midway', () => {
     const db = open();
-    writeTextState(db, doc);
+    writeTextState(db, state);
     const duplicateIds: TextState = {
       show: {
         rows: [
@@ -189,6 +189,6 @@ describe('round trip', () => {
       overrides: {},
     };
     expect(() => writeTextState(db, duplicateIds)).toThrow();
-    expect(readTextState(db)).toEqual(doc);
+    expect(readTextState(db)).toEqual(state);
   });
 });

@@ -11,7 +11,7 @@ import type { TextState } from '@domain/textstate/textstate';
 import { EffectSelector } from './catalog/EffectSelector';
 import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
-import { TextSelector } from './wordbank/TextSelector';
+import { TextPanel } from './textpanel/TextPanel';
 import { Tools } from './playback/Tools';
 import styles from './App.module.css';
 
@@ -45,7 +45,7 @@ export function App(props: AppProps): JSX.Element {
             <main class={styles.app}>
               <LayerPreviews class={styles.previews} />
               <SceneSelector class={styles.scenes} />
-              <TextSelector store={store} textState={textState} />
+              <TextPanel store={store} textState={textState} />
               <EffectSelector />
               <Tools />
             </main>

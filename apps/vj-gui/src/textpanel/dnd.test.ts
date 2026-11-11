@@ -31,7 +31,7 @@ describe('setTextDragData / readTextDragData', () => {
     const payload: TextDragPayload = {
       text: 'hello',
       source: 'list',
-      tabId: 'tab-a',
+      listId: 'tab-a',
       index: 2,
     };
 
@@ -55,9 +55,9 @@ describe('setTextDragData / readTextDragData', () => {
     expect(readTextDragData(dt)).toBeNull();
   });
 
-  it('returns null when the parsed payload has no phrase string', () => {
+  it('returns null when the parsed payload has no text string', () => {
     const dt = dataTransfer();
-    dt.setData(TEXT_MIME, JSON.stringify({ source: 'list', tabId: null, index: null }));
+    dt.setData(TEXT_MIME, JSON.stringify({ source: 'list', listId: null, index: null }));
 
     expect(readTextDragData(dt)).toBeNull();
   });
@@ -71,7 +71,7 @@ describe('hasTextDragData', () => {
     expect(hasTextDragData(dt)).toBe(false);
   });
 
-  it('is true once the phrase mime is set', () => {
+  it('is true once the text mime is set', () => {
     const dt = dataTransfer();
     dt.setData(TEXT_MIME, '{}');
 

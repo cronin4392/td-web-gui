@@ -1,7 +1,7 @@
 /**
  * `wordbank-api.ts` tests. `fetchWordbank()`'s fallback-on-failure behavior is
  * what used to be `store.ts`'s corrupt-JSON / unknown-version handling
- * (TEXT_SELECTOR.md §5) — moved here because the failure now comes from the
+ * — moved here because the failure now comes from the
  * `/api/wordbank` response, not a raw `localStorage` read.
  */
 

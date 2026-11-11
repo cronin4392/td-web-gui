@@ -5,7 +5,7 @@ import styles from './TextChip.module.css';
 export interface TextChipProps {
   text: string;
   source: TextDragPayload['source'];
-  tabId: string | null;
+  listId: string | null;
   index: number | null;
   onApply: (text: string) => void;
 }
@@ -21,7 +21,7 @@ export function TextChip(props: TextChipProps): JSX.Element {
           setTextDragData(event.dataTransfer, {
             text: props.text,
             source: props.source,
-            tabId: props.tabId,
+            listId: props.listId,
             index: props.index,
           });
           event.dataTransfer.effectAllowed = 'copyMove';

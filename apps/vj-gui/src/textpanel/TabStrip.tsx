@@ -1,5 +1,5 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
-import { RECENT_LIST_ID, SHOW_TAB_ID, type WordbankStore } from './store';
+import { RECENT_TAB_ID, SHOW_TAB_ID, type WordbankStore } from '@/wordbank/store';
 import { TAB_MIME } from './dnd';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, hasDragMime } from '@/ui/dnd';
@@ -39,33 +39,33 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   function onTabKeyDown(event: KeyboardEvent, id: string) {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    const ids = [RECENT_LIST_ID, SHOW_TAB_ID, ...state.lists.map((t) => t.id)];
+    const ids = [RECENT_TAB_ID, SHOW_TAB_ID, ...state.lists.map((t) => t.id)];
     const index = ids.indexOf(id);
     const nextIndex =
       event.key === 'ArrowRight' ? (index + 1) % ids.length : (index - 1 + ids.length) % ids.length;
     const next = ids[nextIndex];
     if (!next) return;
-    props.store.selectList(next);
+    props.store.selectTab(next);
     tabRefs.get(next)?.focus();
   }
 
   const tabClass = (id: string) =>
-    `${styles.tab} ${state.selectedListId === id ? styles.tabSelected : ''}`;
+    `${styles.tab} ${state.selectedTabId === id ? styles.tabSelected : ''}`;
 
   return (
     <>
-      <div role="tablist" aria-label="Text sources" class={styles.strip}>
+      <div role="tablist" aria-label="Tab strip" class={styles.strip}>
         <button
-          ref={(el) => tabRefs.set(RECENT_LIST_ID, el)}
+          ref={(el) => tabRefs.set(RECENT_TAB_ID, el)}
           type="button"
           role="tab"
-          id={`tab-${RECENT_LIST_ID}`}
-          aria-selected={state.selectedListId === RECENT_LIST_ID}
-          aria-controls={`tabpanel-${RECENT_LIST_ID}`}
-          tabIndex={state.selectedListId === RECENT_LIST_ID ? 0 : -1}
-          onClick={() => props.store.selectList(RECENT_LIST_ID)}
-          onKeyDown={(event) => onTabKeyDown(event, RECENT_LIST_ID)}
-          class={tabClass(RECENT_LIST_ID)}
+          id={`tab-${RECENT_TAB_ID}`}
+          aria-selected={state.selectedTabId === RECENT_TAB_ID}
+          aria-controls={`tabpanel-${RECENT_TAB_ID}`}
+          tabIndex={state.selectedTabId === RECENT_TAB_ID ? 0 : -1}
+          onClick={() => props.store.selectTab(RECENT_TAB_ID)}
+          onKeyDown={(event) => onTabKeyDown(event, RECENT_TAB_ID)}
+          class={tabClass(RECENT_TAB_ID)}
         >
           Recent
         </button>
@@ -75,10 +75,10 @@ export function TabStrip(props: TabStripProps): JSX.Element {
           type="button"
           role="tab"
           id={`tab-${SHOW_TAB_ID}`}
-          aria-selected={state.selectedListId === SHOW_TAB_ID}
+          aria-selected={state.selectedTabId === SHOW_TAB_ID}
           aria-controls={`tabpanel-${SHOW_TAB_ID}`}
-          tabIndex={state.selectedListId === SHOW_TAB_ID ? 0 : -1}
-          onClick={() => props.store.selectList(SHOW_TAB_ID)}
+          tabIndex={state.selectedTabId === SHOW_TAB_ID ? 0 : -1}
+          onClick={() => props.store.selectTab(SHOW_TAB_ID)}
           onKeyDown={(event) => onTabKeyDown(event, SHOW_TAB_ID)}
           class={tabClass(SHOW_TAB_ID)}
         >
@@ -86,10 +86,10 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         </button>
 
         <For each={state.lists}>
-          {(tab, i) => (
+          {(list, i) => (
             <div
               class={`${styles.tabSlot} ${dragIndex() === i() ? styles.tabSlotDragging : ''}`}
-              draggable={renamingId() !== tab.id}
+              draggable={renamingId() !== list.id}
               onDragStart={(event) => {
                 event.dataTransfer?.setData(TAB_MIME, String(i()));
                 setDragIndex(i());
@@ -107,24 +107,24 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                 props.store.reorderLists(from, adjustReorderTarget(from, i()));
               }}
               onDragEnd={() => setDragIndex(null)}
-              onContextMenu={(event) => menu.open(event, tabMenu(tab.id))}
+              onContextMenu={(event) => menu.open(event, tabMenu(list.id))}
             >
               <Show
-                when={renamingId() === tab.id}
+                when={renamingId() === list.id}
                 fallback={
                   <button
-                    ref={(el) => tabRefs.set(tab.id, el)}
+                    ref={(el) => tabRefs.set(list.id, el)}
                     type="button"
                     role="tab"
-                    id={`tab-${tab.id}`}
-                    aria-selected={state.selectedListId === tab.id}
-                    aria-controls={`tabpanel-${tab.id}`}
-                    tabIndex={state.selectedListId === tab.id ? 0 : -1}
-                    onClick={() => props.store.selectList(tab.id)}
-                    onKeyDown={(event) => onTabKeyDown(event, tab.id)}
-                    class={tabClass(tab.id)}
+                    id={`tab-${list.id}`}
+                    aria-selected={state.selectedTabId === list.id}
+                    aria-controls={`tabpanel-${list.id}`}
+                    tabIndex={state.selectedTabId === list.id ? 0 : -1}
+                    onClick={() => props.store.selectTab(list.id)}
+                    onKeyDown={(event) => onTabKeyDown(event, list.id)}
+                    class={tabClass(list.id)}
                   >
-                    {tab.name}
+                    {list.name}
                   </button>
                 }
               >
@@ -132,7 +132,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                   onSubmit={(event) => {
                     event.preventDefault();
                     commitRename(
-                      tab.id,
+                      list.id,
                       (event.currentTarget.elements.namedItem('rename') as HTMLInputElement).value,
                     );
                   }}
@@ -145,9 +145,9 @@ export function TabStrip(props: TabStripProps): JSX.Element {
                         el.select();
                       });
                     }}
-                    value={tab.name}
+                    value={list.name}
                     class={styles.rename}
-                    onBlur={(event) => commitRename(tab.id, event.currentTarget.value)}
+                    onBlur={(event) => commitRename(list.id, event.currentTarget.value)}
                     onKeyDown={(event) => {
                       if (event.key === 'Escape') setRenamingId(null);
                     }}
@@ -159,7 +159,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         </For>
         <button
           type="button"
-          aria-label="Add a new list"
+          aria-label="Add a Phrase list"
           onClick={() => props.store.addList()}
           class={styles.add}
         >

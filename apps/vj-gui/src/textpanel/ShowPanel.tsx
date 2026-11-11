@@ -1,5 +1,5 @@
 import { For, Show, type JSX } from 'solid-js';
-import { SHOW_TAB_ID } from './store';
+import { SHOW_TAB_ID } from '@/wordbank/store';
 import { TextChip } from './TextChip';
 import styles from './RecentPanel.module.css';
 
@@ -23,7 +23,7 @@ export function ShowPanel(props: ShowPanelProps): JSX.Element {
               <TextChip
                 text={text}
                 source="show"
-                tabId={null}
+                listId={null}
                 index={null}
                 onApply={props.onApply}
               />

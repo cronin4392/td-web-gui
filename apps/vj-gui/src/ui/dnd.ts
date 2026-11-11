@@ -3,7 +3,7 @@
  * an in-flight drag is ours, and turning a pointer position into a list index.
  *
  * Payload shapes stay with the feature that drags them — a phrase in
- * `wordbank/dnd.ts`, a scene in `catalog/dnd.ts`. What lives here is only what
+ * `textpanel/dnd.ts`, a scene in `catalog/dnd.ts`. What lives here is only what
  * both would otherwise have written twice.
  */
 

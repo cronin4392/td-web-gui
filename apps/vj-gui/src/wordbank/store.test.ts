@@ -1,8 +1,8 @@
 /**
- * Store tests (TEXT_SELECTOR.md § "Testing"). Runs against the store module
+ * Store tests. Runs against the store module
  * only — no DOM, no components. Recent/lists/phrases assertions are
  * persistence-agnostic; the persistence block below exercises the
- * wordbank-write / `selectedListId`-to-`localStorage` split directly.
+ * wordbank-write / `selectedTabId`-to-`localStorage` split directly.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -69,11 +69,11 @@ describe('recent list', () => {
 
   it('caps at 10 entries, dropping from the tail', () => {
     const store = makeStore();
-    for (let i = 0; i < 12; i++) store.recordRecent(`phrase ${i}`);
+    for (let i = 0; i < 12; i++) store.recordRecent(`text ${i}`);
     expect(store.state.recent).toHaveLength(10);
-    expect(store.state.recent[0]).toBe('phrase 11');
-    expect(store.state.recent).not.toContain('phrase 0');
-    expect(store.state.recent).not.toContain('phrase 1');
+    expect(store.state.recent[0]).toBe('text 11');
+    expect(store.state.recent).not.toContain('text 0');
+    expect(store.state.recent).not.toContain('text 1');
   });
 
   it('rejects empty (or whitespace-only) text', () => {
@@ -121,14 +121,14 @@ describe('lists', () => {
     const store = makeStore();
     expect(store.state.lists).toHaveLength(1);
     expect(store.state.lists[0]?.name).toBe('List 1');
-    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
+    expect(store.state.selectedTabId).toBe(store.state.lists[0]?.id);
   });
 
   it('add appends a new "List N" list (lowest unused N) and selects it', () => {
     const store = makeStore();
     const id2 = store.addList();
     expect(store.state.lists.map((l) => l.name)).toEqual(['List 1', 'List 2']);
-    expect(store.state.selectedListId).toBe(id2);
+    expect(store.state.selectedTabId).toBe(id2);
 
     store.deleteList(id2);
     const id2Again = store.addList();
@@ -154,7 +154,7 @@ describe('lists', () => {
     const store = makeStore();
     const id2 = store.addList();
     const id1 = store.state.lists[0]!.id;
-    store.selectList(id1);
+    store.selectTab(id1);
     store.deleteList(id2);
     expect(store.state.lists.map((l) => l.id)).toEqual([id1]);
   });
@@ -172,29 +172,29 @@ describe('lists', () => {
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
     const idC = store.addList();
-    store.selectList(idB);
+    store.selectTab(idB);
     store.deleteList(idB);
     expect(store.state.lists.map((l) => l.id)).toEqual([idA, idC]);
-    expect(store.state.selectedListId).toBe(idA);
+    expect(store.state.selectedTabId).toBe(idA);
   });
 
   it('deleting the first (selected) list activates the new first list', () => {
     const store = makeStore();
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
-    store.selectList(idA);
+    store.selectTab(idA);
     store.deleteList(idA);
     expect(store.state.lists.map((l) => l.id)).toEqual([idB]);
-    expect(store.state.selectedListId).toBe(idB);
+    expect(store.state.selectedTabId).toBe(idB);
   });
 
   it('deleting an unselected list leaves the selected list untouched', () => {
     const store = makeStore();
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
-    store.selectList(idA);
+    store.selectTab(idA);
     store.deleteList(idB);
-    expect(store.state.selectedListId).toBe(idA);
+    expect(store.state.selectedTabId).toBe(idA);
   });
 
   it('reorders lists', () => {
@@ -347,13 +347,13 @@ describe('persistence', () => {
     await vi.advanceTimersByTimeAsync(30);
     persistence.calls.length = 0; // addList legitimately writes the wordbank; clear before the assertion below
 
-    store.selectList(idB);
+    store.selectTab(idB);
     await vi.advanceTimersByTimeAsync(30);
 
     expect(persistence.calls).toHaveLength(0);
   });
 
-  it('selectedListId round-trips through uiStorage, independent of the wordbank', async () => {
+  it('selectedTabId round-trips through uiStorage, independent of the wordbank', async () => {
     vi.useFakeTimers();
     const uiStorage = new FakeStorage();
     const first = makeStore({ uiStorage });
@@ -362,14 +362,14 @@ describe('persistence', () => {
 
     const wordbank = { lists: first.state.lists, recent: first.state.recent };
     const second = makeStore({ uiStorage, initial: wordbank });
-    expect(second.state.selectedListId).toBe(idB);
+    expect(second.state.selectedTabId).toBe(idB);
   });
 
-  it('a selectedListId with no matching list falls back to the first list', () => {
+  it('a selectedTabId with no matching list falls back to the first list', () => {
     const uiStorage = new FakeStorage();
     uiStorage.setItem('td-web-gui:vj-gui:wordbank', 'nonexistent-id');
     const store = makeStore({ uiStorage });
-    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
+    expect(store.state.selectedTabId).toBe(store.state.lists[0]?.id);
   });
 });
 
@@ -379,7 +379,7 @@ describe('searchWordbank', () => {
     { id: 'b', name: 'B', phrases: ['hello again', 'Hello World'] },
   ];
 
-  it('matches case-insensitively across every list, then recent, each phrase once', () => {
+  it('matches case-insensitively across every list, then recent, each match once', () => {
     expect(searchWordbank(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
       'Hello World',
       'hello again',
@@ -387,7 +387,7 @@ describe('searchWordbank', () => {
     ]);
   });
 
-  it('returns nothing when no phrase matches', () => {
+  it('returns nothing when nothing matches', () => {
     expect(searchWordbank(lists, [], 'zzz')).toEqual([]);
   });
 });

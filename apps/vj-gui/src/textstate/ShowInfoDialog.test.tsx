@@ -5,7 +5,7 @@ import type { TextState } from '@domain/textstate/textstate';
 import { ShowInfoDialog } from './ShowInfoDialog';
 import { createTextStateStore, type TextStateStore } from './store';
 
-function doc(): TextState {
+function state(): TextState {
   return {
     show: { rows: [{ id: 'r1', alias: 'artist', text: 'Amy', on: true }] },
     overrides: {},
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function mount() {
-  const s = (store = createTextStateStore({ initial: doc() }));
+  const s = (store = createTextStateStore({ initial: state() }));
   const [open, setOpen] = createSignal(false);
   host = document.createElement('div');
   document.body.appendChild(host);

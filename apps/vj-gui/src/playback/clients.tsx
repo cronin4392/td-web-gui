@@ -4,13 +4,13 @@
  *
  * Three factories for sixteen instances, because a factory selects a *schema*,
  * not an instance: its members bind the nearest `<Provider>` **of that factory**,
- * so the fourteen scene instances — same project, same wire names — share one.
+ * so the fourteen Layers — same scene project, same wire names — share one.
  * `LoaderClient` rendered under sceneA's provider reads sceneA; the identical
  * markup under sceneB's reads sceneB.
  *
  * Scoping is per factory, so the providers may nest freely: `GuiProvider` and
  * `InputProvider` wrap the whole app in `App.tsx`, and a `GuiClient` control
- * down inside a scene tile still reaches the GUI project, not the scene.
+ * down inside a Layer preview still reaches the GUI project, not the Layer's.
  */
 
 import type { JSX } from 'solid-js';
@@ -40,10 +40,10 @@ export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
 export const InputClient = createTDClient<InputParams>();
 
-/** One scene instance's connection, typed by its params and its calls. */
+/** One Loader instance's connection, typed by its params and its calls. */
 export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;
 
-/** The live connection for each layer, filled in by the mounted scene providers.
+/** The live connection for each layer, filled in by the mounted Loader providers.
  * A layer with no running process is simply absent. */
 export type LayerConnections = Partial<Record<LayerId, LoaderConnection>>;
 
@@ -61,7 +61,7 @@ export async function loadOnLayer(
   path: string,
 ): Promise<void> {
   const connection = connections[layer];
-  if (!connection) throw new Error(`Layer ${layer} has no connected scene process`);
+  if (!connection) throw new Error(`Layer ${layer} has no connected Loader`);
   await connection.call('loadScene', { path });
 }
 
@@ -87,9 +87,9 @@ export function InputProvider(props: { children: JSX.Element }): JSX.Element {
 }
 
 /**
- * `LoaderClient.Provider` bound to one scene instance, keyed by id rather than
+ * `LoaderClient.Provider` bound to one Loader instance, keyed by id rather than
  * `url`/`instance` — looks the connection details up in `loaderInstances` so
- * call sites never repeat them, and picking up a third scene later is a
+ * call sites never repeat them, and picking up another Layer later is a
  * `loaderInstances` edit, not a call-site edit.
  */
 export function LoaderProvider(props: {

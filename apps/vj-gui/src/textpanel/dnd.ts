@@ -1,5 +1,5 @@
 /**
- * Native HTML5 drag-and-drop payload helpers (TEXT_SELECTOR.md §4).
+ * Native HTML5 drag-and-drop payload helpers.
  *
  * Every text drag sets both `text/plain` (interop/debuggability) and a
  * custom mime carrying structured origin info. Drop targets key off the
@@ -13,15 +13,15 @@
 import { hasDragMime } from '@/ui/dnd';
 
 export const TEXT_MIME = 'application/x-td-text';
-/** Tab-strip reordering is a separate drag surface from phrase reordering (TEXT_SELECTOR.md §3). */
+/** Tab-strip reordering is a separate drag surface from phrase reordering. */
 export const TAB_MIME = 'application/x-td-tab-index';
 
 export interface TextDragPayload {
   text: string;
   source: 'list' | 'recent' | 'show' | 'search';
-  /** Originating tab id, or `null` for a recent, show or search drag. */
-  tabId: string | null;
-  /** Originating index within that tab's phrase list, or `null` for recent, show or search. */
+  /** Originating Phrase list id, or `null` for a recent, show or search drag. */
+  listId: string | null;
+  /** Originating index within that Phrase list, or `null` for recent, show or search. */
   index: number | null;
 }
 

@@ -1,5 +1,5 @@
 /**
- * `/api/wordbank` client (TEXT_SELECTOR.md §5). Talks to the Vite-mounted,
+ * `/api/wordbank` client. Talks to the Vite-mounted,
  * SQLite-backed API (`server/wordbank/wordbank-api-plugin.ts`) — the browser never touches SQLite
  * directly.
  */

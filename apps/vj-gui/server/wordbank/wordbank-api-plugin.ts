@@ -1,6 +1,6 @@
 /**
  * Vite plugin mounting `GET`/`PUT /api/wordbank` on both the dev and preview
- * servers (TEXT_SELECTOR.md §5), so `pnpm dev` and `pnpm preview` both work
+ * servers, so `pnpm dev` and `pnpm preview` both work
  * with no second process to start. One SQLite connection per server
  * lifecycle, closed when the underlying HTTP server closes.
  */

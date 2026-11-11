@@ -47,8 +47,7 @@ export const loaderInstances = [
  * *loader*. */
 export type LoaderId = (typeof loaderInstances)[number]['id'];
 
-/** The loader id a scene instance's video tile stands for when selected as the
- * active layer — `'sceneA'` -> `'A'`, `'sceneZ6'` -> `'Z6'`. */
+/** The Layer a Loader instance stands for — `'sceneA'` -> `'A'`, `'sceneZ6'` -> `'Z6'`. */
 export function layerIdForLoader(instance: LoaderId): LayerId {
   return instance.slice('scene'.length) as LayerId;
 }
@@ -144,7 +143,7 @@ export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
 export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**
- * Calls each scene instance exposes — the TS half of `HANDLERS` in
+ * Calls each Loader instance exposes — the TS half of `HANDLERS` in
  * `td/scene-config.py`.
  *
  * There is no `scene` argument: the connection *is* the routing. A call reaches
@@ -163,7 +162,7 @@ export interface LoaderCalls {
 }
 
 /**
- * Param schema shared by **every** scene instance — the TS half of the contract
+ * Param schema shared by **every** Loader instance — the TS half of the contract
  * with `td/scene-config.py`, which is likewise one file for all fourteen scene servers.
  *
  * The names in {@link loaderReadonly} are read-only — that file's `READOUTS`

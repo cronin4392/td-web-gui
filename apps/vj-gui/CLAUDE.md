@@ -1,15 +1,15 @@
 # vj-gui
 
 The author's real VJ rig: fourteen scene layers driven from the web, SQLite
-catalogs of scenes and effects, and the text state (show info plus each layer's
-overrides) and a wordbank of phrases that become each layer's text. Not published — but maintained and tested, not a scratchpad.
+catalogs of scenes and effects, the text state (show info plus each layer's
+overrides) that decides each layer's text, and a wordbank of phrases to apply to it. Not published — but maintained and tested, not a scratchpad.
 
 ## Speak the ubiquitous language
 
 `UBIQUITOUS_LANGUAGE.md` in this directory is canonical. **Read it before naming
 anything.** Scene, Effect, Tox, Group, Layer, Loader, Catalog, Sync, Scan, Tag,
 Rank, Wordbank, Phrase list, Phrase, Recent, Show info, Text state, Text slot,
-Override, Apply, Pick, Tile — each has one meaning here, and the
+Override, Apply, Pick, Layer preview — each has one meaning here, and the
 "Aliases to avoid" columns are the names that keep creeping back in.
 
 Its **Flagged ambiguities** section lists where the code still disagrees with
@@ -20,12 +20,12 @@ elsewhere, and don't spread it.
 
 These terms stop at this directory. Never carry them into `packages/td-core`.
 
-**A Layer's tile shows only that Layer's Overrides — never its Layer text list.**
+**A Layer preview shows only that Layer's Overrides — never its Layer text list.**
 This is deliberate and has been "fixed" by mistake before: the Act text list is
 the same on every Layer, so showing it would print identical text over every
-preview and hide what actually differs. A tile with no
+preview and hide what actually differs. A Layer preview with no
 Overrides shows no text even while the Layer shows the Act text list. Don't
-propose changing it, and don't name the tile's text component after the Layer
+propose changing it, and don't name the preview's text component after the Layer
 text list.
 
 ## Three tiers, three tsconfigs

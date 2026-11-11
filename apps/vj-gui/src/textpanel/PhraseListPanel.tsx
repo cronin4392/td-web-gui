@@ -1,10 +1,10 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
-import type { PhraseList, WordbankStore } from './store';
+import type { PhraseList, WordbankStore } from '@/wordbank/store';
 import { hasTextDragData, readTextDragData } from './dnd';
 import { createContextMenu } from '@/ui/ContextMenu';
 import { adjustReorderTarget, dropIndexForRow } from '@/ui/dnd';
 import { TextChip } from './TextChip';
-import styles from './ListPanel.module.css';
+import styles from './PhraseListPanel.module.css';
 
 export interface ListPanelProps {
   store: WordbankStore;
@@ -12,7 +12,7 @@ export interface ListPanelProps {
   onApply: (phrase: string) => void;
 }
 
-export function ListPanel(props: ListPanelProps): JSX.Element {
+export function PhraseListPanel(props: ListPanelProps): JSX.Element {
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
   const menu = createContextMenu();
@@ -106,10 +106,10 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                 const payload = readTextDragData(event.dataTransfer!);
                 if (!payload) return;
                 event.preventDefault();
-                // No cross-tab moves in v1: reject a drop whose tabId isn't the active tab.
+                // No moves between Phrase lists in v1: reject a drop from any other list.
                 if (
                   payload.source !== 'list' ||
-                  payload.tabId !== props.list.id ||
+                  payload.listId !== props.list.id ||
                   payload.index === null
                 )
                   return;
@@ -136,7 +136,7 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
               <TextChip
                 text={row.phrase}
                 source="list"
-                tabId={props.list.id}
+                listId={props.list.id}
                 index={row.index}
                 onApply={props.onApply}
               />

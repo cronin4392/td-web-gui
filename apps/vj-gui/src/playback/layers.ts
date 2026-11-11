@@ -19,7 +19,7 @@
  * The fourteen scene servers run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
  * That is the opposite of `apps/example`, where the two instances deliberately
- * differ; here symmetry is the point, and duplicating the schema per scene
+ * differ; here symmetry is the point, and duplicating the schema per Layer
  * would only create fourteen things to keep in sync.
  *
  * Sharing the names is safe because a wire name is scoped to its instance: every

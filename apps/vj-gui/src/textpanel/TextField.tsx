@@ -10,7 +10,7 @@ export interface TextFieldProps {
   placeholder: string;
   onApply: (text: string) => void;
   onClear: () => void;
-  onFilter: (text: string) => void;
+  onSearch: (text: string) => void;
   onFocus: () => void;
   onBlur: () => void;
   /** True while a press elsewhere in the Text panel is picking for this field, so losing focus is not a click-away. */
@@ -61,16 +61,16 @@ export function TextField(props: TextFieldProps): JSX.Element {
         }}
         onInput={(event) => {
           setDraft(event.currentTarget.value);
-          props.onFilter(event.currentTarget.value);
+          props.onSearch(event.currentTarget.value);
         }}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             setDraft(unescapeNewlines(props.value));
-            props.onFilter('');
+            props.onSearch('');
           } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
             apply();
-            props.onFilter('');
+            props.onSearch('');
           }
         }}
         onDragOver={(event) => {
