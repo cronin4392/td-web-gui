@@ -201,7 +201,7 @@ export function ShowInfoPanel(props: {
                         when={activeArtists()}
                         fallback={<span class={styles.empty}>no active artists</span>}
                       >
-                        {(value) => unescapeNewlines(value())}
+                        {unescapeNewlines(activeArtists())}
                       </Show>
                     </p>
                   )}
