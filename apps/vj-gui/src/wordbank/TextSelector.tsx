@@ -26,34 +26,37 @@ export function TextSelector(props: {
   const [filter, setFilter] = createSignal('');
   const [showInfoOpen, setShowInfoOpen] = createSignal(false);
   const [focusedSlot, setFocusedSlot] = createSignal<Slot | null>(null);
-  // Clicking a chip blurs the field before the click lands, so the target is
-  // read at mousedown — while that field still has focus — and used by the
-  // click that follows.
+  // Pressing a chip blurs the field before the click lands, so the target is
+  // read at mousedown — while that field still has focus — and the blur keeps
+  // the search open for the click that follows instead of committing the query.
   let pressedSlot: Slot | null = null;
+  const holdEdit = () => (pressedSlot = focusedSlot());
 
   const actTexts = createMemo(() => actTextList(props.showInfo.state.show));
 
-  function applyPhrase(slot: Slot, phrase: string) {
-    props.showInfo.setOverride(
-      selectedLayer(),
-      slot,
-      isBlank(phrase) ? '' : escapeNewlines(phrase),
-    );
+  function endPick() {
+    pressedSlot = null;
+    setFilter('');
+  }
+  function applyPhrase(layer: string, slot: Slot, phrase: string) {
+    props.showInfo.setOverride(layer, slot, isBlank(phrase) ? '' : escapeNewlines(phrase));
     props.store.commitRecent(phrase);
+    endPick();
   }
   function applyToFocused(phrase: string) {
-    const slot = focusedSlot() ?? pressedSlot ?? 0;
-    pressedSlot = null;
-    applyPhrase(slot, phrase);
-    setFilter('');
+    applyPhrase(selectedLayer(), focusedSlot() ?? pressedSlot ?? 0, phrase);
   }
-  function clearText(slot: Slot) {
-    props.showInfo.setOverride(selectedLayer(), slot, '');
-    setFilter('');
+  function clearText(layer: string, slot: Slot) {
+    props.showInfo.setOverride(layer, slot, '');
+    endPick();
+  }
+  function clearLayer(layer: string) {
+    props.showInfo.clearOverrides(layer);
+    endPick();
   }
   function endEdit() {
     setFocusedSlot(null);
-    setFilter('');
+    if (pressedSlot === null) setFilter('');
   }
 
   const selectedList = createMemo(
@@ -91,11 +94,15 @@ export function TextSelector(props: {
                   label={`Text ${slot + 1}`}
                   value={props.showInfo.state.overrides[layer]?.[slot] ?? ''}
                   placeholder={actTexts()[slot] ?? `Text ${slot + 1}`}
-                  onCommit={(text) => applyPhrase(slot, text)}
-                  onClear={() => clearText(slot)}
+                  onCommit={(text) => applyPhrase(layer, slot, text)}
+                  onClear={() => clearText(layer, slot)}
                   onFilter={setFilter}
-                  onFocus={() => setFocusedSlot(slot)}
+                  onFocus={() => {
+                    pressedSlot = null;
+                    setFocusedSlot(slot);
+                  }}
                   onBlur={endEdit}
+                  isPicking={() => pressedSlot !== null}
                 />
               )}
             </For>
@@ -103,7 +110,8 @@ export function TextSelector(props: {
               type="button"
               tabIndex={-1}
               class={styles.clearLayer}
-              onClick={() => props.showInfo.clearOverrides(layer)}
+              onMouseDown={holdEdit}
+              onClick={() => clearLayer(layer)}
             >
               Clear layer
             </button>
@@ -113,7 +121,13 @@ export function TextSelector(props: {
 
       <section class={styles.lists}>
         <TabStrip store={props.store} />
-        <div class={styles.body} onMouseDown={() => (pressedSlot = focusedSlot())}>
+        <div
+          class={styles.body}
+          onMouseDown={holdEdit}
+          onClick={() => {
+            if (pressedSlot !== null) endPick();
+          }}
+        >
           <Show
             when={!filter().trim()}
             fallback={<SearchPanel store={props.store} query={filter()} onApply={applyToFocused} />}

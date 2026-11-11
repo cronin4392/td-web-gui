@@ -13,6 +13,8 @@ export interface TextFieldProps {
   onFilter: (text: string) => void;
   onFocus: () => void;
   onBlur: () => void;
+  /** True while a press elsewhere in the Text panel is picking for this field, so losing focus is not a click-away. */
+  isPicking: () => boolean;
 }
 
 export function TextField(props: TextFieldProps): JSX.Element {
@@ -34,7 +36,11 @@ export function TextField(props: TextFieldProps): JSX.Element {
       <button
         type="button"
         tabIndex={-1}
-        onClick={() => props.onClear()}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          setDraft('');
+          props.onClear();
+        }}
         class={styles.clear}
         title={`Clear ${props.label}`}
       >
@@ -49,7 +55,8 @@ export function TextField(props: TextFieldProps): JSX.Element {
         class={styles.input}
         onFocus={props.onFocus}
         onBlur={() => {
-          commit();
+          if (props.isPicking()) setDraft(unescapeNewlines(props.value));
+          else commit();
           props.onBlur();
         }}
         onInput={(event) => {
