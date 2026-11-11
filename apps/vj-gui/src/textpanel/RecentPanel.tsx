@@ -1,12 +1,12 @@
 import { For, Show, type JSX } from 'solid-js';
-import { RECENT_LIST_ID, type WordbankStore } from './store';
+import { RECENT_TAB_ID, type WordbankStore } from '@/wordbank/store';
 import { createContextMenu } from '@/ui/ContextMenu';
-import { PhraseChip } from './PhraseChip';
+import { TextChip } from './TextChip';
 import styles from './RecentPanel.module.css';
 
 export interface RecentPanelProps {
   store: WordbankStore;
-  onApply: (phrase: string) => void;
+  onApply: (text: string) => void;
 }
 
 export function RecentPanel(props: RecentPanelProps): JSX.Element {
@@ -16,28 +16,28 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
   return (
     <div
       role="tabpanel"
-      id={`tabpanel-${RECENT_LIST_ID}`}
-      aria-labelledby={`tab-${RECENT_LIST_ID}`}
+      id={`tabpanel-${RECENT_TAB_ID}`}
+      aria-labelledby={`tab-${RECENT_TAB_ID}`}
       class={styles.panel}
     >
       <ul class={styles.rows}>
         <For each={rows()}>
-          {(phrase) => (
+          {(text) => (
             <li
               onContextMenu={(event) =>
                 menu.open(event, [
                   {
                     label: 'Delete',
                     danger: true,
-                    onSelect: () => props.store.deleteRecent(phrase),
+                    onSelect: () => props.store.deleteRecent(text),
                   },
                 ])
               }
             >
-              <PhraseChip
-                phrase={phrase}
+              <TextChip
+                text={text}
                 source="recent"
-                tabId={null}
+                listId={null}
                 index={null}
                 onApply={props.onApply}
               />

@@ -87,6 +87,17 @@ READOUTS = {
         "op": SCENE + "/Inputs/null_params",
         "chan": "level",
     },
+    # Written by the web, not read: these Table DATs are the scene's text input.
+    "textList": {
+        "op": SCENE + "/Inputs/table_text_list",
+        "type": "string[][]",
+        "writable": True,
+    },
+    "textVars": {
+        "op": SCENE + "/Inputs/table_show_info",
+        "type": "string[][]",
+        "writable": True,
+    },
 }
 
 

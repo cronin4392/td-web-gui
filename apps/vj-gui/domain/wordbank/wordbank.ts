@@ -1,12 +1,12 @@
 /**
- * Phrase-wordbank types + shape guards (TEXT_SELECTOR.md §5 "Storage").
+ * Phrase-wordbank types + shape guards.
  *
  * Zero dependencies (no Solid, no DOM lib) so `server/` can import this module
  * directly alongside the client — one definition of "what a valid wordbank
  * looks like" shared across the `/api/wordbank` boundary.
  *
  * This is the data half of what used to be `StoredState`: lists, their
- * phrases, and the recent list. `selectedListId` is UI state, not wordbank
+ * phrases, and the recent list. `selectedTabId` is UI state, not wordbank
  * content, and lives in `localStorage` on the client only (see `store.ts`).
  */
 

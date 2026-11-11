@@ -1,13 +1,13 @@
 /**
- * Store tests (TEXT_SELECTOR.md § "Testing"). Runs against the store module
+ * Store tests. Runs against the store module
  * only — no DOM, no components. Recent/lists/phrases assertions are
  * persistence-agnostic; the persistence block below exercises the
- * wordbank-write / `selectedListId`-to-`localStorage` split directly.
+ * wordbank-write / `selectedTabId`-to-`localStorage` split directly.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Wordbank } from '@domain/wordbank/wordbank';
-import { createWordbankStore, searchPhrases, type CreateStoreOptions } from './store';
+import { createWordbankStore, searchWordbank, type CreateStoreOptions } from './store';
 
 class FakeStorage implements Storage {
   private map = new Map<string, string>();
@@ -52,63 +52,63 @@ afterEach(() => {
 // ---- recent list -----------------------------------------------------
 
 describe('recent list', () => {
-  it('adds a committed phrase to the front', () => {
+  it('adds applied text to the front', () => {
     const store = makeStore();
-    store.commitRecent('hello world');
+    store.recordRecent('hello world');
     expect(store.state.recent).toEqual(['hello world']);
   });
 
   it('dedupes to the top instead of duplicating', () => {
     const store = makeStore();
-    store.commitRecent('a');
-    store.commitRecent('b');
-    store.commitRecent('c');
-    store.commitRecent('a');
+    store.recordRecent('a');
+    store.recordRecent('b');
+    store.recordRecent('c');
+    store.recordRecent('a');
     expect(store.state.recent).toEqual(['a', 'c', 'b']);
   });
 
   it('caps at 10 entries, dropping from the tail', () => {
     const store = makeStore();
-    for (let i = 0; i < 12; i++) store.commitRecent(`phrase ${i}`);
+    for (let i = 0; i < 12; i++) store.recordRecent(`text ${i}`);
     expect(store.state.recent).toHaveLength(10);
-    expect(store.state.recent[0]).toBe('phrase 11');
-    expect(store.state.recent).not.toContain('phrase 0');
-    expect(store.state.recent).not.toContain('phrase 1');
+    expect(store.state.recent[0]).toBe('text 11');
+    expect(store.state.recent).not.toContain('text 0');
+    expect(store.state.recent).not.toContain('text 1');
   });
 
-  it('rejects empty (or whitespace-only) commits', () => {
+  it('rejects empty (or whitespace-only) text', () => {
     const store = makeStore();
-    store.commitRecent('');
-    store.commitRecent('   ');
+    store.recordRecent('');
+    store.recordRecent('   ');
     expect(store.state.recent).toEqual([]);
   });
 
   it('is fed by both inputs into one shared list', () => {
     const store = makeStore();
-    store.commitRecent('from text1');
-    store.commitRecent('from text2');
+    store.recordRecent('from text1');
+    store.recordRecent('from text2');
     expect(store.state.recent).toEqual(['from text2', 'from text1']);
   });
 
   it('matching is case-sensitive on the trimmed string', () => {
     const store = makeStore();
-    store.commitRecent('HELLO');
-    store.commitRecent('hello');
+    store.recordRecent('HELLO');
+    store.recordRecent('hello');
     expect(store.state.recent).toEqual(['hello', 'HELLO']);
   });
 
   it('deleteRecent removes a single entry, leaving the rest in order', () => {
     const store = makeStore();
-    store.commitRecent('a');
-    store.commitRecent('b');
-    store.commitRecent('c');
+    store.recordRecent('a');
+    store.recordRecent('b');
+    store.recordRecent('c');
     store.deleteRecent('b');
     expect(store.state.recent).toEqual(['c', 'a']);
   });
 
-  it('deleteRecent is a no-op for a phrase not in the list', () => {
+  it('deleteRecent is a no-op for text not in Recent', () => {
     const store = makeStore();
-    store.commitRecent('a');
+    store.recordRecent('a');
     store.deleteRecent('missing');
     expect(store.state.recent).toEqual(['a']);
   });
@@ -121,14 +121,14 @@ describe('lists', () => {
     const store = makeStore();
     expect(store.state.lists).toHaveLength(1);
     expect(store.state.lists[0]?.name).toBe('List 1');
-    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
+    expect(store.state.selectedTabId).toBe(store.state.lists[0]?.id);
   });
 
   it('add appends a new "List N" list (lowest unused N) and selects it', () => {
     const store = makeStore();
     const id2 = store.addList();
     expect(store.state.lists.map((l) => l.name)).toEqual(['List 1', 'List 2']);
-    expect(store.state.selectedListId).toBe(id2);
+    expect(store.state.selectedTabId).toBe(id2);
 
     store.deleteList(id2);
     const id2Again = store.addList();
@@ -154,7 +154,7 @@ describe('lists', () => {
     const store = makeStore();
     const id2 = store.addList();
     const id1 = store.state.lists[0]!.id;
-    store.selectList(id1);
+    store.selectTab(id1);
     store.deleteList(id2);
     expect(store.state.lists.map((l) => l.id)).toEqual([id1]);
   });
@@ -172,29 +172,29 @@ describe('lists', () => {
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
     const idC = store.addList();
-    store.selectList(idB);
+    store.selectTab(idB);
     store.deleteList(idB);
     expect(store.state.lists.map((l) => l.id)).toEqual([idA, idC]);
-    expect(store.state.selectedListId).toBe(idA);
+    expect(store.state.selectedTabId).toBe(idA);
   });
 
   it('deleting the first (selected) list activates the new first list', () => {
     const store = makeStore();
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
-    store.selectList(idA);
+    store.selectTab(idA);
     store.deleteList(idA);
     expect(store.state.lists.map((l) => l.id)).toEqual([idB]);
-    expect(store.state.selectedListId).toBe(idB);
+    expect(store.state.selectedTabId).toBe(idB);
   });
 
   it('deleting an unselected list leaves the selected list untouched', () => {
     const store = makeStore();
     const idA = store.state.lists[0]!.id;
     const idB = store.addList();
-    store.selectList(idA);
+    store.selectTab(idA);
     store.deleteList(idB);
-    expect(store.state.selectedListId).toBe(idA);
+    expect(store.state.selectedTabId).toBe(idA);
   });
 
   it('reorders lists', () => {
@@ -299,7 +299,7 @@ describe('persistence', () => {
     const store = makeStore({ persistence });
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'hello world');
-    store.commitRecent('hello world');
+    store.recordRecent('hello world');
 
     await vi.advanceTimersByTimeAsync(50);
 
@@ -313,9 +313,9 @@ describe('persistence', () => {
     const persistence = fakePersistence();
     const store = makeStore({ persistence, debounceMs: 50 });
 
-    store.commitRecent('one');
-    store.commitRecent('two');
-    store.commitRecent('three');
+    store.recordRecent('one');
+    store.recordRecent('two');
+    store.recordRecent('three');
 
     expect(persistence.calls).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(60);
@@ -329,9 +329,9 @@ describe('persistence', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const store = makeStore({ persistence });
 
-    store.commitRecent('one');
+    store.recordRecent('one');
     await vi.advanceTimersByTimeAsync(30);
-    store.commitRecent('two');
+    store.recordRecent('two');
     await vi.advanceTimersByTimeAsync(30);
 
     expect(warn).toHaveBeenCalledTimes(1);
@@ -347,13 +347,13 @@ describe('persistence', () => {
     await vi.advanceTimersByTimeAsync(30);
     persistence.calls.length = 0; // addList legitimately writes the wordbank; clear before the assertion below
 
-    store.selectList(idB);
+    store.selectTab(idB);
     await vi.advanceTimersByTimeAsync(30);
 
     expect(persistence.calls).toHaveLength(0);
   });
 
-  it('selectedListId round-trips through uiStorage, independent of the wordbank', async () => {
+  it('selectedTabId round-trips through uiStorage, independent of the wordbank', async () => {
     vi.useFakeTimers();
     const uiStorage = new FakeStorage();
     const first = makeStore({ uiStorage });
@@ -362,32 +362,32 @@ describe('persistence', () => {
 
     const wordbank = { lists: first.state.lists, recent: first.state.recent };
     const second = makeStore({ uiStorage, initial: wordbank });
-    expect(second.state.selectedListId).toBe(idB);
+    expect(second.state.selectedTabId).toBe(idB);
   });
 
-  it('a selectedListId with no matching list falls back to the first list', () => {
+  it('a selectedTabId with no matching list falls back to the first list', () => {
     const uiStorage = new FakeStorage();
     uiStorage.setItem('td-web-gui:vj-gui:wordbank', 'nonexistent-id');
     const store = makeStore({ uiStorage });
-    expect(store.state.selectedListId).toBe(store.state.lists[0]?.id);
+    expect(store.state.selectedTabId).toBe(store.state.lists[0]?.id);
   });
 });
 
-describe('searchPhrases', () => {
+describe('searchWordbank', () => {
   const lists = [
     { id: 'a', name: 'A', phrases: ['Hello World', 'Goodbye'] },
     { id: 'b', name: 'B', phrases: ['hello again', 'Hello World'] },
   ];
 
-  it('matches case-insensitively across every list, then recent, each phrase once', () => {
-    expect(searchPhrases(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
+  it('matches case-insensitively across every list, then recent, each match once', () => {
+    expect(searchWordbank(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
       'Hello World',
       'hello again',
       'say hello',
     ]);
   });
 
-  it('returns nothing when no phrase matches', () => {
-    expect(searchPhrases(lists, [], 'zzz')).toEqual([]);
+  it('returns nothing when nothing matches', () => {
+    expect(searchWordbank(lists, [], 'zzz')).toEqual([]);
   });
 });

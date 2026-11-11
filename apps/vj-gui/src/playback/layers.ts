@@ -8,8 +8,8 @@
  *
  * The page drives **sixteen** TouchDesigner servers, of **three** kinds:
  *
- *   - the GUI project (`td/gui-config.py`), which owns the fourteen loaders'
- *     text params — one of a kind, one schema; its MIDI select button nudges
+ *   - the GUI project (`td/gui-config.py`), which owns the color scheme and beat
+ *     period — one of a kind, one schema; its MIDI select button nudges
  *     the selection by calling `selectLayer` rather than by holding it;
  *   - the scene projects (`td/scene-config.py`), one process per live scene;
  *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
@@ -19,11 +19,11 @@
  * The fourteen scene servers run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
  * That is the opposite of `apps/example`, where the two instances deliberately
- * differ; here symmetry is the point, and duplicating the schema per scene
+ * differ; here symmetry is the point, and duplicating the schema per Layer
  * would only create fourteen things to keep in sync.
  *
  * Sharing the names is safe because a wire name is scoped to its instance: every
- * scene publishes a plain `level`, and which one a control reads is decided by
+ * Loader instance publishes a plain `level`, and which one a control reads is decided by
  * the nearest `<LoaderProvider>` above it, not by the name.
  */
 
@@ -59,8 +59,7 @@ export const inputInstance = {
   url: `ws://${host}:${inputPort}`,
 } as const satisfies TDInstanceConfig;
 
-/** The fourteen external scene loaders, matching `SCENE_IDS` in `td/gui-config.py`
- * and `SCENE_KEYS` in the rig's `Tools/ExternalPorts`. */
+/** The fourteen Layers, matching `SCENE_KEYS` in the rig's `Tools/ExternalPorts`. */
 export const layerIds = [
   'A',
   'B',
@@ -82,7 +81,7 @@ export type LayerId = (typeof layerIds)[number];
 /**
  * The six layers that sit above the eight-deep stack. Ordinary layers on the
  * wire — same project, same schema — so nothing but the GUI treats them apart:
- * they get a compact tile with no video, no layout and no color, because in the
+ * they get a compact Layer preview with no video, no layout and no color, because in the
  * rig they are held, not performed.
  */
 export const zLayerIds = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6'] as const satisfies readonly LayerId[];
@@ -92,7 +91,7 @@ export function isZLayer(layer: LayerId): layer is ZLayerId {
   return (zLayerIds as readonly LayerId[]).includes(layer);
 }
 
-/** The number a layer wears on its tile: its place in the authored
+/** The number a layer wears on its Preview picture: its place in the authored
  * {@link layerIds} order, not its position in a column that renders them
  * reversed and without the Z layers. */
 export function layerNumber(layer: LayerId): number {

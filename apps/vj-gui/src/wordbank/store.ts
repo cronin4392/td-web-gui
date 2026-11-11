@@ -1,5 +1,5 @@
 /**
- * App state + persistence (TEXT_SELECTOR.md §§2-3, 5).
+ * App state + persistence.
  *
  * `createWordbankStore()` is a factory (not a bare module singleton) so
  * tests can spin up isolated instances with a fake `persistence.save` /
@@ -8,13 +8,14 @@
  * Persistence is split by what the data *is*, not stored in one blob:
  * `lists`/`recent` are wordbank content and go through `persistence.save` (the
  * SQLite-backed `/api/wordbank`, via `saveWordbank()` in `wordbank-api.ts`);
- * `selectedListId` is a per-browser UI preference and stays in `localStorage`.
+ * `selectedTabId` is a per-browser UI preference and stays in `localStorage`.
  * Both share one debounce timer via two dirty flags, so switching lists
  * writes `localStorage` without rewriting the wordbank.
  */
 
 import { createStore, unwrap } from 'solid-js/store';
 import { defaultWordbank, type PhraseList, type Wordbank } from '@domain/wordbank/wordbank';
+import { createDebouncedSaver } from '@/platform/debounced-saver';
 import { moveItem } from '@/ui/dnd';
 
 export type { PhraseList };
@@ -24,12 +25,18 @@ const RECENT_LIMIT = 10;
 const DEFAULT_DEBOUNCE_MS = 200;
 
 /** Pinned first entry in the tab strip, backed by `state.recent` rather than `state.lists` — never a real list id. */
-export const RECENT_LIST_ID = '__recent__';
+export const RECENT_TAB_ID = '__recent__';
+/** Pinned after Recent; backed by the Act text list in the text state store, not by `state.lists`. */
+export const SHOW_TAB_ID = '__show__';
+
+function isPinnedTabId(id: string): boolean {
+  return id === RECENT_TAB_ID || id === SHOW_TAB_ID;
+}
 
 export interface WordbankState {
   lists: PhraseList[];
   recent: string[];
-  selectedListId: string;
+  selectedTabId: string;
 }
 
 // ---- pure helpers ----------------------------------------------------------
@@ -44,24 +51,24 @@ function moveToFront(arr: readonly string[], item: string, limit?: number): stri
   return limit === undefined ? next : next.slice(0, limit);
 }
 
-/** Phrases containing `query` (case-insensitive) across every list in tab order, then Recent; each phrase once. */
-export function searchPhrases(
+/** Text containing `query` (case-insensitive) across every Phrase list in tab order, then Recent; each match once. */
+export function searchWordbank(
   lists: readonly PhraseList[],
   recent: readonly string[],
   query: string,
 ): string[] {
   const q = query.trim().toLowerCase();
   const all = new Set([...lists.flatMap((l) => l.phrases), ...recent]);
-  return [...all].filter((phrase) => phrase.toLowerCase().includes(q));
+  return [...all].filter((text) => text.toLowerCase().includes(q));
 }
 
-/** The persisted `selectedListId` if it names one of `lists` (or the pinned Recent list); the first list otherwise. Never throws. */
-function loadSelectedListId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
+/** The persisted `selectedTabId` if it names one of `lists` or a pinned tab; the first list otherwise. Never throws. */
+function loadSelectedTabId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
   const fallback = lists[0]!.id;
   if (!storage) return fallback;
   try {
     const stored = storage.getItem(UI_STORAGE_KEY);
-    if (stored === RECENT_LIST_ID) return stored;
+    if (stored !== null && isPinnedTabId(stored)) return stored;
     return stored !== null && lists.some((l) => l.id === stored) ? stored : fallback;
   } catch {
     return fallback;
@@ -75,7 +82,7 @@ export interface CreateStoreOptions {
   initial?: Wordbank;
   /** Where wordbank writes (lists/phrases/recent) go. Omitted in tests that don't care about persistence. */
   persistence?: { save: (wordbank: Wordbank) => void | Promise<void> };
-  /** Where `selectedListId` — UI state, not wordbank content — is remembered. Defaults to `localStorage`. */
+  /** Where `selectedTabId` — UI state, not wordbank content — is remembered. Defaults to `localStorage`. */
   uiStorage?: Storage;
   /** Debounce window for writes, in ms. Default 200. */
   debounceMs?: number;
@@ -84,10 +91,8 @@ export interface CreateStoreOptions {
 export interface WordbankStore {
   state: WordbankState;
 
-  /** Feed a committed phrase (from either text input) into the recent list. */
-  commitRecent: (phrase: string) => void;
-  /** Remove a phrase from the recent list. */
-  deleteRecent: (phrase: string) => void;
+  recordRecent: (text: string) => void;
+  deleteRecent: (text: string) => void;
 
   /** Append a new `List N` list and select it; returns its id. */
   addList: () => string;
@@ -95,8 +100,8 @@ export interface WordbankStore {
   renameList: (id: string, name: string) => void;
   /** Delete a list (no-op if it's the last one); reassigns the selected list if needed. */
   deleteList: (id: string) => void;
-  /** Also accepts `RECENT_LIST_ID`, selecting the pinned Recent list. */
-  selectList: (id: string) => void;
+  /** Also accepts the pinned `RECENT_TAB_ID` and `SHOW_TAB_ID`. */
+  selectTab: (id: string) => void;
   reorderLists: (fromIndex: number, toIndex: number) => void;
 
   /** Add a phrase to the top of a list's phrases; moves an existing match to the top instead of duplicating. */
@@ -119,62 +124,47 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
   const [state, setState] = createStore<WordbankState>({
     lists: wordbank.lists,
     recent: wordbank.recent,
-    selectedListId: loadSelectedListId(uiStorage, wordbank.lists),
+    selectedTabId: loadSelectedTabId(uiStorage, wordbank.lists),
   });
 
-  let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let wordbankDirty = false;
   let uiDirty = false;
-  let warnedWriteFailure = false;
 
-  function scheduleSave() {
-    if (saveTimer !== undefined) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveTimer = undefined;
-      flush();
-    }, debounceMs);
-  }
-
-  function flush() {
-    if (uiDirty) {
-      uiDirty = false;
-      writeUiStorage();
-    }
-    if (wordbankDirty) {
-      wordbankDirty = false;
-      void writeWordbank();
-    }
-  }
+  const saver = createDebouncedSaver({
+    debounceMs,
+    label: 'wordbank',
+    save: () => {
+      if (uiDirty) {
+        uiDirty = false;
+        writeUiStorage();
+      }
+      if (wordbankDirty) {
+        wordbankDirty = false;
+        return options.persistence?.save({
+          lists: unwrap(state.lists),
+          recent: unwrap(state.recent),
+        });
+      }
+    },
+  });
 
   function writeUiStorage() {
     if (!uiStorage) return;
     try {
-      uiStorage.setItem(UI_STORAGE_KEY, state.selectedListId);
+      uiStorage.setItem(UI_STORAGE_KEY, state.selectedTabId);
     } catch {
       // A UI preference, not wordbank content — silently dropped on quota/private-mode failure.
     }
   }
 
-  async function writeWordbank() {
-    if (!options.persistence) return;
-    try {
-      await options.persistence.save({ lists: unwrap(state.lists), recent: unwrap(state.recent) });
-    } catch (err) {
-      if (!warnedWriteFailure) {
-        warnedWriteFailure = true;
-        console.warn('[vj-gui] failed to persist wordbank; continuing in-memory', err);
-      }
-    }
-  }
-
   function markWordbankDirty() {
     wordbankDirty = true;
-    scheduleSave();
+    saver.schedule();
   }
 
   function markUiDirty() {
     uiDirty = true;
-    scheduleSave();
+    saver.schedule();
   }
 
   function findListIndex(id: string): number {
@@ -188,22 +178,22 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     return `List ${n}`;
   }
 
-  function commitRecent(phrase: string): void {
-    const trimmed = phrase.trim();
+  function recordRecent(text: string): void {
+    const trimmed = text.trim();
     if (!trimmed) return;
     setState('recent', (recent) => moveToFront(recent, trimmed, RECENT_LIMIT));
     markWordbankDirty();
   }
 
-  function deleteRecent(phrase: string): void {
-    setState('recent', (recent) => recent.filter((p) => p !== phrase));
+  function deleteRecent(text: string): void {
+    setState('recent', (recent) => recent.filter((p) => p !== text));
     markWordbankDirty();
   }
 
   function addList(): string {
     const list = makeList(nextListName());
     setState('lists', (lists) => [...lists, list]);
-    setState('selectedListId', list.id);
+    setState('selectedTabId', list.id);
     markWordbankDirty();
     markUiDirty();
     return list.id;
@@ -222,7 +212,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     if (state.lists.length <= 1) return; // last-list guard
     const idx = findListIndex(id);
     if (idx === -1) return;
-    const wasSelected = state.selectedListId === id;
+    const wasSelected = state.selectedTabId === id;
 
     setState('lists', (lists) => lists.filter((l) => l.id !== id));
 
@@ -231,16 +221,16 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
       const newIdx = Math.min(Math.max(0, idx - 1), state.lists.length - 1);
       const next = state.lists[newIdx];
       if (next) {
-        setState('selectedListId', next.id);
+        setState('selectedTabId', next.id);
         markUiDirty();
       }
     }
     markWordbankDirty();
   }
 
-  function selectList(id: string): void {
-    if (id !== RECENT_LIST_ID && findListIndex(id) === -1) return;
-    setState('selectedListId', id);
+  function selectTab(id: string): void {
+    if (!isPinnedTabId(id) && findListIndex(id) === -1) return;
+    setState('selectedTabId', id);
     markUiDirty(); // UI-only: does not touch the wordbank, so no wordbankDirty here.
   }
 
@@ -301,26 +291,19 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     markWordbankDirty();
   }
 
-  function dispose(): void {
-    if (saveTimer !== undefined) {
-      clearTimeout(saveTimer);
-      saveTimer = undefined;
-    }
-  }
-
   return {
     state,
-    commitRecent,
+    recordRecent,
     deleteRecent,
     addList,
     renameList,
     deleteList,
-    selectList,
+    selectTab,
     reorderLists,
     addPhrase,
     deletePhrase,
     reorderPhrase,
     sortPhrases,
-    dispose,
+    dispose: saver.dispose,
   };
 }

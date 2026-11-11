@@ -46,8 +46,8 @@ describe('under', () => {
   });
 });
 
-describe('the scene limits', () => {
-  it('reads a scene holding its frame rate as good', () => {
+describe('the Layer limits', () => {
+  it('reads a Layer holding its frame rate as good', () => {
     expect(atLeast(30, FPS_LIMITS)).toBe('good');
     expect(atLeast(28, FPS_LIMITS)).toBe('warn');
     expect(atLeast(20, FPS_LIMITS)).toBe('bad');

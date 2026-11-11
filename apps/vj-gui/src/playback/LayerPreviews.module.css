@@ -43,8 +43,8 @@
     }
   }
 
-  /* Half the column's width, so the gap the full-width tiles can afford between
-     frame and level bar is most of what a Z tile has to spend. */
+  /* Half the column's width, so the gap the full-width previews can afford between
+     frame and level bar is most of what a Z layer preview has to spend. */
   .compact {
     gap: var(--spacing-s);
   }
@@ -55,7 +55,7 @@
     flex: 1;
   }
 
-  .tile {
+  .picture {
     position: relative;
     display: block;
     width: 100%;
@@ -118,8 +118,8 @@
     }
   }
 
-  /* Top-right, out of the caption's way, where the scene picker keeps its own
-     tile-corner button. */
+  /* Top-right, out of the override text's way, where the scene picker keeps its own
+     corner button on each Scene tile. */
   .streamToggle {
     position: absolute;
     top: 0;
@@ -142,10 +142,10 @@
     white-space: nowrap;
   }
 
-  /* Over the stream rather than beside it, so the caption reads the way the
+  /* Over the stream rather than beside it, so the override text reads the way the
      audience sees it. No scrim — the shadow carries it over a bright frame,
-     and a band across the middle of the tile would hide the scene. */
-  .texts {
+     and a band across the middle of the picture would hide the scene. */
+  .overrides {
     position: absolute;
     display: block;
     inset-inline: var(--spacing-m);
@@ -162,9 +162,9 @@
     pointer-events: none;
   }
 
-  /* A slot per param, each on its own line — the two are separate captions, not
-     one sentence, so neither should wrap into the other. */
-  .textLine {
+  /* A Text slot per line — the overrides are separate texts, not one sentence,
+     so neither should wrap into the other. */
+  .overrideLine {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -207,7 +207,7 @@
     }
   }
 
-  /* Where a full tile keeps its stream toggle: a Z tile has no stream, and the
+  /* Where a full preview keeps its stream toggle: a Z layer preview has no stream, and the
      other corners are spoken for by the stats and the scene name. */
   .clearIcon {
     position: absolute;

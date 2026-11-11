@@ -1,5 +1,7 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import { unescapeNewlines, type SelectOption } from 'td-core';
+import { useTextState } from '@/textstate/context';
+import { TextDelivery } from '@/textstate/TextDelivery';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
 import { RadioGroup } from '@/ui/RadioGroup';
@@ -11,12 +13,11 @@ import {
   LAYOUT_OPTIONS,
   LOADER_STREAM,
   layerIdForLoader,
-  layerTextParam,
   loaderInstances,
   performanceStat,
   type LoaderId,
 } from './wire';
-import { GuiClient, LoaderClient, LoaderProvider } from './clients';
+import { LoaderClient, LoaderProvider } from './clients';
 import { usePlayback } from './PlaybackProvider';
 import {
   atLeast,
@@ -41,20 +42,20 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
     <div class={[styles.column, props.class].filter(Boolean).join(' ')}>
       <PanelHeader title="Layers" />
       <div class={styles.zGrid}>
-        <For each={zLoaders}>{(loader) => <LayerPanel loader={loader.id} compact />}</For>
+        <For each={zLoaders}>{(loader) => <LayerPreview loader={loader.id} compact />}</For>
       </div>
       <div class={styles.grid}>
-        <For each={topDown}>{(loader) => <LayerPanel loader={loader.id} />}</For>
+        <For each={topDown}>{(loader) => <LayerPreview loader={loader.id} />}</For>
       </div>
     </div>
   );
 }
 
 /**
- * One scene instance — its video tile and its performance readouts, behind its
- * own provider. Rendered once per entry in `loaderInstances`, so each scene gets
- * its own socket, its own WebRTC peer, and its own reconnect clock; drop one
- * scene's `.toe` and only that tile goes dark.
+ * One Layer's preview — its picture and its stats, behind its own provider.
+ * Rendered once per entry in `loaderInstances`, so each Layer gets its own
+ * socket, its own WebRTC peer, and its own reconnect clock; drop one Layer's
+ * `.toe` and only that Layer preview goes dark.
  *
  * `compact` skips the WebRTC peer entirely rather than merely hiding the video:
  * a Z layer is held rather than performed, so it is not worth a stream.
@@ -62,19 +63,20 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function LayerPanel(props: { loader: LoaderId; compact?: boolean }): JSX.Element {
+function LayerPreview(props: { loader: LoaderId; compact?: boolean }): JSX.Element {
   const { selectedLayer, selectLayer } = usePlayback();
   const layer = layerIdForLoader(props.loader);
   const Body = props.compact ? CompactLayerBody : LayerBody;
   return (
     <LoaderProvider loader={props.loader} video={!props.compact}>
+      <TextDelivery layer={layer} />
       <Body layer={layer} active={layer === selectedLayer()} onSelect={() => selectLayer(layer)} />
     </LoaderProvider>
   );
 }
 
 /**
- * The same markup for every scene — its names come from the one `LoaderParams`
+ * The same markup for every Layer — its names come from the one `LoaderParams`
  * schema, and the provider above decides which process answers them.
  */
 function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => void }): JSX.Element {
@@ -107,14 +109,14 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
         <ClearLayer layer={props.layer} />
       </div>
       <div class={styles.frame}>
-        <button type="button" class={styles.tile} onClick={props.onSelect}>
+        <button type="button" class={styles.picture} onClick={props.onSelect}>
           <Show when={video.stream(LOADER_STREAM)} keyed>
             {(_stream) => <LoaderClient.Video stream={LOADER_STREAM} />}
           </Show>
           <Show when={video.streamStatus(LOADER_STREAM) !== 'connected'}>
             <SceneThumbnail scene={scene} />
             {/* 'off' is the toggle below doing what it was asked; the checkbox
-              already says so, and an "off…" scrim would just hide the tile. */}
+              already says so, and an "off…" scrim would just hide the picture. */}
             <Show when={video.streamStatus(LOADER_STREAM) !== 'off'}>
               <div class={styles.overlay}>{video.streamStatus(LOADER_STREAM)}…</div>
             </Show>
@@ -122,10 +124,10 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           <div class={styles.layerKey}>
             <span>{layerNumber(props.layer)}</span>
           </div>
-          <LayerTexts layer={props.layer} />
+          <LayerOverrideLines layer={props.layer} />
           <SceneName path={scene.path()} />
         </button>
-        <PerformanceReadouts />
+        <PreviewStats />
         <LoaderClient.StreamToggle
           stream={LOADER_STREAM}
           aria-label={`Layer ${props.layer} video`}
@@ -137,32 +139,23 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   );
 }
 
-/**
- * The layer's two captions, echoed over its tile so the operator can read what
- * every layer is saying without selecting each one. They live on the GUI
- * instance rather than the loader, so this reaches past `LoaderProvider` to the
- * app-wide `GuiProvider` — a different factory, so the nearer provider doesn't
- * shadow it.
- */
-function LayerTexts(props: { layer: LayerId }): JSX.Element {
-  const text1 = layerText(props.layer, 1);
-  const text2 = layerText(props.layer, 2);
-  const lines = () => [text1(), text2()].filter((text) => text !== undefined);
+function LayerOverrideLines(props: { layer: LayerId }): JSX.Element {
+  const { state } = useTextState();
+  const lines = () =>
+    (state.overrides[props.layer] ?? [])
+      .slice(0, 2)
+      .map((text) => unescapeNewlines(text).trim())
+      .filter(Boolean);
   return (
-    <span class={styles.texts}>
-      <For each={lines()}>{(line) => <span class={styles.textLine}>{line}</span>}</For>
+    <span class={styles.overrides}>
+      <For each={lines()}>{(line) => <span class={styles.overrideLine}>{line}</span>}</For>
     </span>
   );
 }
 
-function layerText(layer: LayerId, slot: 1 | 2): () => string | undefined {
-  const binding = GuiClient.signal(layerTextParam(layer, slot));
-  return () => unescapeNewlines(binding.value() ?? '').trim() || undefined;
-}
-
 /**
- * A Z layer: the thumbnail, the scene name, the level and the performance
- * readouts, and nothing else. No video, and no layout or color — those are
+ * A Z layer's preview: the thumbnail, the scene name, the level and the stats,
+ * and nothing else. No video, no Overrides, and no layout or color — those are
  * performance controls, and a Z layer is set once and left.
  */
 function CompactLayerBody(props: {
@@ -183,7 +176,7 @@ function CompactLayerBody(props: {
       <div class={styles.frame}>
         <button
           type="button"
-          class={styles.tile}
+          class={styles.picture}
           onClick={props.onSelect}
           aria-label={`Layer ${props.layer}`}
         >
@@ -191,7 +184,7 @@ function CompactLayerBody(props: {
           <SceneName path={scene.path()} />
         </button>
         <ClearLayer layer={props.layer} icon />
-        <PerformanceReadouts />
+        <PreviewStats />
       </div>
       <div class={styles.level} style={levelStyle(level.value())} />
     </figure>
@@ -200,9 +193,9 @@ function CompactLayerBody(props: {
 
 /**
  * Scrolls a layer back into the previews column when it becomes the selected
- * one, so selecting from anywhere but the tile itself — the scene picker, a MIDI
- * pad — doesn't leave the operator watching a tile that is scrolled out of sight.
- * `nearest` so an already-visible tile stays exactly where it is.
+ * one, so selecting from anywhere but its preview — the scene picker, a MIDI
+ * pad — doesn't leave the operator watching a preview scrolled out of sight.
+ * `nearest` so an already-visible preview stays exactly where it is.
  */
 function revealWhenActive(active: () => boolean): (figure: HTMLElement) => void {
   let figure: HTMLElement | undefined;
@@ -216,7 +209,7 @@ function revealWhenActive(active: () => boolean): (figure: HTMLElement) => void 
 
 /**
  * Publishes this loader's connection to `PlaybackProvider`, because the scene
- * picker sits outside every scene provider and still has to call this instance.
+ * picker sits outside every Loader provider and still has to call this instance.
  * Only reachable from in here.
  */
 function publishConnection(layer: LayerId): void {
@@ -228,7 +221,7 @@ function publishConnection(layer: LayerId): void {
 function createActiveScene() {
   const activeScene = LoaderClient.signal('activeScene');
   // A scene folder is not guaranteed to hold a thumbnail.jpg, and the server
-  // refuses one outside the library — either way the tile falls back to black
+  // refuses one outside the library — either way the picture falls back to black
   // rather than a broken-image glyph.
   const [broken, setBroken] = createSignal<string>();
   // Cleared whenever the layer moves to another scene, so a thumbnail the
@@ -294,7 +287,7 @@ function ParamRadios(props: {
   const binding = LoaderClient.signal(props.name);
   return (
     // Named per layer as well as per param: one shared name would make all
-    // eight tiles a single radio group.
+    // eight Layer previews a single radio group.
     <RadioGroup
       name={`layer-${props.layer}-${props.name}`}
       direction="vertical"
@@ -316,31 +309,27 @@ function ParamRadios(props: {
 
 /**
  * Puts a layer back to nothing: the Loader swaps in its blank tox, and the
- * captions, layout and color the operator laid over the last scene go with it.
+ * overrides, layout and color the operator laid over the last scene go with it.
  * The Loader resets its own layout and color as it clears, but both are written
  * from here too so the radios move on the press rather than on TD's echo.
  *
- * `icon` is the Z layers' version — the same clear, in the tile's top corner,
- * because a compact tile has no param column to sit under. It still resets
- * layout and color: they are not on the Z tile, but they are on its loader.
+ * `icon` is the Z layers' version — the same clear, in the picture's top corner,
+ * because a Z layer preview has no param column to sit under. It still resets
+ * layout and color: they are not on the Z layer preview, but they are on its loader.
  */
 function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
   const connection = LoaderClient.useConnection();
   const layout = LoaderClient.signal('layout');
   const color = LoaderClient.signal('color');
-  const text1 = GuiClient.signal(layerTextParam(props.layer, 1));
-  const text2 = GuiClient.signal(layerTextParam(props.layer, 2));
+  const textState = useTextState();
 
   function clear(): void {
-    // The params go regardless: a layer whose process is down still shows its
-    // captions over the thumbnail, and those are the GUI's to clear.
     void connection
       .call('clearScene')
       .catch((error: unknown) => console.warn('[vj-gui] clear failed', error));
     layout.setValue(LAYOUT_OPTIONS[0].value);
     color.setValue(COLOR_OPTIONS[0].value);
-    text1.setValue('');
-    text2.setValue('');
+    textState.clearOverrides(props.layer);
   }
 
   return (
@@ -355,11 +344,11 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
   );
 }
 
-function PerformanceReadouts(): JSX.Element {
+function PreviewStats(): JSX.Element {
   const stats = LoaderClient.signal('performance');
   const stat = (name: string) => performanceStat(stats.value(), name);
   // `pointer-events: none` so the overlay never swallows the click that selects
-  // the layer — the tile underneath still drives the hover that reveals it.
+  // the layer — the picture underneath still drives the hover that reveals it.
   return (
     <table class={styles.stats}>
       <tbody>
