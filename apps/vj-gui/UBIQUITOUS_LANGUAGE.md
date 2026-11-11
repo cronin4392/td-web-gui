@@ -103,6 +103,7 @@ relative to `apps/vj-gui`.
 - Applying a **Phrase** writes it to the **Selected layer**'s **Override** and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
 - **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. A **Show row** with an **Alias** has no text of its own — it reads the **Named value**, which is why the panel shows it read-only.
 - The **Layer text list** is the **Act text list** with each non-blank **Override** replacing its slot; a blank **Override** is stored as `''`, never as a placeholder, so the **Act text list** shows through.
+- Clearing a **Layer** drops its **Overrides**, so it shows the **Act text list** again; **Loading** a new **Tox** keeps them. Both put its layout and color back to the first option.
 - Text 1 and Text 2 are **Override** slots now, not TouchDesigner params: they live in the web's database, and the **Layer text list** is what reaches TouchDesigner.
 - "Comp" (a Web-GUI-32280 preset) is not a vj-gui term; do not use it for any of the above.
 
