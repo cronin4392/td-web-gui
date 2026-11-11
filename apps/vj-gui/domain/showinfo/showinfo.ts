@@ -47,19 +47,11 @@ export function namedValues(show: ShowInfo): NamedValues {
 }
 
 export function layerTextList(act: string[], overrides: string[]): string[] {
-  return act.map((text, i) => {
+  const length = Math.max(act.length, overrides.findLastIndex((text) => !isBlank(text)) + 1);
+  return Array.from({ length }, (_, i) => {
     const override = overrides[i];
-    return override !== undefined && !isBlank(override) ? override : text;
+    return override !== undefined && !isBlank(override) ? override : (act[i] ?? '');
   });
-}
-
-export function trimOverrides(overrides: LayerOverrides, length: number): LayerOverrides {
-  const trimmed: LayerOverrides = {};
-  for (const [layer, texts] of Object.entries(overrides)) {
-    const kept = texts.slice(0, length);
-    if (kept.some((text) => !isBlank(text))) trimmed[layer] = kept;
-  }
-  return trimmed;
 }
 
 export function defaultShowDocument(): ShowDocument {

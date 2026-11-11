@@ -5,7 +5,6 @@ import {
   isShowDocument,
   layerTextList,
   namedValues,
-  trimOverrides,
   type ShowInfo,
   type ShowRow,
 } from './showinfo';
@@ -125,27 +124,20 @@ describe('layerTextList', () => {
     expect(layerTextList(act, ['  '])).toEqual(act);
   });
 
-  it('drops overrides past the end of the act', () => {
-    expect(layerTextList(act, ['', '', '', 'Z'])).toEqual(act);
+  it('runs past the end of the act to the last override', () => {
+    expect(layerTextList(act, ['', '', '', '', 'Z'])).toEqual(['a', 'b', 'c', '', 'Z']);
+  });
+
+  it('is the overrides alone when the act is empty', () => {
+    expect(layerTextList([], ['DJ X'])).toEqual(['DJ X']);
+  });
+
+  it('ignores blank overrides past the end of the act', () => {
+    expect(layerTextList(act, ['', '', '', ' '])).toEqual(act);
   });
 
   it('returns the act for empty overrides', () => {
     expect(layerTextList(act, [])).toEqual(act);
-  });
-});
-
-describe('trimOverrides', () => {
-  it('drops overrides past the new end', () => {
-    expect(trimOverrides({ A: ['x', 'y', 'z'] }, 2)).toEqual({ A: ['x', 'y'] });
-  });
-
-  it('drops a layer left with only blank overrides', () => {
-    expect(trimOverrides({ A: ['', 'y'], B: ['b'] }, 1)).toEqual({ B: ['b'] });
-  });
-
-  it('does not bring a dropped override back when the list grows again', () => {
-    const shrunk = trimOverrides({ A: ['x', 'y'] }, 1);
-    expect(layerTextList(['a', 'b'], shrunk.A ?? [])).toEqual(['x', 'b']);
   });
 });
 

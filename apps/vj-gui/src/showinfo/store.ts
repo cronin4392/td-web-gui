@@ -1,8 +1,6 @@
 import { createStore, produce, unwrap } from 'solid-js/store';
 import {
-  actTextList,
   defaultShowDocument,
-  trimOverrides,
   type Alias,
   type ShowDocument,
   type ShowRow,
@@ -63,16 +61,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
       }),
   });
 
-  function showEdited() {
-    const trimmed = trimOverrides(unwrap(state.overrides), actTextList(state.show).length);
-    setState(
-      produce((doc) => {
-        doc.overrides = trimmed;
-      }),
-    );
-    saver.schedule();
-  }
-
   function rowIndex(id: string): number {
     return state.show.rows.findIndex((r) => r.id === id);
   }
@@ -84,41 +72,41 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
   function addRow(): string {
     const row = makeRow();
     setState('show', 'rows', (rows) => [...rows, row]);
-    showEdited();
+    saver.schedule();
     return row.id;
   }
 
   function removeRow(id: string): void {
     setState('show', 'rows', (rows) => rows.filter((r) => r.id !== id));
-    showEdited();
+    saver.schedule();
   }
 
   function moveRow(fromIndex: number, toIndex: number): void {
     const { length } = state.show.rows;
     if (fromIndex === toIndex || !inRange(fromIndex, length) || !inRange(toIndex, length)) return;
     setState('show', 'rows', (rows) => moveItem(rows, fromIndex, toIndex));
-    showEdited();
+    saver.schedule();
   }
 
   function setRowText(id: string, text: string): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'text', text);
-    showEdited();
+    saver.schedule();
   }
 
   function setRowAlias(id: string, alias: Alias | null): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'alias', alias);
-    showEdited();
+    saver.schedule();
   }
 
   function toggleRow(id: string): void {
     const i = rowIndex(id);
     if (i === -1) return;
     setState('show', 'rows', i, 'on', (on) => !on);
-    showEdited();
+    saver.schedule();
   }
 
   function setOverride(layer: string, slot: number, text: string): void {

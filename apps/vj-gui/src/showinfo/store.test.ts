@@ -100,12 +100,14 @@ describe('overrides', () => {
     expect(store.state.overrides).toEqual({ B: ['b'] });
   });
 
-  it('drops overrides past the end when the act text list shrinks, for good', () => {
+  it('keeps every override while the act text list shrinks and grows back', () => {
     const store = makeStore();
+    store.setRowText('r2', '');
     store.toggleRow('r1');
-    expect(store.state.overrides).toEqual({ A: ['x'] });
+    expect(store.state.overrides).toEqual({ A: ['x', 'y'] });
+    store.setRowText('r2', 'Hello');
     store.toggleRow('r1');
-    expect(store.state.overrides).toEqual({ A: ['x'] });
+    expect(store.state.overrides).toEqual({ A: ['x', 'y'] });
   });
 });
 
