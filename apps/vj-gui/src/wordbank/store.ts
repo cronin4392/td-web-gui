@@ -15,6 +15,7 @@
 
 import { createStore, unwrap } from 'solid-js/store';
 import { defaultWordbank, type PhraseList, type Wordbank } from '@domain/wordbank/wordbank';
+import { createDebouncedSaver } from '@/platform/debounced-saver';
 import { moveItem } from '@/ui/dnd';
 
 export type { PhraseList };
@@ -128,29 +129,26 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     selectedListId: loadSelectedListId(uiStorage, wordbank.lists),
   });
 
-  let saveTimer: ReturnType<typeof setTimeout> | undefined;
   let wordbankDirty = false;
   let uiDirty = false;
-  let warnedWriteFailure = false;
 
-  function scheduleSave() {
-    if (saveTimer !== undefined) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveTimer = undefined;
-      flush();
-    }, debounceMs);
-  }
-
-  function flush() {
-    if (uiDirty) {
-      uiDirty = false;
-      writeUiStorage();
-    }
-    if (wordbankDirty) {
-      wordbankDirty = false;
-      void writeWordbank();
-    }
-  }
+  const saver = createDebouncedSaver({
+    debounceMs,
+    label: 'wordbank',
+    save: () => {
+      if (uiDirty) {
+        uiDirty = false;
+        writeUiStorage();
+      }
+      if (wordbankDirty) {
+        wordbankDirty = false;
+        return options.persistence?.save({
+          lists: unwrap(state.lists),
+          recent: unwrap(state.recent),
+        });
+      }
+    },
+  });
 
   function writeUiStorage() {
     if (!uiStorage) return;
@@ -161,26 +159,14 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     }
   }
 
-  async function writeWordbank() {
-    if (!options.persistence) return;
-    try {
-      await options.persistence.save({ lists: unwrap(state.lists), recent: unwrap(state.recent) });
-    } catch (err) {
-      if (!warnedWriteFailure) {
-        warnedWriteFailure = true;
-        console.warn('[vj-gui] failed to persist wordbank; continuing in-memory', err);
-      }
-    }
-  }
-
   function markWordbankDirty() {
     wordbankDirty = true;
-    scheduleSave();
+    saver.schedule();
   }
 
   function markUiDirty() {
     uiDirty = true;
-    scheduleSave();
+    saver.schedule();
   }
 
   function findListIndex(id: string): number {
@@ -307,13 +293,6 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     markWordbankDirty();
   }
 
-  function dispose(): void {
-    if (saveTimer !== undefined) {
-      clearTimeout(saveTimer);
-      saveTimer = undefined;
-    }
-  }
-
   return {
     state,
     commitRecent,
@@ -327,6 +306,6 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     deletePhrase,
     reorderPhrase,
     sortPhrases,
-    dispose,
+    dispose: saver.dispose,
   };
 }

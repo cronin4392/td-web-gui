@@ -7,6 +7,7 @@ import {
   type ShowDocument,
   type ShowRow,
 } from '@domain/showinfo/showinfo';
+import { createDebouncedSaver } from '@/platform/debounced-saver';
 import { moveItem } from '@/ui/dnd';
 
 const DEFAULT_DEBOUNCE_MS = 200;
@@ -50,19 +51,17 @@ export interface ShowInfoStore {
 }
 
 export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): ShowInfoStore {
-  const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const [state, setState] = createStore<ShowDocument>(options.initial ?? defaultShowDocument());
 
-  let saveTimer: ReturnType<typeof setTimeout> | undefined;
-  let warnedWriteFailure = false;
-
-  function scheduleSave() {
-    if (saveTimer !== undefined) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveTimer = undefined;
-      void write();
-    }, debounceMs);
-  }
+  const saver = createDebouncedSaver({
+    debounceMs: options.debounceMs ?? DEFAULT_DEBOUNCE_MS,
+    label: 'show info',
+    save: () =>
+      options.persistence?.save({
+        show: unwrap(state.show),
+        overrides: unwrap(state.overrides),
+      }),
+  });
 
   function showEdited() {
     const trimmed = trimOverrides(unwrap(state.overrides), actTextList(state.show).length);
@@ -71,29 +70,7 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
         doc.overrides = trimmed;
       }),
     );
-    scheduleSave();
-  }
-
-  function flush() {
-    if (saveTimer === undefined) return;
-    clearTimeout(saveTimer);
-    saveTimer = undefined;
-    void write();
-  }
-
-  async function write() {
-    if (!options.persistence) return;
-    try {
-      await options.persistence.save({
-        show: unwrap(state.show),
-        overrides: unwrap(state.overrides),
-      });
-    } catch (err) {
-      if (!warnedWriteFailure) {
-        warnedWriteFailure = true;
-        console.warn('[vj-gui] failed to persist show info; continuing in-memory', err);
-      }
-    }
+    saver.schedule();
   }
 
   function rowIndex(id: string): number {
@@ -147,7 +124,7 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
   function setOverride(layer: string, slot: number, text: string): void {
     if (slot < 0) return;
     setState('overrides', layer, withSlot(state.overrides[layer], slot, text));
-    scheduleSave();
+    saver.schedule();
   }
 
   function clearOverrides(layer: string): void {
@@ -156,14 +133,7 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
         delete doc.overrides[layer];
       }),
     );
-    scheduleSave();
-  }
-
-  function dispose(): void {
-    if (saveTimer !== undefined) {
-      clearTimeout(saveTimer);
-      saveTimer = undefined;
-    }
+    saver.schedule();
   }
 
   return {
@@ -176,7 +146,7 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     toggleRow,
     setOverride,
     clearOverrides,
-    flush,
-    dispose,
+    flush: saver.flush,
+    dispose: saver.dispose,
   };
 }
