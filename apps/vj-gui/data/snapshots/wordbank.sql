@@ -8,46 +8,50 @@ CREATE TABLE tabs (
     );
 INSERT INTO "tabs" ("id", "name", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Lyrics', 1);
 INSERT INTO "tabs" ("id", "name", "position") VALUES ('a480e270-b040-41c3-8ddb-20f43ebe4422', 'Elements', 0);
+INSERT INTO "tabs" ("id", "name", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Serum', 2);
 CREATE TABLE phrases (
       tab_id   TEXT NOT NULL REFERENCES tabs(id) ON DELETE CASCADE,
       phrase   TEXT NOT NULL,
       position INTEGER NOT NULL,
       PRIMARY KEY (tab_id, phrase)
     );
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', '1234', 0);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Badman', 6);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', '1234', 2);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Badman', 8);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Badman
-Sound', 5);
+Sound', 7);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Carbon
-Fiber', 18);
+Fiber', 20);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Get
+up', 0);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Hands in
-the air', 17);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Killers', 3);
+the air', 19);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Killers', 5);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Killers in
-the Jungle', 4);
+the Jungle', 6);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Lets
-Rock', 16);
+Rock', 18);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Lose
-Control', 19);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Original', 8);
+Control', 21);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Okay!', 1);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Original', 10);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Original
-Badman', 7);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Perfect', 1);
+Badman', 9);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Perfect', 3);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Ready
-or not', 14);
+or not', 16);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Right
-Here', 11);
+Here', 13);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Right
-Now', 12);
+Now', 14);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Rude
-Boy', 9);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Selecta', 10);
+Boy', 11);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Selecta', 12);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Trigger
-Finger', 13);
+Finger', 15);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'Want
 Some
-More', 2);
-INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'or not', 15);
+More', 4);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a30e81dd-9f9e-40d3-bc85-c48ef49511d2', 'or not', 17);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a480e270-b040-41c3-8ddb-20f43ebe4422', 'Cambridge', 3);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a480e270-b040-41c3-8ddb-20f43ebe4422', 'DNB', 4);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a480e270-b040-41c3-8ddb-20f43ebe4422', 'Drum n Bass', 7);
@@ -59,19 +63,38 @@ INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a480e270-b040-41
 elements', 8);
 INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('a480e270-b040-41c3-8ddb-20f43ebe4422', 'Phoenix
 Landing', 2);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Close', 0);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Dont you
+Listen?', 5);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Down', 8);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'I WANT
+YOU', 1);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'I love', 16);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'I love
+Pussy', 10);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'I love
+your girlfriend', 15);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'I told
+you', 6);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'IM a
+Hoe', 12);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Meow', 9);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Shanice', 3);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Shut up', 4);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'UP', 7);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'WE SOME
+HOES', 13);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'YOU A
+HOE', 11);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'Your Girlfriend', 17);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'skank', 14);
+INSERT INTO "phrases" ("tab_id", "phrase", "position") VALUES ('ab718efd-ab86-4b8e-9f50-b2eeea9eec05', 'yappa', 2);
 CREATE TABLE recent (
       phrase   TEXT PRIMARY KEY,
       position INTEGER NOT NULL
     );
-INSERT INTO "recent" ("phrase", "position") VALUES ('Elements', 5);
-INSERT INTO "recent" ("phrase", "position") VALUES ('Junglist
-Massive', 2);
-INSERT INTO "recent" ("phrase", "position") VALUES ('Perfect', 1);
-INSERT INTO "recent" ("phrase", "position") VALUES ('Trigger
-Finger', 3);
-INSERT INTO "recent" ("phrase", "position") VALUES ('junglist', 6);
-INSERT INTO "recent" ("phrase", "position") VALUES ('metalheadz', 0);
-INSERT INTO "recent" ("phrase", "position") VALUES ('right', 4);
+INSERT INTO "recent" ("phrase", "position") VALUES ('Lenore', 1);
+INSERT INTO "recent" ("phrase", "position") VALUES ('Pow', 0);
 CREATE TABLE text_fields (
       id       TEXT PRIMARY KEY,
       value    TEXT NOT NULL,
