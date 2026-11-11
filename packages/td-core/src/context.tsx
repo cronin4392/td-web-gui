@@ -309,8 +309,8 @@ export function createTDClient<
     </Bound>
   );
 
-  // Narrowed to `string[][]` keys, which are readouts by construction — no TD
-  // parameter carries a table, so there is nothing writable to confuse this with.
+  // Narrowed to `string[][]` keys, which are always table readouts. `<Table>` only
+  // displays; a writable table is written through `signal(name).setValue(rows)`.
   const TypedTable = (
     props: TableProps & { name: KeysOfType<Schema, string[][]> },
   ): JSX.Element => (

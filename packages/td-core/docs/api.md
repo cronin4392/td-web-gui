@@ -145,7 +145,10 @@ snapshot, so an optimistic edit TD refused snaps back instead of sticking. See
 
 **List your readouts here too.** TD refuses a write to one either way, through
 that same runtime path — declaring it statically just means the control is
-disabled from the start rather than after the first refused edit.
+disabled from the start rather than after the first refused edit. The one
+exception is a table readout declared `writable: True`: leave it out, and write
+it with `connection.signal(name).setValue(rows)`. See
+[protocol.md § Writable tables](protocol.md#writable-tables).
 
 ### `options`
 

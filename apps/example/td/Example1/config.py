@@ -218,9 +218,10 @@ REGISTRY = {
 }
 
 # friendly wire name -> a value read straight out of a CHOP or DAT, with no
-# parameter in between. One-way, TD -> web. The entry's shape picks the source and
-# the wire type; `type` appears only where it overrides that. One entry per shape
-# here, with the sources in /project1/readouts.
+# parameter in between. TD -> web, except 'setlist' below, a Table DAT the web
+# writes too. The entry's shape picks the source and the wire type; `type`
+# appears only where it overrides that. One entry per shape here, with the
+# sources in /project1/readouts.
 #
 # Full reference: packages/td-core/docs/touchdesigner-setup.md § Readouts.
 READOUTS = {
@@ -247,6 +248,13 @@ READOUTS = {
     "cues": {
         "op": "/project1/readouts/cue_table",
         "type": "string[][]",
+    },
+    # The one readout the web may write: it replaces the whole table. Only a
+    # Table DAT qualifies, since any other DAT would rebuild over the write.
+    "setlist": {
+        "op": "/project1/readouts/setlist",
+        "type": "string[][]",
+        "writable": True,
     },
 }
 

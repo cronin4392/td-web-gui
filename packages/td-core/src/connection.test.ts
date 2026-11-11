@@ -80,6 +80,23 @@ describe('createTDConnection', () => {
     });
   });
 
+  it('writes a whole table as an update and takes the echo', async () => {
+    const td = createMockTD({ snapshot: { lines: [['old']] } });
+    const conn = createTDConnection('ws://test', { WebSocket: td.WebSocket });
+    const lines = conn.signal('lines');
+    await flush();
+
+    lines.setValue([['first'], ['second']]);
+    expect(lines.value()).toEqual([['first'], ['second']]);
+    expect(td.socket().received.at(-1)).toEqual({
+      type: 'update',
+      params: { lines: [['first'], ['second']] },
+    });
+
+    td.socket().serverSend({ type: 'update', params: { lines: [] } });
+    expect(lines.value()).toEqual([]);
+  });
+
   it('does not send while the socket is not open', () => {
     const td = createMockTD();
     const conn = createTDConnection('ws://test', { WebSocket: td.WebSocket });

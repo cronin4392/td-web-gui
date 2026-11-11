@@ -12,6 +12,14 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ## [Unreleased]
 
+### Added
+
+- **Writable tables.** A whole-table readout on a Table DAT declared
+  `'writable': True` in `READOUTS` accepts `signal(name).setValue(rows)` from
+  the web: TD replaces the table's contents and broadcasts the result. Needs the
+  updated `webserver-callbacks.py`; `PROTOCOL_VERSION` is unchanged. See
+  [docs/protocol.md § Writable tables](docs/protocol.md#writable-tables).
+
 ### Changed
 
 - **BREAKING: `pulse`, `call`, `notify` and `handle` are gone from the
@@ -131,6 +139,12 @@ project. See [docs/protocol.md](docs/protocol.md).
 
 ### Fixed
 
+- **A component loaded from `WebGuiServer.tox` runs the package's current
+  scripts, not the ones it was exported with.** A `.tox` export strips the
+  `File` and `Sync to File` links on `webserver1_callbacks`,
+  `webrtc1_callbacks` and `WebGuiServerExt`, so they kept the exported text
+  however current `Tdcoredir` was. `Rebuild()` now restores those links, as it
+  already did for `config`.
 - **The generated operators are no longer saved into your `.toe`.** `exit_watch`
   now drops the whole build product on `onProjectPreSave` and restores it on
   `onProjectPostSave`, so every save writes a project holding only the

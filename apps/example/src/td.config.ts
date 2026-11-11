@@ -96,6 +96,8 @@ export interface Example1Params {
   bands: number[];
   track: string;
   cues: string[][];
+  /** A Table DAT readout declared `writable`, so it's left out of `example1Readonly`. */
+  setlist: string[][];
 }
 
 /** Readout names on instance 1, declared read-only so their controls render disabled. */

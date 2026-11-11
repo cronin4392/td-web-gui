@@ -197,13 +197,13 @@ registry is where parameter-type information already lives. The web's TypeScript
 schema lines up 1:1 with the wire and never has to know that a TD Toggle is
 really a 0/1 float or that a color is four separate pars.
 
-| Wire type    | TD → web (read)                | web → TD (write)        |
-| ------------ | ------------------------------ | ----------------------- |
-| `bool`       | `bool(par.eval())`             | `par.val = v`           |
-| `number`     | `par.eval()`                   | `par.val = v`           |
-| `string`     | `par.eval()`                   | `par.val = v`           |
-| `number[]`   | `[p.eval() for p in parGroup]` | each component in order |
-| `string[][]` | `dat.rows(val=True)`           | — readout only          |
+| Wire type    | TD → web (read)                | web → TD (write)                                                              |
+| ------------ | ------------------------------ | ----------------------------------------------------------------------------- |
+| `bool`       | `bool(par.eval())`             | `par.val = v`                                                                 |
+| `number`     | `par.eval()`                   | `par.val = v`                                                                 |
+| `string`     | `par.eval()`                   | `par.val = v`                                                                 |
+| `number[]`   | `[p.eval() for p in parGroup]` | each component in order                                                       |
+| `string[][]` | `dat.rows(val=True)`           | `dat.clear()`, then `dat.appendRow(r)` per row — writable table readouts only |
 
 **Menus carry the string key, not the index.** `par.eval()` on a Menu par returns
 the key, which survives TD-side menu reordering where an index wouldn't.
@@ -218,8 +218,9 @@ the operator's parameter list rather than by component.
 The registry already knows which the backing par is, so `par.val = v` lets TD
 round on write while `par.eval()` returns its native type on read.
 
-**`string[][]` is TD → web only**, and is the one wire type no parameter can
-carry — it exists for whole-table readouts. See [Readouts](#readouts).
+**`string[][]` is the one wire type no parameter can carry** — it exists for
+whole-table readouts. It is TD → web unless the readout is a Table DAT declared
+`writable: True`; see [Writable tables](#writable-tables).
 
 ### A bad value drops its entry, not the message
 
@@ -245,7 +246,7 @@ syncs the rest, exactly as it already does for parameter names it isn't bound to
 
 A **readout** publishes a value that has no parameter behind it: a CHOP channel,
 a DAT cell, a whole DAT table. Readouts are declared in the config's `READOUTS`
-map, are **TD → web only**, and ride the **same `snapshot` and `update` messages
+map, are **TD → web** (one exception: [writable tables](#writable-tables)), and ride the **same `snapshot` and `update` messages
 as parameters** — they appear in the same `params` map, under the same kind of
 friendly name.
 
@@ -267,9 +268,10 @@ Three consequences follow from sharing the namespace:
   wins — it's the bidirectional contract, so dropping it would silently break
   writes — and TD warns naming the collision.
 - **An `update` or `pulse` aimed at a readout is refused** with
-  `param_not_writable`, not `unknown_param`. The name is real; it just isn't
-  writable. That code is also what triggers the web's runtime safety net, so an
-  optimistic edit snaps back instead of sticking.
+  `param_not_writable`, not `unknown_param` — except an `update` to a writable
+  table. The name is real; it just isn't writable. That code is also what
+  triggers the web's runtime safety net, so an optimistic edit snaps back
+  instead of sticking.
 - **Readouts are in the snapshot.** It's the only way a newly connected browser
   learns a readout that hasn't changed since it opened.
 
@@ -290,6 +292,33 @@ One message per frame is still 60/sec for a channel that changes every frame. If
 that's more resolution than the UI needs, resample or filter the CHOP in
 TouchDesigner — that's a TD-side question, and the protocol deliberately has no
 knob for it.
+
+### Writable tables
+
+A whole-table readout whose operator is a **Table DAT** can be declared
+`writable: True`. An `update` carrying `string[][]` for it replaces the table's
+contents: TD clears the table and appends each row in order. An empty array
+empties it.
+
+A Table DAT is rectangular, so rows of different lengths come back padded:
+`[["a"], ["b", "c"]]` is echoed as `[["a", ""], ["b", "c"]]`. The echo is what
+TD holds, so it replaces the optimistic value.
+
+```jsonc
+{ "type": "update", "params": { "lines": [["first"], ["second"]] } }
+```
+
+The change is then broadcast like any other table change, at end of frame, so
+every client, the sender included, receives the table as TD now holds it.
+
+| Refusal               | When                                                                                                                                                |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `param_not_writable`  | The readout isn't a whole table (including one missing `'type': 'string[][]'`), isn't declared `writable: True`, or its operator isn't a Table DAT. |
+| `param_type_mismatch` | The value isn't an array of arrays of strings.                                                                                                      |
+| `missing_param`       | The operator isn't in this project, or isn't a DAT.                                                                                                 |
+
+Only a Table DAT qualifies because any other DAT rebuilds its contents on its
+next cook, which would silently undo the write.
 
 ## Calls
 
@@ -345,16 +374,16 @@ existing single-viewer stance on video.
 An `error` is **surfaced, never fatal**. It routes to the connection's
 `lastError` signal and `onError` handler; the socket stays up.
 
-| Code                  | `ref` | Meaning                                                                                              |
-| --------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
-| `unknown_param`       | yes   | No such name in the registry, or the wrong message kind for it (an `update` aimed at a pulse param). |
-| `missing_param`       | yes   | Registered, but its operator or parameter isn't in this project.                                     |
-| `param_not_writable`  | yes   | Registered `writable: False`, a backing par isn't in `CONSTANT` mode, or the name is a readout.      |
-| `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.     |
-| `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.            |
-| `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                 |
-| `unknown_stream`      | yes   | `stream-enable` named an id that isn't in `STREAMS`. `ref` is that id.                               |
-| `stream_unavailable`  | yes   | Configured, but its encoder hasn't been generated — `WebGuiServerExt.Rebuild()` hasn't run.          |
+| Code                  | `ref` | Meaning                                                                                                                     |
+| --------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------- |
+| `unknown_param`       | yes   | No such name in the registry, or the wrong message kind for it (an `update` aimed at a pulse param).                        |
+| `missing_param`       | yes   | Registered, but its operator or parameter isn't in this project.                                                            |
+| `param_not_writable`  | yes   | Registered `writable: False`, a backing par isn't in `CONSTANT` mode, or the name is a readout that isn't a writable table. |
+| `param_type_mismatch` | yes   | Value doesn't fit the declared wire type: wrong JSON type, wrong array length, unknown menu key.                            |
+| `video_unavailable`   | no    | Signaling arrived but the project exposes no video, or `WEBRTC` names a missing operator.                                   |
+| `video_single_viewer` | no    | Another browser was streaming; video moved here and its tiles froze.                                                        |
+| `unknown_stream`      | yes   | `stream-enable` named an id that isn't in `STREAMS`. `ref` is that id.                                                      |
+| `stream_unavailable`  | yes   | Configured, but its encoder hasn't been generated — `WebGuiServerExt.Rebuild()` hasn't run.                                 |
 
 A failed `call` replies with a `result` carrying one of these `error.code`
 values instead — never the `error` message above, since these are scoped to

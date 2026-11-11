@@ -80,7 +80,8 @@ REGISTRY = {
 # ── Readouts (optional) ──────────────────────────────────────────────────────
 
 # friendly wire name -> data read straight out of a CHOP or a DAT, with no
-# parameter in between. **One-way, TD -> web, always.**
+# parameter in between. TD -> web, with one exception: a whole Table DAT
+# declared `'writable': True` also accepts web writes (see below).
 #
 # Use these for data rather than settings: an analysis CHOP's level, a
 # timecode, a now-playing table. Exporting such a value onto a parameter just
@@ -110,6 +111,14 @@ REGISTRY = {
 #         `'type': 'string[][]'`**, since an op-only entry is otherwise
 #         indistinguishable from one where you forgot the `chan`.
 #
+#   writable: Optional, whole-table readouts only. True lets the web replace
+#         the table's contents with an `update` carrying rows of strings, and
+#         the change is broadcast back like any other table change. The op must
+#         be a Table DAT: any other DAT rebuilds its contents on its next cook
+#         and would silently undo the write. A table is rectangular, so
+#         shorter rows come back padded with empty cells. Every other readout
+#         refuses writes with `param_not_writable`.
+#
 # Channel order is the array order on the wire, exactly like a ParGroup's
 # component order. A pattern ('band*') is deliberately not accepted — it would
 # make the array's length and order depend on what the CHOP happens to hold.
@@ -125,6 +134,7 @@ READOUTS = {
     # 'playing':{'op': '/project1/transport',   'chan': 'playing', 'type': 'bool'},
     # 'track':  {'op': '/project1/nowplaying',  'row': 'title', 'col': 1},
     # 'cues':   {'op': '/project1/cue_table',   'type': 'string[][]'},
+    # 'lines':  {'op': '/project1/lines_in',    'type': 'string[][]', 'writable': True},
 }
 
 
