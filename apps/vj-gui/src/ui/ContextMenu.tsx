@@ -18,7 +18,7 @@ export interface ContextMenu {
 }
 
 /** One popover per panel, items built at open time — a grid mounts one menu, not one per tile. */
-export function createContextMenu(): ContextMenu {
+export function createContextMenu(options: { overTextEntry?: boolean } = {}): ContextMenu {
   const [items, setItems] = createSignal<MenuItems>([]);
   let menu!: HTMLDivElement;
   let opener: HTMLElement | null = null;
@@ -63,7 +63,7 @@ export function createContextMenu(): ContextMenu {
     // An item with nothing to offer lets the event through to whatever menu the
     // panel behind it has.
     if (next.length === 0) return;
-    if (isTextEntry(event.target)) return;
+    if (!options.overTextEntry && isTextEntry(event.target)) return;
     event.preventDefault();
     // Item menus sit inside panel menus; the innermost one to answer wins.
     event.stopPropagation();
