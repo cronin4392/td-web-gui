@@ -4,7 +4,7 @@ import { aliases, type Alias, type ShowRow } from '@domain/showinfo/showinfo';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, dropIndexForRow, hasDragMime } from '@/ui/dnd';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
-import type { ShowInfoStore } from './store';
+import type { ShowEditor } from './show-editor';
 import styles from './ShowInfoPanel.module.css';
 
 const ROW_MIME = 'application/x-td-show-row';
@@ -45,25 +45,25 @@ function MultilineText(props: {
 }
 
 export function ShowInfoPanel(props: {
-  store: ShowInfoStore;
+  editor: ShowEditor;
   class?: string;
   onClose?: () => void;
 }): JSX.Element {
-  const { store } = props;
+  const { editor } = props;
   const menu = createContextMenu({ overTextEntry: true });
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
 
-  const count = () => store.state.show.rows.length;
+  const count = () => editor.state.rows.length;
 
   function rowMenu(row: ShowRow): MenuItems {
     return [
       {
         label: row.on ? 'Hide' : 'Show',
         checked: !row.on,
-        onSelect: () => store.toggleRow(row.id),
+        onSelect: () => editor.toggleRow(row.id),
       },
       'separator',
-      { label: 'Delete', danger: true, onSelect: () => store.removeRow(row.id) },
+      { label: 'Delete', danger: true, onSelect: () => editor.removeRow(row.id) },
     ];
   }
 
@@ -81,7 +81,7 @@ export function ShowInfoPanel(props: {
 
       <div class={styles.body}>
         <ul class={styles.list}>
-          <For each={store.state.show.rows}>
+          <For each={editor.state.rows}>
             {(row, index) => (
               <li
                 class={styles.item}
@@ -99,7 +99,7 @@ export function ShowInfoPanel(props: {
                   event.preventDefault();
                   const from = Number(raw);
                   const to = dropIndexForRow(event, event.currentTarget, index());
-                  store.moveRow(from, adjustReorderTarget(from, to));
+                  editor.moveRow(from, adjustReorderTarget(from, to));
                 }}
                 onContextMenu={(event) => menu.open(event, rowMenu(row))}
               >
@@ -133,7 +133,7 @@ export function ShowInfoPanel(props: {
                   aria-label="Alias"
                   value={row.alias ?? ''}
                   onChange={(event) =>
-                    store.setRowAlias(row.id, (event.currentTarget.value || null) as Alias | null)
+                    editor.setRowAlias(row.id, (event.currentTarget.value || null) as Alias | null)
                   }
                 >
                   <option value="" aria-label="No alias" />
@@ -143,7 +143,7 @@ export function ShowInfoPanel(props: {
                   label="Row text"
                   placeholder="Text"
                   value={row.text}
-                  onInput={(text) => store.setRowText(row.id, text)}
+                  onInput={(text) => editor.setRowText(row.id, text)}
                 />
               </li>
             )}
@@ -156,7 +156,7 @@ export function ShowInfoPanel(props: {
           type="button"
           class={`${styles.iconButton} ${styles.add}`}
           aria-label="Add a show row"
-          onClick={() => store.addRow()}
+          onClick={() => editor.addRow()}
         >
           +
         </button>

@@ -46,37 +46,29 @@ describe('withSlot', () => {
   });
 });
 
-describe('rows', () => {
-  it('adds an unaliased, empty, on row at the end', () => {
+describe('setShow', () => {
+  it('replaces the show rows and keeps every override', () => {
     const store = makeStore();
-    const id = store.addRow();
-    expect(store.state.show.rows.at(-1)).toEqual({ id, alias: null, text: '', on: true });
+    store.setShow({ rows: [{ id: 'n1', alias: null, text: 'Only', on: true }] });
+    expect(store.state.show.rows.map((r) => r.text)).toEqual(['Only']);
+    expect(store.state.overrides).toEqual({ A: ['x', 'y'] });
   });
 
-  it('removes, edits and toggles by id', () => {
+  it('does not share rows with the show it was given', () => {
     const store = makeStore();
-    store.setRowText('r2', 'Bye');
-    store.setRowAlias('r2', 'city');
-    store.toggleRow('r2');
-    store.removeRow('r1');
-    expect(store.state.show.rows.map((r) => r.id)).toEqual(['r2', 'r3']);
-    expect(store.state.show.rows[0]).toEqual({ id: 'r2', alias: 'city', text: 'Bye', on: false });
+    const show = { rows: [{ id: 'n1', alias: null, text: 'Only', on: true }] };
+    store.setShow(show);
+    show.rows[0]!.text = 'changed';
+    expect(store.state.show.rows[0]!.text).toBe('Only');
   });
 
-  it('moves a row and ignores out-of-range moves', () => {
-    const store = makeStore();
-    store.moveRow(0, 2);
-    expect(store.state.show.rows.map((r) => r.id)).toEqual(['r2', 'r3', 'r1']);
-    store.moveRow(0, 9);
-    store.moveRow(-1, 0);
-    expect(store.state.show.rows.map((r) => r.id)).toEqual(['r2', 'r3', 'r1']);
-  });
-
-  it('ignores an unknown id', () => {
-    const store = makeStore();
-    store.setRowText('nope', 'x');
-    store.toggleRow('nope');
-    expect(store.state.show.rows).toEqual(doc().show.rows);
+  it('saves nothing when the show is unchanged', async () => {
+    vi.useFakeTimers();
+    const save = vi.fn();
+    const store = makeStore({ persistence: { save } });
+    store.setShow(doc().show);
+    await vi.advanceTimersByTimeAsync(25);
+    expect(save).not.toHaveBeenCalled();
   });
 });
 
@@ -99,16 +91,6 @@ describe('overrides', () => {
     store.clearOverrides('A');
     expect(store.state.overrides).toEqual({ B: ['b'] });
   });
-
-  it('keeps every override while the act text list shrinks and grows back', () => {
-    const store = makeStore();
-    store.setRowText('r2', '');
-    store.toggleRow('r1');
-    expect(store.state.overrides).toEqual({ A: ['x', 'y'] });
-    store.setRowText('r2', 'Hello');
-    store.toggleRow('r1');
-    expect(store.state.overrides).toEqual({ A: ['x', 'y'] });
-  });
 });
 
 describe('persistence', () => {
@@ -116,14 +98,14 @@ describe('persistence', () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });
-    store.setRowText('r2', 'a');
-    store.setRowText('r2', 'ab');
+    store.setOverride('B', 0, 'a');
+    store.setOverride('B', 0, 'ab');
     expect(save).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(25);
     expect(save).toHaveBeenCalledTimes(1);
     const saved = save.mock.calls[0]![0] as ShowDocument;
-    expect(saved.show.rows[1]!.text).toBe('ab');
-    expect(saved.overrides).toEqual({ A: ['x', 'y'] });
+    expect(saved.show).toEqual(doc().show);
+    expect(saved.overrides).toEqual({ A: ['x', 'y'], B: ['ab'] });
   });
 
   it('warns once when a save fails and keeps going', async () => {
@@ -132,9 +114,9 @@ describe('persistence', () => {
     const store = makeStore({
       persistence: { save: () => Promise.reject(new Error('down')) },
     });
-    store.toggleRow('r1');
+    store.setOverride('B', 0, 'a');
     await vi.advanceTimersByTimeAsync(25);
-    store.toggleRow('r1');
+    store.setOverride('B', 0, 'b');
     await vi.advanceTimersByTimeAsync(25);
     expect(warn).toHaveBeenCalledTimes(1);
   });
@@ -143,7 +125,7 @@ describe('persistence', () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });
-    store.toggleRow('r1');
+    store.setOverride('B', 0, 'a');
     store.flush();
     expect(save).toHaveBeenCalledTimes(1);
     store.flush();
@@ -155,7 +137,7 @@ describe('persistence', () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });
-    store.toggleRow('r1');
+    store.setOverride('B', 0, 'a');
     store.dispose();
     await vi.advanceTimersByTimeAsync(50);
     expect(save).not.toHaveBeenCalled();

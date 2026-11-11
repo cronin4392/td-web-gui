@@ -1,39 +1,34 @@
 import { render } from 'solid-js/web';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ShowDocument } from '@domain/showinfo/showinfo';
-import { createShowInfoStore, type ShowInfoStore } from './store';
+import type { ShowInfo } from '@domain/showinfo/showinfo';
+import { createShowEditor, type ShowEditor } from './show-editor';
 import { ShowInfoPanel } from './ShowInfoPanel';
 
-function doc(): ShowDocument {
+function show(): ShowInfo {
   return {
-    show: {
-      rows: [
-        { id: 'a1', alias: 'artist', text: 'Amy', on: true },
-        { id: 'a2', alias: 'artist', text: 'Bo', on: false },
-        { id: 'r1', alias: 'event', text: 'Elements', on: true },
-      ],
-    },
-    overrides: {},
+    rows: [
+      { id: 'a1', alias: 'artist', text: 'Amy', on: true },
+      { id: 'a2', alias: 'artist', text: 'Bo', on: false },
+      { id: 'r1', alias: 'event', text: 'Elements', on: true },
+    ],
   };
 }
 
 let dispose: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
-let store: ShowInfoStore | undefined;
+let editor: ShowEditor | undefined;
 
 afterEach(() => {
   dispose?.();
-  store?.dispose();
   host?.remove();
-  dispose = store = host = undefined;
+  dispose = editor = host = undefined;
 });
 
 function mount() {
-  store = createShowInfoStore({ initial: doc() });
+  const e = (editor = createShowEditor(show()));
   host = document.createElement('div');
   document.body.appendChild(host);
-  const s = store;
-  dispose = render(() => <ShowInfoPanel store={s} />, host);
+  dispose = render(() => <ShowInfoPanel editor={e} />, host);
 }
 
 class FakeDataTransfer {
@@ -76,7 +71,7 @@ describe('ShowInfoPanel', () => {
     const box = rowTexts()[1]!;
     box.value = 'Bea';
     box.dispatchEvent(new InputEvent('input', { bubbles: true }));
-    expect(store!.state.show.rows[1]!.text).toBe('Bea');
+    expect(editor!.state.rows[1]!.text).toBe('Bea');
   });
 
   it('reorders a row dragged by its handle', () => {
@@ -85,7 +80,7 @@ describe('ShowInfoPanel', () => {
     drag('dragstart', rowItems()[0]!.querySelector('[draggable="true"]')!, dataTransfer);
     drag('dragover', rowItems()[2]!, dataTransfer, 1);
     drag('drop', rowItems()[2]!, dataTransfer, 1);
-    expect(store!.state.show.rows.map((r) => r.id)).toEqual(['a2', 'r1', 'a1']);
+    expect(editor!.state.rows.map((r) => r.id)).toEqual(['a2', 'r1', 'a1']);
   });
 
   it('drags only from the handle, not the whole row', () => {
@@ -100,6 +95,6 @@ describe('ShowInfoPanel', () => {
     const dataTransfer = new FakeDataTransfer();
     dataTransfer.setData('text/plain', 'from outside');
     drag('drop', rowItems()[0]!, dataTransfer);
-    expect(store!.state.show.rows.map((r) => r.id)).toEqual(['a1', 'a2', 'r1']);
+    expect(editor!.state.rows.map((r) => r.id)).toEqual(['a1', 'a2', 'r1']);
   });
 });

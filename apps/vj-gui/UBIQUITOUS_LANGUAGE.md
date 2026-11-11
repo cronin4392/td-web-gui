@@ -99,7 +99,7 @@ relative to `apps/vj-gui`.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
 - Applying a **Phrase** writes it to the **Selected layer**'s **Override** and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
-- **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. Every **Show row** holds its own text, **Alias** or not; a b2b set is two `artist` rows switched on.
+- **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. Every **Show row** holds its own text, **Alias** or not; a b2b set is two `artist` rows switched on. Edits in the **Show info** dialog are a draft: nothing reaches a **Layer**, TouchDesigner or the database until the dialog closes.
 - The **Layer text list** is the **Act text list** with each non-blank **Override** replacing its slot; a blank **Override** is stored as `''`, never as a placeholder, so the **Act text list** shows through. An **Override** past the end of the **Act text list** still reaches TouchDesigner, and editing the **Show rows** never deletes one.
 - Clearing a **Layer** drops its **Overrides**, so it shows the **Act text list** again; **Loading** a new **Tox** keeps them. Both put its layout and color back to the first option.
 - Text 1 and Text 2 are **Override** slots now, not TouchDesigner params: they live in the web's database, and the **Layer text list** is what reaches TouchDesigner.
