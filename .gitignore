@@ -28,9 +28,6 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# vj-gui's SQLite database (TEXT_SELECTOR.md §5)
-apps/vj-gui/data/
-
 # Embody / Envoy (auto-managed)
 Backup/
 logs/

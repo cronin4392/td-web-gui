@@ -1,0 +1,30 @@
+@layer components {
+  .chip {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+
+    &:hover {
+      border-color: var(--color-border-hover);
+    }
+  }
+
+  .phrase {
+    min-width: 0;
+    flex: 1;
+    padding: var(--spacing-m);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-size: var(--text-m);
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}

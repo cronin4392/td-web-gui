@@ -1,1 +1,7 @@
 lyrics/*
+
+# The tracked copy of a catalog is the text under `data/snapshots/` — see CLAUDE.md.
+*.db
+*.db-shm
+*.db-wal
+*.restoring

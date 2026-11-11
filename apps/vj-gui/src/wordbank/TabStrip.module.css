@@ -1,0 +1,59 @@
+@layer components {
+  .strip {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-s);
+    padding-bottom: var(--spacing-s);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .tab {
+    padding: var(--spacing-s) var(--spacing-m);
+    font-size: var(--text-m);
+    color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text);
+    }
+  }
+
+  .tabSelected {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text);
+  }
+
+  .tabSlot {
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .tabSlotDragging {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .rename {
+    width: 6rem;
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+  }
+
+  .add {
+    padding: var(--spacing-s) var(--spacing-m);
+    font-size: var(--text-m);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text);
+    }
+  }
+}

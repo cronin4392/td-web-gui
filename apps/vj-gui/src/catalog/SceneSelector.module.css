@@ -1,0 +1,173 @@
+@layer components {
+  .selector {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--spacing-m);
+    padding: var(--spacing-m);
+  }
+
+  .search {
+    width: 12rem;
+    min-width: 0;
+    height: var(--button-size);
+    padding: 0 var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-size: var(--text-m);
+    color: var(--color-text);
+
+    &:focus-visible {
+      border-color: var(--color-border-hover);
+    }
+  }
+
+  .tags {
+    display: flex;
+    /* Without this the row grows to its content and pushes past the panel edge
+       instead of scrolling. */
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    /* `scroll`, not `auto`: a conditional scrollbar would jump the row's height
+       as tags come and go. The wheel handler maps vertical wheel to this axis. */
+    overflow-x: scroll;
+    overflow-y: hidden;
+  }
+
+  .tagSlot {
+    display: flex;
+    align-items: center;
+
+    &[data-dragging='true'] {
+      opacity: 0.4;
+    }
+  }
+
+  .tagForm {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tagInput {
+    width: 100%;
+    min-width: 0;
+    padding: var(--spacing-s);
+    border: 1px solid var(--color-accent);
+    background: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: var(--text-m);
+    color: var(--color-text);
+  }
+
+  .tagAdd {
+    /* The rail's pills are flush; the add button is not one of them. */
+    margin-left: var(--spacing-m);
+    padding: var(--spacing-s);
+    font-size: var(--text-m);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-muted);
+
+    &:hover {
+      color: var(--color-text);
+    }
+  }
+
+  .scenes {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    overflow-y: auto;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    align-content: start;
+    gap: var(--spacing-s);
+  }
+
+  .empty {
+    grid-column: 1 / -1;
+    font-size: var(--text-m);
+    color: var(--color-text-faint);
+  }
+
+  .cell {
+    min-width: 0;
+  }
+
+  /* A dark scene's thumbnail is near-black on transparency; the checkerboard
+     behind it (the tile goes transparent) makes the artwork readable, the way
+     Photoshop shows an alpha channel. */
+  .cell[data-dark='true'] {
+    border-radius: var(--radius);
+    background: repeating-conic-gradient(
+        var(--color-surface) 0deg 90deg,
+        var(--color-border) 90deg 180deg
+      )
+      0 0 / 16px 16px;
+  }
+
+  .cell[data-dark='true'] .tile {
+    background-color: transparent;
+  }
+
+  .tile {
+    position: relative;
+    display: flex;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    align-items: flex-end;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background-color: var(--color-surface);
+    background-size: cover;
+    background-position: center;
+    text-align: left;
+
+    transition: opacity 150ms;
+
+    &:hover {
+      border-color: var(--color-border-hover);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+
+      &:hover {
+        border-color: var(--color-border);
+      }
+    }
+
+    .grid[data-live='true'] &:not(:disabled) {
+      opacity: 0.25;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+
+    .cell[data-hidden='true'] & {
+      filter: grayscale(1);
+      opacity: 0.35;
+    }
+  }
+
+  .caption {
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: var(--spacing-s);
+    background: var(--color-overlay);
+    font-size: var(--text-s);
+    color: var(--color-text);
+  }
+}

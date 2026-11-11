@@ -4,24 +4,31 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm db:restore --if-missing",
     "dev": "vite",
     "build": "vite build",
+    "prepreview": "pnpm db:restore --if-missing",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "db:scenes": "vite-node server/catalog/sync-scenes.ts",
+    "db:effects": "vite-node server/catalog/sync-effects.ts",
+    "db:checkpoint": "node scripts/checkpoint-sqlite.mjs data/scenes.db data/effects.db data/wordbank.db",
+    "db:export": "node scripts/db-export.mjs --env .env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT --strip-column folder data/scenes.db data/effects.db data/wordbank.db",
+    "db:restore": "node scripts/db-restore.mjs --env .env --strip VJ_SCENES_ROOT --strip VJ_EFFECTS_ROOT --strip-column folder data/scenes.db data/effects.db data/wordbank.db",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.domain.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "solid-js": "^1.9.7",
     "td-core": "workspace:*"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.0.0",
     "jsdom": "^25.0.1",
-    "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3",
     "vite": "^6.0.7",
+    "vite-node": "^3.2.4",
     "vite-plugin-solid": "^2.11.0",
     "vitest": "^3.0.0"
   }

@@ -1,0 +1,7 @@
+# `core.autocrlf` would otherwise check the snapshots out as CRLF while `db:export`
+# writes LF, so every export would rewrite all three in full.
+*.sql text eol=lf
+
+# `merge=binary` makes a conflict stop cleanly rather than splice two databases into
+# rubble, should one ever be tracked again.
+*.db binary merge=binary

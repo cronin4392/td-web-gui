@@ -1,0 +1,36 @@
+@layer components {
+  .app {
+    /* Backstop: any descendant that positions against the viewport instead of a
+       nearer ancestor escapes the `overflow: hidden` below and scrolls the page. */
+    position: relative;
+    display: grid;
+    grid-template-columns:
+      [previews-start] 3fr
+      [previews-end scenes-start] 4fr
+      4fr
+      2fr
+      [scenes-end];
+    /* The scene picker takes the top of the space the previews leave; the rest
+       of the panels auto-flow across the row below it, in JSX order. */
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--spacing-m);
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* One rule for every panel, so the page's canvas shows through the gap. */
+  .app > * {
+    background-color: var(--color-surface);
+  }
+
+  /* A full-height column, so the panels start beside it. */
+  .previews {
+    grid-column: previews;
+    grid-row: 1 / -1;
+  }
+
+  /* The only panel wider than one column. */
+  .scenes {
+    grid-column: scenes;
+  }
+}

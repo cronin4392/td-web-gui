@@ -1,0 +1,291 @@
+@layer components {
+  .column {
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    padding: var(--spacing-m);
+  }
+
+  /* Fixed above the stack: the Z layers stay put while the eight below scroll.
+     `wrap-reverse` flips the rows without flipping either row's contents, so
+     Z5/Z6 sit above Z3/Z4 above Z1/Z2 — higher layers higher, as the stack below reads. */
+  .zGrid {
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap-reverse;
+    gap: var(--spacing-s);
+
+    & > * {
+      flex: 0 0 calc((100% - var(--spacing-s)) / 2);
+      min-width: 0;
+    }
+  }
+
+  .grid {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-s);
+    overflow-y: auto;
+  }
+
+  .layerPreview {
+    display: flex;
+    flex-shrink: 0;
+    gap: var(--spacing-m);
+    padding: var(--spacing-s);
+
+    &[data-active='true'] {
+      background-color: var(--color-selected);
+    }
+  }
+
+  /* Half the column's width, so the gap the full-width tiles can afford between
+     frame and level bar is most of what a Z tile has to spend. */
+  .compact {
+    gap: var(--spacing-s);
+  }
+
+  .frame {
+    position: relative;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tile {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    /* Not the scene picker's `--color-surface`: the video is letterboxed by
+       `object-fit: contain`, and black is what belongs in the bars. */
+    background: var(--color-canvas);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-border-hover);
+    }
+
+    & :global(.td-video) {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
+  .thumbnail {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: var(--color-overlay);
+    font-size: var(--text-m);
+    color: var(--color-text);
+  }
+
+  .layerKey {
+    position: absolute;
+    top: 0;
+    right: 0;
+    /* Custom font-size and weight */
+    font-size: 1.5rem;
+    font-weight: 500;
+
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    span {
+      text-box: trim-both cap alphabetic;
+    }
+  }
+
+  /* Top-right, out of the caption's way, where the scene picker keeps its own
+     tile-corner button. */
+  .streamToggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--spacing-l);
+    height: var(--spacing-l);
+    display: none;
+  }
+
+  .sceneName {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    overflow: hidden;
+    padding: var(--spacing-s);
+    background: var(--color-overlay);
+    font-size: var(--text-m);
+    color: var(--color-text);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Over the stream rather than beside it, so the caption reads the way the
+     audience sees it. No scrim — the shadow carries it over a bright frame,
+     and a band across the middle of the tile would hide the scene. */
+  .texts {
+    position: absolute;
+    display: block;
+    inset-inline: var(--spacing-m);
+    top: 50%;
+    overflow: hidden;
+    translate: 0 -50%;
+    font-size: var(--text-l);
+    font-weight: var(--font-weight-bold);
+    color: #fff;
+    text-align: center;
+    text-shadow:
+      0 1px 3px var(--black),
+      0 0 6px var(--black);
+    pointer-events: none;
+  }
+
+  /* A slot per param, each on its own line — the two are separate captions, not
+     one sentence, so neither should wrap into the other. */
+  .textLine {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .level {
+    width: 6px;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(to top, var(--color-accent) var(--level, 0%), transparent var(--level, 0%)),
+      var(--color-border);
+  }
+
+  /* A grid rather than a row so the Clear button below can span both param
+     columns; `auto auto` keeps each column as wide as its codes. */
+  .params {
+    display: grid;
+    align-self: center;
+    align-items: center;
+    grid-template-columns: auto auto;
+    gap: var(--spacing-s);
+  }
+
+  .clear {
+    grid-column: 1 / -1;
+    padding: var(--spacing-m);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-canvas);
+    font-family: var(--font-mono);
+    font-size: var(--text-s);
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
+  }
+
+  /* Where a full tile keeps its stream toggle: a Z tile has no stream, and the
+     other corners are spoken for by the stats and the scene name. */
+  .clearIcon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    place-items: center;
+    border-radius: var(--radius);
+    background: var(--color-overlay);
+    font-size: var(--text-l);
+    line-height: 1;
+    color: var(--color-text);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-danger);
+    }
+  }
+
+  .stats {
+    position: absolute;
+    left: var(--spacing-s);
+    top: var(--spacing-s);
+    font-family: var(--font-mono);
+    font-size: var(--text-s);
+    text-align: left;
+    color: var(--color-text);
+    pointer-events: none;
+  }
+
+  .dotCell {
+    padding-right: var(--spacing-s);
+  }
+
+  .dot {
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    /* A ring, so the dot stays legible over a bright frame. */
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 50%);
+  }
+
+  .good {
+    background: #4ade80;
+  }
+
+  .warn {
+    background: #fbbf24;
+  }
+
+  .bad {
+    background: var(--color-danger);
+  }
+
+  .unknown {
+    background: var(--color-border);
+  }
+
+  .statLabel,
+  .statValue {
+    background: var(--color-overlay);
+    opacity: 0;
+    transition: opacity 150ms;
+
+    .frame:hover & {
+      opacity: 1;
+    }
+  }
+
+  .statLabel {
+    padding: var(--spacing-s);
+  }
+
+  .statValue {
+    padding-block: var(--spacing-s);
+    padding-right: var(--spacing-s);
+  }
+}
