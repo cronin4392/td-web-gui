@@ -9,15 +9,8 @@ export interface ShowRow {
   on: boolean;
 }
 
-export interface Artist {
-  id: string;
-  name: string;
-  active: boolean;
-}
-
 export interface ShowInfo {
   rows: ShowRow[];
-  artists: Artist[];
 }
 
 export type NamedValues = Record<Alias, string>;
@@ -34,24 +27,20 @@ export function isBlank(text: string): boolean {
   return text.trim() === '';
 }
 
-function rowValues(row: ShowRow, show: ShowInfo): string[] {
-  const active = show.artists.filter((a) => a.active);
-  const values = row.alias === 'artist' ? active.map((a) => a.name) : [row.text];
-  return values.filter((v) => !isBlank(v));
+function shows(row: ShowRow): boolean {
+  return row.on && !isBlank(row.text);
 }
 
 export function actTextList(show: ShowInfo): string[] {
-  return show.rows.filter((r) => r.on).flatMap((r) => rowValues(r, show));
+  return show.rows.filter(shows).map((r) => r.text);
 }
 
 export function namedValues(show: ShowInfo): NamedValues {
   const named: NamedValues = { artist: '', event: '', venue: '', city: '' };
   const seen = new Set<Alias>();
   for (const row of show.rows) {
-    if (!row.on || row.alias === null || seen.has(row.alias)) continue;
-    const [first] = rowValues(row, show);
-    if (first === undefined) continue;
-    named[row.alias] = first;
+    if (!shows(row) || row.alias === null || seen.has(row.alias)) continue;
+    named[row.alias] = row.text;
     seen.add(row.alias);
   }
   return named;
@@ -78,7 +67,6 @@ export function defaultShowDocument(): ShowDocument {
   return {
     show: {
       rows: order.map((alias) => ({ id: crypto.randomUUID(), alias, text: '', on: true })),
-      artists: [],
     },
     overrides: {},
   };
@@ -99,19 +87,14 @@ function isShowRow(x: unknown): x is ShowRow {
   );
 }
 
-function isArtist(x: unknown): x is Artist {
-  if (typeof x !== 'object' || x === null) return false;
-  const a = x as Record<string, unknown>;
-  return typeof a.id === 'string' && typeof a.name === 'string' && typeof a.active === 'boolean';
-}
-
 export function isShowDocument(x: unknown): x is ShowDocument {
   if (typeof x !== 'object' || x === null) return false;
   const d = x as Record<string, unknown>;
   const show = d.show as Record<string, unknown> | null | undefined;
   if (typeof show !== 'object' || show === null) return false;
   if (!Array.isArray(show.rows) || !show.rows.every(isShowRow)) return false;
-  if (!Array.isArray(show.artists) || !show.artists.every(isArtist)) return false;
+  // A page still running the artist-roster code would save its artists' slot as an empty row.
+  if ('artists' in show) return false;
   const o = d.overrides;
   if (typeof o !== 'object' || o === null || Array.isArray(o)) return false;
   return Object.values(o).every(isStringArray);

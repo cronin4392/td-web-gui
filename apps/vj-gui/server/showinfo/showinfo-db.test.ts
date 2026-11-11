@@ -22,10 +22,7 @@ const doc: ShowDocument = {
     rows: [
       { id: 'r2', alias: 'venue', text: '', on: false },
       { id: 'r1', alias: null, text: 'Line one\nLine two', on: true },
-    ],
-    artists: [
-      { id: 'a2', name: 'Zed', active: false },
-      { id: 'a1', name: 'Amy', active: true },
+      { id: 'a2', alias: 'artist', text: 'Zed', on: false },
     ],
   },
   overrides: { A: ['hello', ''], Z6: ['', '', 'third'] },
@@ -54,8 +51,20 @@ describe('openShowInfoDb guard', () => {
   });
 });
 
+const V2_SCHEMA = `
+  CREATE TABLE show_rows (id TEXT PRIMARY KEY, position INTEGER NOT NULL, alias TEXT, text TEXT NOT NULL, is_on INTEGER NOT NULL);
+  CREATE TABLE artists (id TEXT PRIMARY KEY, position INTEGER NOT NULL, name TEXT NOT NULL, is_active INTEGER NOT NULL);
+  CREATE TABLE layer_overrides (layer TEXT NOT NULL, slot INTEGER NOT NULL, text TEXT NOT NULL, PRIMARY KEY (layer, slot));
+`;
+
+function seedV2(sql: string): void {
+  const v2 = new DatabaseSync(dbPath);
+  v2.exec(V2_SCHEMA + sql + 'PRAGMA user_version = 2;');
+  v2.close();
+}
+
 describe('migration', () => {
-  it('drops crew rows and the crew column from a version 1 database', () => {
+  it('drops crew rows and turns the artists into rows from a version 1 database', () => {
     const v1 = new DatabaseSync(dbPath);
     v1.exec(`
       CREATE TABLE show_rows (id TEXT PRIMARY KEY, position INTEGER NOT NULL, alias TEXT, text TEXT NOT NULL, is_on INTEGER NOT NULL);
@@ -67,13 +76,80 @@ describe('migration', () => {
     `);
     v1.close();
 
-    expect(readShowDocument(open()).show).toEqual({
-      rows: [
-        { id: 'r1', alias: 'artist', text: '', on: true },
-        { id: 'r3', alias: 'city', text: 'Boston', on: true },
-      ],
-      artists: [{ id: 'a1', name: 'Variable', active: true }],
-    });
+    expect(readShowDocument(open()).show.rows).toEqual([
+      { id: 'a1', alias: 'artist', text: 'Variable', on: true },
+      { id: 'r3', alias: 'city', text: 'Boston', on: true },
+    ]);
+  });
+
+  it('puts one row per artist where the artist row was, on only if both were', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'event', 'Elements', 1), ('r2', 1, 'artist', '', 1), ('r3', 2, 'city', 'Boston', 0);
+      INSERT INTO artists VALUES ('a2', 1, 'Audio Fields', 1), ('a1', 0, 'Variable', 1), ('a3', 2, 'Resting', 0);
+    `);
+    expect(readShowDocument(open()).show.rows).toEqual([
+      { id: 'r1', alias: 'event', text: 'Elements', on: true },
+      { id: 'a1', alias: 'artist', text: 'Variable', on: true },
+      { id: 'a2', alias: 'artist', text: 'Audio Fields', on: true },
+      { id: 'a3', alias: 'artist', text: 'Resting', on: false },
+      { id: 'r3', alias: 'city', text: 'Boston', on: false },
+    ]);
+  });
+
+  it('keeps the artists off under an artist row that was off', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 0);
+      INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
+    `);
+    expect(readShowDocument(open()).show.rows).toEqual([
+      { id: 'a1', alias: 'artist', text: 'Variable', on: false },
+    ]);
+  });
+
+  it('keeps a blank artist row when no artist has a name', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1);
+      INSERT INTO artists VALUES ('a1', 0, '  ', 1);
+    `);
+    expect(readShowDocument(open()).show.rows).toEqual([
+      { id: 'r1', alias: 'artist', text: '', on: true },
+    ]);
+  });
+
+  it('adds the artists switched off when no row placed them', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'event', 'Elements', 1);
+      INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
+    `);
+    expect(readShowDocument(open()).show.rows).toEqual([
+      { id: 'r1', alias: 'event', text: 'Elements', on: true },
+      { id: 'a1', alias: 'artist', text: 'Variable', on: false },
+    ]);
+  });
+
+  it('repeats the artists under a second artist row, with new ids', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1), ('r2', 1, 'artist', '', 1);
+      INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
+    `);
+    const rows = readShowDocument(open()).show.rows;
+    expect(rows.map((r) => r.text)).toEqual(['Variable', 'Variable']);
+    expect(rows[0]!.id).toBe('a1');
+    expect(rows[1]!.id).not.toBe('a1');
+  });
+
+  it('leaves the overrides alone and drops the artists table', () => {
+    seedV2(`
+      INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1);
+      INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
+      INSERT INTO layer_overrides VALUES ('A', 0, 'Hello');
+    `);
+    const db = open();
+    expect(readShowDocument(db).overrides).toEqual({ A: ['Hello'] });
+    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
+      name: string;
+    }[];
+    expect(tables.map((t) => t.name)).not.toContain('artists');
   });
 });
 
@@ -87,7 +163,7 @@ describe('round trip', () => {
   it('replaces the previous document rather than merging into it', () => {
     const db = open();
     writeShowDocument(db, doc);
-    const next: ShowDocument = { show: { rows: [], artists: [] }, overrides: {} };
+    const next: ShowDocument = { show: { rows: [] }, overrides: {} };
     writeShowDocument(db, next);
     expect(readShowDocument(db)).toEqual(next);
   });
@@ -109,7 +185,6 @@ describe('round trip', () => {
           { id: 'same', alias: null, text: 'a', on: true },
           { id: 'same', alias: null, text: 'b', on: true },
         ],
-        artists: [],
       },
       overrides: {},
     };

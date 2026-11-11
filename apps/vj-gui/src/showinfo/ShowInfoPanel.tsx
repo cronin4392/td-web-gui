@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
-import { aliases, isBlank, type Alias } from '@domain/showinfo/showinfo';
+import { aliases, type Alias } from '@domain/showinfo/showinfo';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
 import type { ShowInfoStore } from './store';
 import styles from './ShowInfoPanel.module.css';
@@ -101,11 +101,6 @@ export function ShowInfoPanel(props: {
   onClose?: () => void;
 }): JSX.Element {
   const { store } = props;
-  const activeArtists = () =>
-    store.state.show.artists
-      .filter((artist) => artist.active && !isBlank(artist.name))
-      .map((artist) => artist.name)
-      .join(' · ');
 
   return (
     <section class={`${styles.panel} ${props.class ?? ''}`}>
@@ -120,44 +115,6 @@ export function ShowInfoPanel(props: {
       </PanelHeader>
 
       <div class={styles.body}>
-        <div class={styles.sectionHeader}>
-          <h3 class={styles.sectionTitle}>Artists</h3>
-          <button
-            type="button"
-            class={styles.iconButton}
-            aria-label="Add an artist"
-            onClick={() => store.addArtist()}
-          >
-            +
-          </button>
-        </div>
-        <ul class={styles.list}>
-          <For each={store.state.show.artists}>
-            {(artist, index) => (
-              <li class={styles.item} classList={{ [styles.off!]: !artist.active }}>
-                <MultilineText
-                  label="Artist name"
-                  placeholder="Name"
-                  value={artist.name}
-                  onInput={(name) => store.setArtistName(artist.id, name)}
-                />
-                <RowControls
-                  label={artist.name || `artist ${index() + 1}`}
-                  index={index()}
-                  count={store.state.show.artists.length}
-                  on={artist.active}
-                  onToggle={() => store.toggleArtist(artist.id)}
-                  onMove={(to) => store.moveArtist(index(), to)}
-                  onRemove={() => store.removeArtist(artist.id)}
-                />
-              </li>
-            )}
-          </For>
-          <Show when={store.state.show.artists.length === 0}>
-            <li class={styles.empty}>No artists yet.</li>
-          </Show>
-        </ul>
-
         <div class={styles.sectionHeader}>
           <h3 class={styles.sectionTitle}>Show</h3>
           <button
@@ -184,28 +141,12 @@ export function ShowInfoPanel(props: {
                   <option value="">none</option>
                   <For each={aliases}>{(alias) => <option value={alias}>{alias}</option>}</For>
                 </select>
-                <Show
-                  when={row.alias === 'artist'}
-                  fallback={
-                    <MultilineText
-                      label="Row text"
-                      placeholder="Text"
-                      value={row.text}
-                      onInput={(text) => store.setRowText(row.id, text)}
-                    />
-                  }
-                >
-                  {(_artist) => (
-                    <p class={styles.readout}>
-                      <Show
-                        when={activeArtists()}
-                        fallback={<span class={styles.empty}>no active artists</span>}
-                      >
-                        {unescapeNewlines(activeArtists())}
-                      </Show>
-                    </p>
-                  )}
-                </Show>
+                <MultilineText
+                  label="Row text"
+                  placeholder="Text"
+                  value={row.text}
+                  onInput={(text) => store.setRowText(row.id, text)}
+                />
                 <RowControls
                   label={`row ${index() + 1}`}
                   index={index()}

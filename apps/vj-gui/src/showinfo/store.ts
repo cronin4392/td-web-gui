@@ -4,7 +4,6 @@ import {
   defaultShowDocument,
   trimOverrides,
   type Alias,
-  type Artist,
   type ShowDocument,
   type ShowRow,
 } from '@domain/showinfo/showinfo';
@@ -27,10 +26,6 @@ function makeRow(): ShowRow {
   return { id: crypto.randomUUID(), alias: null, text: '', on: true };
 }
 
-function makeArtist(): Artist {
-  return { id: crypto.randomUUID(), name: '', active: true };
-}
-
 export interface CreateShowInfoStoreOptions {
   initial?: ShowDocument;
   persistence?: { save: (doc: ShowDocument) => void | Promise<void> };
@@ -46,12 +41,6 @@ export interface ShowInfoStore {
   setRowText: (id: string, text: string) => void;
   setRowAlias: (id: string, alias: Alias | null) => void;
   toggleRow: (id: string) => void;
-
-  addArtist: () => string;
-  removeArtist: (id: string) => void;
-  moveArtist: (fromIndex: number, toIndex: number) => void;
-  setArtistName: (id: string, name: string) => void;
-  toggleArtist: (id: string) => void;
 
   setOverride: (layer: string, slot: number, text: string) => void;
   clearOverrides: (layer: string) => void;
@@ -111,10 +100,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     return state.show.rows.findIndex((r) => r.id === id);
   }
 
-  function artistIndex(id: string): number {
-    return state.show.artists.findIndex((a) => a.id === id);
-  }
-
   function inRange(index: number, length: number): boolean {
     return index >= 0 && index < length;
   }
@@ -159,39 +144,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     showEdited();
   }
 
-  function addArtist(): string {
-    const artist = makeArtist();
-    setState('show', 'artists', (artists) => [...artists, artist]);
-    showEdited();
-    return artist.id;
-  }
-
-  function removeArtist(id: string): void {
-    setState('show', 'artists', (artists) => artists.filter((a) => a.id !== id));
-    showEdited();
-  }
-
-  function moveArtist(fromIndex: number, toIndex: number): void {
-    const { length } = state.show.artists;
-    if (fromIndex === toIndex || !inRange(fromIndex, length) || !inRange(toIndex, length)) return;
-    setState('show', 'artists', (artists) => moveItem(artists, fromIndex, toIndex));
-    showEdited();
-  }
-
-  function setArtistName(id: string, name: string): void {
-    const i = artistIndex(id);
-    if (i === -1) return;
-    setState('show', 'artists', i, 'name', name);
-    showEdited();
-  }
-
-  function toggleArtist(id: string): void {
-    const i = artistIndex(id);
-    if (i === -1) return;
-    setState('show', 'artists', i, 'active', (active) => !active);
-    showEdited();
-  }
-
   function setOverride(layer: string, slot: number, text: string): void {
     if (slot < 0) return;
     setState('overrides', layer, withSlot(state.overrides[layer], slot, text));
@@ -222,11 +174,6 @@ export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): S
     setRowText,
     setRowAlias,
     toggleRow,
-    addArtist,
-    removeArtist,
-    moveArtist,
-    setArtistName,
-    toggleArtist,
     setOverride,
     clearOverrides,
     flush,

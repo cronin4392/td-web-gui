@@ -6,28 +6,27 @@ import {
   layerTextList,
   namedValues,
   trimOverrides,
-  type Artist,
   type ShowInfo,
+  type ShowRow,
 } from './showinfo';
 
-function artist(name: string, active = true): Artist {
-  return { id: crypto.randomUUID(), name, active };
+function artist(text: string, on = true): ShowRow {
+  return { id: crypto.randomUUID(), alias: 'artist', text, on };
 }
 
 function show(opts: {
   texts?: Record<string, string>;
   off?: string[];
-  artists?: Artist[];
+  artists?: ShowRow[];
 }): ShowInfo {
   const base = defaultShowDocument().show;
-  return {
-    rows: base.rows.map((r) => ({
-      ...r,
-      text: opts.texts?.[r.alias ?? ''] ?? '',
-      on: !opts.off?.includes(r.alias ?? ''),
-    })),
-    artists: opts.artists ?? [],
-  };
+  const rows = base.rows.map((r) => ({
+    ...r,
+    text: opts.texts?.[r.alias ?? ''] ?? '',
+    on: !opts.off?.includes(r.alias ?? ''),
+  }));
+  if (opts.artists) rows.splice(0, 1, ...opts.artists);
+  return { rows };
 }
 
 const texts = { event: 'Elements', city: 'Boston', venue: 'Phoenix\\nLanding' };
@@ -38,7 +37,7 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Variable', 'Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
-  it('expands a b2b in roster order', () => {
+  it('lists a b2b as two artist rows, in row order', () => {
     const s = show({
       texts,
       off: ['venue'],
@@ -47,7 +46,7 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Variable', 'Audio Fields', 'Elements', 'Boston']);
   });
 
-  it('ignores an inactive artist between two active ones', () => {
+  it('skips an artist row switched off between two on ones', () => {
     const s = show({
       texts,
       off: ['venue'],
@@ -56,12 +55,12 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Variable', 'Audio Fields', 'Elements', 'Boston']);
   });
 
-  it('moves the event to slot 1 with no active artists', () => {
+  it('moves the event to slot 1 with no artist on', () => {
     const s = show({ texts, artists: [artist('Variable', false)] });
     expect(actTextList(s)).toEqual(['Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
-  it('skips an active artist with a blank name', () => {
+  it('skips an on artist row left blank', () => {
     const s = show({ texts, artists: [artist(' '), artist('Variable')] });
     expect(actTextList(s)).toEqual(['Variable', 'Elements', 'Boston', 'Phoenix\\nLanding']);
   });
@@ -71,9 +70,9 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Boston', 'Phoenix\\nLanding']);
   });
 
-  it('ignores typed text on artist rows', () => {
-    const s = show({ texts: { artist: 'typed' } });
-    expect(actTextList(s)).toEqual([]);
+  it('takes the text of an artist row like any other row', () => {
+    const s = show({ texts: { artist: 'Variable' } });
+    expect(actTextList(s)).toEqual(['Variable']);
   });
 
   it('lets repeated aliases both contribute', () => {
@@ -97,7 +96,7 @@ describe('namedValues', () => {
     expect(namedValues(show({ texts, off: ['city'] })).city).toBe('');
   });
 
-  it('uses the first active artist', () => {
+  it('uses the first artist row that is on and filled in', () => {
     const s = show({ artists: [artist('Gone', false), artist('Variable'), artist('Other')] });
     expect(namedValues(s).artist).toBe('Variable');
   });
@@ -156,7 +155,6 @@ describe('defaultShowDocument', () => {
     expect(d.show.rows.map((r) => r.alias)).toEqual(['artist', 'event', 'city', 'venue']);
     expect(d.show.rows.every((r) => r.on && r.text === '')).toBe(true);
     expect(new Set(d.show.rows.map((r) => r.id)).size).toBe(4);
-    expect(d.show.artists).toEqual([]);
     expect(d.overrides).toEqual({});
   });
 });
@@ -180,6 +178,11 @@ describe('isShowDocument', () => {
 
   it('rejects a non-array override', () => {
     const d = { ...defaultShowDocument(), overrides: { l1: 'nope' } };
+    expect(isShowDocument(d)).toBe(false);
+  });
+
+  it('rejects a document that still carries an artist roster', () => {
+    const d = { ...defaultShowDocument(), show: { rows: [], artists: [] } };
     expect(isShowDocument(d)).toBe(false);
   });
 

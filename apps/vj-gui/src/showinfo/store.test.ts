@@ -6,13 +6,9 @@ function doc(): ShowDocument {
   return {
     show: {
       rows: [
-        { id: 'r1', alias: 'artist', text: '', on: true },
+        { id: 'r1', alias: 'artist', text: 'Amy', on: true },
         { id: 'r2', alias: null, text: 'Hello', on: true },
         { id: 'r3', alias: 'venue', text: '', on: false },
-      ],
-      artists: [
-        { id: 'a1', name: 'Amy', active: true },
-        { id: 'a2', name: 'Bo', active: false },
       ],
     },
     overrides: { A: ['x', 'y'] },
@@ -84,25 +80,6 @@ describe('rows', () => {
   });
 });
 
-describe('artists', () => {
-  it('adds an active artist with a blank name', () => {
-    const store = makeStore();
-    const id = store.addArtist();
-    expect(store.state.show.artists.at(-1)).toEqual({ id, name: '', active: true });
-  });
-
-  it('edits, toggles, moves and removes by id', () => {
-    const store = makeStore();
-    store.setArtistName('a2', 'Bob');
-    store.toggleArtist('a2');
-    store.moveArtist(1, 0);
-    expect(store.state.show.artists.map((a) => a.id)).toEqual(['a2', 'a1']);
-    expect(store.state.show.artists[0]).toEqual({ id: 'a2', name: 'Bob', active: true });
-    store.removeArtist('a1');
-    expect(store.state.show.artists.map((a) => a.id)).toEqual(['a2']);
-  });
-});
-
 describe('overrides', () => {
   it('sets a slot on a layer that has none yet, padding the earlier slots', () => {
     const store = makeStore();
@@ -125,9 +102,9 @@ describe('overrides', () => {
 
   it('drops overrides past the end when the act text list shrinks, for good', () => {
     const store = makeStore();
-    store.toggleArtist('a1');
+    store.toggleRow('r1');
     expect(store.state.overrides).toEqual({ A: ['x'] });
-    store.toggleArtist('a1');
+    store.toggleRow('r1');
     expect(store.state.overrides).toEqual({ A: ['x'] });
   });
 });

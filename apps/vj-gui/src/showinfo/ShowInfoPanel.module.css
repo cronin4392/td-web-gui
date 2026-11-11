@@ -81,15 +81,6 @@
     resize: vertical;
   }
 
-  .readout {
-    flex: 1;
-    min-width: 0;
-    padding: var(--spacing-s) var(--spacing-m);
-    font-size: var(--text-m);
-    white-space: pre-line;
-    color: var(--color-text-muted);
-  }
-
   .empty {
     color: var(--color-text-faint);
   }

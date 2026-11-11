@@ -7,10 +7,10 @@ import { ShowInfoPanel } from './ShowInfoPanel';
 function doc(): ShowDocument {
   return {
     show: {
-      rows: [{ id: 'r1', alias: 'artist', text: '', on: true }],
-      artists: [
-        { id: 'a1', name: 'Amy', active: true },
-        { id: 'a2', name: 'Bo', active: true },
+      rows: [
+        { id: 'a1', alias: 'artist', text: 'Amy', on: true },
+        { id: 'a2', alias: 'artist', text: 'Bo', on: false },
+        { id: 'r1', alias: 'event', text: 'Elements', on: true },
       ],
     },
     overrides: {},
@@ -36,32 +36,21 @@ function mount() {
   dispose = render(() => <ShowInfoPanel store={s} />, host);
 }
 
-function artistReadout() {
-  const select = [...host!.querySelectorAll<HTMLSelectElement>('select[aria-label="Alias"]')].find(
-    (el) => el.value === 'artist',
-  );
-  return select!.closest('li')!.querySelector('p')!.textContent;
+function rowTexts() {
+  return [...host!.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Row text"]')];
 }
 
-function click(label: string) {
-  host!.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!.click();
-}
-
-describe('ShowInfoPanel artist row', () => {
-  it('lists every active artist', () => {
+describe('ShowInfoPanel', () => {
+  it('gives every row, artist rows included, its own text box', () => {
     mount();
-    expect(artistReadout()).toBe('Amy · Bo');
+    expect(rowTexts().map((t) => t.value)).toEqual(['Amy', 'Bo', 'Elements']);
   });
 
-  it('drops an artist switched off while another stays on', () => {
+  it('edits an artist row like any other row', () => {
     mount();
-    click('Bo shown');
-    expect(artistReadout()).toBe('Amy');
-  });
-
-  it('picks up a rename while the row stays non-empty', () => {
-    mount();
-    store!.setArtistName('a1', 'Ann');
-    expect(artistReadout()).toBe('Ann · Bo');
+    const box = rowTexts()[1]!;
+    box.value = 'Bea';
+    box.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    expect(store!.state.show.rows[1]!.text).toBe('Bea');
   });
 });

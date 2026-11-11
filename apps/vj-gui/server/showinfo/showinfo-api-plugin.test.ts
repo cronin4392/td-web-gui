@@ -59,16 +59,26 @@ describe('showInfoApiHandler', () => {
   });
 
   it('PUT a shape that fails isShowDocument is a 400', async () => {
-    const res = await put(JSON.stringify({ show: { rows: 'nope', artists: [] }, overrides: {} }));
+    const res = await put(JSON.stringify({ show: { rows: 'nope' }, overrides: {} }));
     expect(res.status).toBe(400);
     expect(res.body).toContain('invalid show document shape');
+  });
+
+  it('PUT from a page still holding an artist roster is a 400 and writes nothing', async () => {
+    const before = readShowDocument(db);
+    const stale = { show: { rows: [], artists: [] }, overrides: {} };
+    const res = await put(JSON.stringify(stale));
+    expect(res.status).toBe(400);
+    expect(readShowDocument(db)).toEqual(before);
   });
 
   it('PUT a valid document writes it and returns 204', async () => {
     const doc: ShowDocument = {
       show: {
-        rows: [{ id: 'r1', alias: 'event', text: 'Elements', on: true }],
-        artists: [{ id: 'a1', name: 'Variable', active: true }],
+        rows: [
+          { id: 'a1', alias: 'artist', text: 'Variable', on: true },
+          { id: 'r1', alias: 'event', text: 'Elements', on: true },
+        ],
       },
       overrides: { A: ['Junglist'] },
     };

@@ -73,17 +73,15 @@ relative to `apps/vj-gui`.
 
 ## Show info
 
-| Term                | Definition                                                                                                                           | Aliases to avoid                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| **Show info**       | The one shared record of the night: the Show rows, the Artist roster, and every Layer's Overrides, persisted through `/api/showinfo` | Metadata, event info, comp, preset    |
-| **Show row**        | One ordered line of Show info — typed text or an Alias, and on or off                                                                | Line, item, field                     |
-| **Alias**           | A Show row's pointer at a Named value (`artist`, `event`, `venue`, `city`) in place of typed text                                    | Variable, token, placeholder, binding |
-| **Artist roster**   | The ordered list of artist names; any number may be active                                                                           | Lineup, performers, bill              |
-| **Active artist**   | A roster entry switched on, and so contributing its name to the Named values                                                         | Selected artist, current artist       |
-| **Named values**    | The text each Alias resolves to, derived from the Active artists and the on Show rows; never stored                                  | Variables, tags, fields               |
-| **Act text list**   | The on Show rows resolved in order, one string each — what a Layer shows when it has no Override                                     | Default texts, show texts             |
-| **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it slot by slot — what that Layer actually shows                      | Layer texts, merged texts             |
-| **Override**        | A Layer's own text for one slot (Text 1, Text 2); blank means "use the Act text list"                                                | Custom text, manual text, pin         |
+| Term                | Definition                                                                                                                    | Aliases to avoid                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **Show info**       | The one shared record of the night: the Show rows and every Layer's Overrides, persisted through `/api/showinfo`              | Metadata, event info, comp, preset    |
+| **Show row**        | One ordered line of Show info — typed text, an optional Alias, and on or off; an artist is a Show row with the `artist` Alias | Line, item, field                     |
+| **Alias**           | A Show row's label naming the Named value it supplies (`artist`, `event`, `venue`, `city`)                                    | Variable, token, placeholder, binding |
+| **Named values**    | For each Alias, the text of the first on, non-blank Show row carrying it; never stored                                        | Variables, tags, fields               |
+| **Act text list**   | The text of the on, non-blank Show rows in order — what a Layer shows when it has no Override                                 | Default texts, show texts             |
+| **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it slot by slot — what that Layer actually shows               | Layer texts, merged texts             |
+| **Override**        | A Layer's own text for one slot (Text 1, Text 2); blank means "use the Act text list"                                         | Custom text, manual text, pin         |
 
 ## Relationships
 
@@ -101,7 +99,7 @@ relative to `apps/vj-gui`.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
 - Applying a **Phrase** writes it to the **Selected layer**'s **Override** and adds it to **Recent** — the same "apply" path regardless of which **Phrase list** (or **Recent** itself) it came from.
-- **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. A **Show row** with an **Alias** has no text of its own — it reads the **Named value**, which is why the panel shows it read-only.
+- **Show info** is one record shared by every **Layer**; only the **Overrides** are per **Layer**. Every **Show row** holds its own text, **Alias** or not; a b2b set is two `artist` rows switched on.
 - The **Layer text list** is the **Act text list** with each non-blank **Override** replacing its slot; a blank **Override** is stored as `''`, never as a placeholder, so the **Act text list** shows through.
 - Clearing a **Layer** drops its **Overrides**, so it shows the **Act text list** again; **Loading** a new **Tox** keeps them. Both put its layout and color back to the first option.
 - Text 1 and Text 2 are **Override** slots now, not TouchDesigner params: they live in the web's database, and the **Layer text list** is what reaches TouchDesigner.
