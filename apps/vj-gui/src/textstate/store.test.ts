@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ShowDocument } from '@domain/showinfo/showinfo';
-import { createShowInfoStore, withSlot, type CreateShowInfoStoreOptions } from './store';
+import type { TextState } from '@domain/textstate/textstate';
+import { createTextStateStore, withSlot, type CreateTextStateStoreOptions } from './store';
 
-function doc(): ShowDocument {
+function doc(): TextState {
   return {
     show: {
       rows: [
@@ -17,8 +17,8 @@ function doc(): ShowDocument {
 
 let stores: { dispose: () => void }[] = [];
 
-function makeStore(options: CreateShowInfoStoreOptions = {}) {
-  const store = createShowInfoStore({ initial: doc(), debounceMs: 20, ...options });
+function makeStore(options: CreateTextStateStoreOptions = {}) {
+  const store = createTextStateStore({ initial: doc(), debounceMs: 20, ...options });
   stores.push(store);
   return store;
 }
@@ -103,7 +103,7 @@ describe('persistence', () => {
     expect(save).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(25);
     expect(save).toHaveBeenCalledTimes(1);
-    const saved = save.mock.calls[0]![0] as ShowDocument;
+    const saved = save.mock.calls[0]![0] as TextState;
     expect(saved.show).toEqual(doc().show);
     expect(saved.overrides).toEqual({ A: ['x', 'y'], B: ['ab'] });
   });

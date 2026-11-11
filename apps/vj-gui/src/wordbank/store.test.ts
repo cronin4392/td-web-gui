@@ -54,22 +54,22 @@ afterEach(() => {
 describe('recent list', () => {
   it('adds a committed phrase to the front', () => {
     const store = makeStore();
-    store.commitRecent('hello world');
+    store.recordRecent('hello world');
     expect(store.state.recent).toEqual(['hello world']);
   });
 
   it('dedupes to the top instead of duplicating', () => {
     const store = makeStore();
-    store.commitRecent('a');
-    store.commitRecent('b');
-    store.commitRecent('c');
-    store.commitRecent('a');
+    store.recordRecent('a');
+    store.recordRecent('b');
+    store.recordRecent('c');
+    store.recordRecent('a');
     expect(store.state.recent).toEqual(['a', 'c', 'b']);
   });
 
   it('caps at 10 entries, dropping from the tail', () => {
     const store = makeStore();
-    for (let i = 0; i < 12; i++) store.commitRecent(`phrase ${i}`);
+    for (let i = 0; i < 12; i++) store.recordRecent(`phrase ${i}`);
     expect(store.state.recent).toHaveLength(10);
     expect(store.state.recent[0]).toBe('phrase 11');
     expect(store.state.recent).not.toContain('phrase 0');
@@ -78,37 +78,37 @@ describe('recent list', () => {
 
   it('rejects empty (or whitespace-only) commits', () => {
     const store = makeStore();
-    store.commitRecent('');
-    store.commitRecent('   ');
+    store.recordRecent('');
+    store.recordRecent('   ');
     expect(store.state.recent).toEqual([]);
   });
 
   it('is fed by both inputs into one shared list', () => {
     const store = makeStore();
-    store.commitRecent('from text1');
-    store.commitRecent('from text2');
+    store.recordRecent('from text1');
+    store.recordRecent('from text2');
     expect(store.state.recent).toEqual(['from text2', 'from text1']);
   });
 
   it('matching is case-sensitive on the trimmed string', () => {
     const store = makeStore();
-    store.commitRecent('HELLO');
-    store.commitRecent('hello');
+    store.recordRecent('HELLO');
+    store.recordRecent('hello');
     expect(store.state.recent).toEqual(['hello', 'HELLO']);
   });
 
   it('deleteRecent removes a single entry, leaving the rest in order', () => {
     const store = makeStore();
-    store.commitRecent('a');
-    store.commitRecent('b');
-    store.commitRecent('c');
+    store.recordRecent('a');
+    store.recordRecent('b');
+    store.recordRecent('c');
     store.deleteRecent('b');
     expect(store.state.recent).toEqual(['c', 'a']);
   });
 
   it('deleteRecent is a no-op for a phrase not in the list', () => {
     const store = makeStore();
-    store.commitRecent('a');
+    store.recordRecent('a');
     store.deleteRecent('missing');
     expect(store.state.recent).toEqual(['a']);
   });
@@ -299,7 +299,7 @@ describe('persistence', () => {
     const store = makeStore({ persistence });
     const listId = store.state.lists[0]!.id;
     store.addPhrase(listId, 'hello world');
-    store.commitRecent('hello world');
+    store.recordRecent('hello world');
 
     await vi.advanceTimersByTimeAsync(50);
 
@@ -313,9 +313,9 @@ describe('persistence', () => {
     const persistence = fakePersistence();
     const store = makeStore({ persistence, debounceMs: 50 });
 
-    store.commitRecent('one');
-    store.commitRecent('two');
-    store.commitRecent('three');
+    store.recordRecent('one');
+    store.recordRecent('two');
+    store.recordRecent('three');
 
     expect(persistence.calls).toHaveLength(0);
     await vi.advanceTimersByTimeAsync(60);
@@ -329,9 +329,9 @@ describe('persistence', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const store = makeStore({ persistence });
 
-    store.commitRecent('one');
+    store.recordRecent('one');
     await vi.advanceTimersByTimeAsync(30);
-    store.commitRecent('two');
+    store.recordRecent('two');
     await vi.advanceTimersByTimeAsync(30);
 
     expect(warn).toHaveBeenCalledTimes(1);

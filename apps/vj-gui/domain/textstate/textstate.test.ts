@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   actTextList,
-  defaultShowDocument,
-  isShowDocument,
+  defaultTextState,
+  isTextState,
   layerTextList,
   namedValues,
   type ShowInfo,
   type ShowRow,
-} from './showinfo';
+} from './textstate';
 
 function artist(text: string, on = true): ShowRow {
   return { id: crypto.randomUUID(), alias: 'artist', text, on };
@@ -18,7 +18,7 @@ function show(opts: {
   off?: string[];
   artists?: ShowRow[];
 }): ShowInfo {
-  const base = defaultShowDocument().show;
+  const base = defaultTextState().show;
   const rows = base.rows.map((r) => ({
     ...r,
     text: opts.texts?.[r.alias ?? ''] ?? '',
@@ -141,9 +141,9 @@ describe('layerTextList', () => {
   });
 });
 
-describe('defaultShowDocument', () => {
+describe('defaultTextState', () => {
   it('has four on rows in order with unique ids', () => {
-    const d = defaultShowDocument();
+    const d = defaultTextState();
     expect(d.show.rows.map((r) => r.alias)).toEqual(['artist', 'event', 'city', 'venue']);
     expect(d.show.rows.every((r) => r.on && r.text === '')).toBe(true);
     expect(new Set(d.show.rows.map((r) => r.id)).size).toBe(4);
@@ -151,35 +151,35 @@ describe('defaultShowDocument', () => {
   });
 });
 
-describe('isShowDocument', () => {
+describe('isTextState', () => {
   it('accepts the default document', () => {
-    expect(isShowDocument(defaultShowDocument())).toBe(true);
+    expect(isTextState(defaultTextState())).toBe(true);
   });
 
   it('rejects a bad alias', () => {
-    const d = defaultShowDocument();
+    const d = defaultTextState();
     (d.show.rows[0] as { alias: string }).alias = 'bogus';
-    expect(isShowDocument(d)).toBe(false);
+    expect(isTextState(d)).toBe(false);
   });
 
   it('rejects a missing field', () => {
-    const d = defaultShowDocument();
+    const d = defaultTextState();
     delete (d.show.rows[0] as Partial<(typeof d.show.rows)[0]>).on;
-    expect(isShowDocument(d)).toBe(false);
+    expect(isTextState(d)).toBe(false);
   });
 
   it('rejects a non-array override', () => {
-    const d = { ...defaultShowDocument(), overrides: { l1: 'nope' } };
-    expect(isShowDocument(d)).toBe(false);
+    const d = { ...defaultTextState(), overrides: { l1: 'nope' } };
+    expect(isTextState(d)).toBe(false);
   });
 
   it('rejects a document that still carries an artist roster', () => {
-    const d = { ...defaultShowDocument(), show: { rows: [], artists: [] } };
-    expect(isShowDocument(d)).toBe(false);
+    const d = { ...defaultTextState(), show: { rows: [], artists: [] } };
+    expect(isTextState(d)).toBe(false);
   });
 
   it('rejects non-objects', () => {
-    expect(isShowDocument(null)).toBe(false);
-    expect(isShowDocument('x')).toBe(false);
+    expect(isTextState(null)).toBe(false);
+    expect(isTextState('x')).toBe(false);
   });
 });

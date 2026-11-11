@@ -1,11 +1,11 @@
 import { createSignal } from 'solid-js';
 import { render } from 'solid-js/web';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { ShowDocument } from '@domain/showinfo/showinfo';
+import type { TextState } from '@domain/textstate/textstate';
 import { ShowInfoDialog } from './ShowInfoDialog';
-import { createShowInfoStore, type ShowInfoStore } from './store';
+import { createTextStateStore, type TextStateStore } from './store';
 
-function doc(): ShowDocument {
+function doc(): TextState {
   return {
     show: { rows: [{ id: 'r1', alias: 'artist', text: 'Amy', on: true }] },
     overrides: {},
@@ -32,7 +32,7 @@ afterAll(() => {
 
 let dispose: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
-let store: ShowInfoStore | undefined;
+let store: TextStateStore | undefined;
 
 afterEach(() => {
   dispose?.();
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 function mount() {
-  const s = (store = createShowInfoStore({ initial: doc() }));
+  const s = (store = createTextStateStore({ initial: doc() }));
   const [open, setOpen] = createSignal(false);
   host = document.createElement('div');
   document.body.appendChild(host);

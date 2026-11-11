@@ -1,11 +1,11 @@
 import { createEffect, type JSX } from 'solid-js';
-import { namedValues } from '@domain/showinfo/showinfo';
+import { namedValues } from '@domain/textstate/textstate';
 import { LoaderClient } from '@/playback/clients';
 import type { LayerId } from '@/playback/layers';
-import { layerTextListOf, useShowInfo } from './context';
+import { layerTextListOf, useTextState } from './context';
 
 export function TextDelivery(props: { layer: LayerId }): JSX.Element {
-  const { state } = useShowInfo();
+  const { state } = useTextState();
   const connection = LoaderClient.useConnection();
   const textList = LoaderClient.signal('textList');
   const textVars = LoaderClient.signal('textVars');

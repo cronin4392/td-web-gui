@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ShowInfo } from '@domain/showinfo/showinfo';
+import type { ShowInfo } from '@domain/textstate/textstate';
 import { createShowEditor } from './show-editor';
 
 function show(): ShowInfo {

@@ -1,9 +1,9 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
-import { actTextList, isBlank } from '@domain/showinfo/showinfo';
+import { actTextList, isBlank } from '@domain/textstate/textstate';
 import { usePlayback } from '@/playback/PlaybackProvider';
-import type { ShowInfoStore } from '@/showinfo/store';
-import { ShowInfoDialog } from '@/showinfo/ShowInfoDialog';
+import type { TextStateStore } from '@/textstate/store';
+import { ShowInfoDialog } from '@/textstate/ShowInfoDialog';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
 import { RECENT_LIST_ID, SHOW_LIST_ID, type createWordbankStore } from './store';
 import { TextField } from './TextField';
@@ -19,7 +19,7 @@ type Slot = (typeof SLOTS)[number];
 
 export function TextSelector(props: {
   store: ReturnType<typeof createWordbankStore>;
-  showInfo: ShowInfoStore;
+  textState: TextStateStore;
 }): JSX.Element {
   const { selectedLayer } = usePlayback();
 
@@ -32,26 +32,26 @@ export function TextSelector(props: {
   let pressedSlot: Slot | null = null;
   const holdEdit = () => (pressedSlot = focusedSlot());
 
-  const actTexts = createMemo(() => actTextList(props.showInfo.state.show));
+  const actTexts = createMemo(() => actTextList(props.textState.state.show));
 
   function endPick() {
     pressedSlot = null;
     setFilter('');
   }
-  function applyPhrase(layer: string, slot: Slot, phrase: string) {
-    props.showInfo.setOverride(layer, slot, isBlank(phrase) ? '' : escapeNewlines(phrase));
-    props.store.commitRecent(phrase);
+  function applyText(layer: string, slot: Slot, text: string) {
+    props.textState.setOverride(layer, slot, isBlank(text) ? '' : escapeNewlines(text));
+    props.store.recordRecent(text);
     endPick();
   }
-  function applyToFocused(phrase: string) {
-    applyPhrase(selectedLayer(), focusedSlot() ?? pressedSlot ?? 0, phrase);
+  function applyToFocused(text: string) {
+    applyText(selectedLayer(), focusedSlot() ?? pressedSlot ?? 0, text);
   }
   function clearText(layer: string, slot: Slot) {
-    props.showInfo.setOverride(layer, slot, '');
+    props.textState.setOverride(layer, slot, '');
     endPick();
   }
-  function clearLayer(layer: string) {
-    props.showInfo.clearOverrides(layer);
+  function clearOverrides(layer: string) {
+    props.textState.clearOverrides(layer);
     endPick();
   }
   function endEdit() {
@@ -65,7 +65,7 @@ export function TextSelector(props: {
       props.store.state.lists[0],
   );
 
-  const showPhrases = createMemo(() => actTexts().map(unescapeNewlines));
+  const showTabTexts = createMemo(() => actTexts().map(unescapeNewlines));
 
   return (
     <div class={styles.selector}>
@@ -79,7 +79,7 @@ export function TextSelector(props: {
         </PanelHeaderButton>
       </PanelHeader>
       <ShowInfoDialog
-        store={props.showInfo}
+        store={props.textState}
         open={showInfoOpen()}
         onClose={() => setShowInfoOpen(false)}
       />
@@ -92,9 +92,9 @@ export function TextSelector(props: {
               {(slot) => (
                 <TextField
                   label={`Text ${slot + 1}`}
-                  value={props.showInfo.state.overrides[layer]?.[slot] ?? ''}
+                  value={props.textState.state.overrides[layer]?.[slot] ?? ''}
                   placeholder={actTexts()[slot] ?? `Text ${slot + 1}`}
-                  onCommit={(text) => applyPhrase(layer, slot, text)}
+                  onApply={(text) => applyText(layer, slot, text)}
                   onClear={() => clearText(layer, slot)}
                   onFilter={setFilter}
                   onFocus={() => {
@@ -109,11 +109,11 @@ export function TextSelector(props: {
             <button
               type="button"
               tabIndex={-1}
-              class={styles.clearLayer}
+              class={styles.clearOverrides}
               onMouseDown={holdEdit}
-              onClick={() => clearLayer(layer)}
+              onClick={() => clearOverrides(layer)}
             >
-              Clear layer
+              Clear overrides
             </button>
           </section>
         )}
@@ -138,7 +138,7 @@ export function TextSelector(props: {
             >
               <Show
                 when={props.store.state.selectedListId !== SHOW_LIST_ID}
-                fallback={<ShowPanel phrases={showPhrases()} onApply={applyToFocused} />}
+                fallback={<ShowPanel texts={showTabTexts()} onApply={applyToFocused} />}
               >
                 <Show when={selectedList()}>
                   {(list) => (

@@ -1,7 +1,7 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import { unescapeNewlines, type SelectOption } from 'td-core';
-import { useShowInfo } from '@/showinfo/context';
-import { TextDelivery } from '@/showinfo/TextDelivery';
+import { useTextState } from '@/textstate/context';
+import { TextDelivery } from '@/textstate/TextDelivery';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
 import { RadioGroup } from '@/ui/RadioGroup';
@@ -124,7 +124,7 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
           <div class={styles.layerKey}>
             <span>{layerNumber(props.layer)}</span>
           </div>
-          <LayerTexts layer={props.layer} />
+          <LayerOverrideLines layer={props.layer} />
           <SceneName path={scene.path()} />
         </button>
         <PerformanceReadouts />
@@ -139,8 +139,8 @@ function LayerBody(props: { layer: LayerId; active: boolean; onSelect: () => voi
   );
 }
 
-function LayerTexts(props: { layer: LayerId }): JSX.Element {
-  const { state } = useShowInfo();
+function LayerOverrideLines(props: { layer: LayerId }): JSX.Element {
+  const { state } = useTextState();
   const lines = () =>
     (state.overrides[props.layer] ?? [])
       .slice(0, 2)
@@ -321,7 +321,7 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
   const connection = LoaderClient.useConnection();
   const layout = LoaderClient.signal('layout');
   const color = LoaderClient.signal('color');
-  const showInfo = useShowInfo();
+  const textState = useTextState();
 
   function clear(): void {
     void connection
@@ -329,7 +329,7 @@ function ClearLayer(props: { layer: LayerId; icon?: boolean }): JSX.Element {
       .catch((error: unknown) => console.warn('[vj-gui] clear failed', error));
     layout.setValue(LAYOUT_OPTIONS[0].value);
     color.setValue(COLOR_OPTIONS[0].value);
-    showInfo.clearOverrides(props.layer);
+    textState.clearOverrides(props.layer);
   }
 
   return (

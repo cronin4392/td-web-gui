@@ -1,11 +1,11 @@
 import { createEffect, createSignal, Show, untrack, type JSX } from 'solid-js';
 import { createShowEditor, type ShowEditor } from './show-editor';
 import { ShowInfoPanel } from './ShowInfoPanel';
-import type { ShowInfoStore } from './store';
+import type { TextStateStore } from './store';
 import styles from './ShowInfoDialog.module.css';
 
 export function ShowInfoDialog(props: {
-  store: ShowInfoStore;
+  store: TextStateStore;
   open: boolean;
   onClose: () => void;
 }): JSX.Element {

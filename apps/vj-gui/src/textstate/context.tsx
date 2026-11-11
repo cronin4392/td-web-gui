@@ -1,22 +1,24 @@
 import { createContext, useContext, type JSX } from 'solid-js';
-import { actTextList, layerTextList, type ShowDocument } from '@domain/showinfo/showinfo';
-import type { ShowInfoStore } from './store';
+import { actTextList, layerTextList, type TextState } from '@domain/textstate/textstate';
+import type { TextStateStore } from './store';
 
-const ShowInfoContext = createContext<ShowInfoStore>();
+const TextStateContext = createContext<TextStateStore>();
 
-export function ShowInfoProvider(props: {
-  store: ShowInfoStore;
+export function TextStateProvider(props: {
+  store: TextStateStore;
   children: JSX.Element;
 }): JSX.Element {
-  return <ShowInfoContext.Provider value={props.store}>{props.children}</ShowInfoContext.Provider>;
+  return (
+    <TextStateContext.Provider value={props.store}>{props.children}</TextStateContext.Provider>
+  );
 }
 
-export function useShowInfo(): ShowInfoStore {
-  const store = useContext(ShowInfoContext);
-  if (!store) throw new Error('useShowInfo needs a <ShowInfoProvider> above it');
+export function useTextState(): TextStateStore {
+  const store = useContext(TextStateContext);
+  if (!store) throw new Error('useTextState needs a <TextStateProvider> above it');
   return store;
 }
 
-export function layerTextListOf(doc: ShowDocument, layer: string): string[] {
+export function layerTextListOf(doc: TextState, layer: string): string[] {
   return layerTextList(actTextList(doc.show), doc.overrides[layer] ?? []);
 }

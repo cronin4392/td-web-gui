@@ -2,13 +2,13 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  defaultShowDocument,
+  defaultTextState,
   isBlank,
   type Alias,
   type LayerOverrides,
-  type ShowDocument,
+  type TextState,
   type ShowRow,
-} from '../../domain/showinfo/showinfo';
+} from '../../domain/textstate/textstate';
 import {
   catalogDbPath,
   checkpointWal,
@@ -18,11 +18,11 @@ import {
 
 const SCHEMA_VERSION = 3;
 
-export function showInfoDbPath(): string {
-  return catalogDbPath('VJ_SHOWINFO_DB', 'showinfo.db');
+export function textStateDbPath(): string {
+  return catalogDbPath('VJ_TEXTSTATE_DB', 'textstate.db');
 }
 
-export function openShowInfoDb(path: string): DatabaseSync {
+export function openTextStateDb(path: string): DatabaseSync {
   requireRestoredDb(path);
   mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
@@ -67,7 +67,7 @@ function createSchema(db: DatabaseSync): void {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM show_rows').get() as {
     count: number;
   };
-  if (count === 0) writeDocument(db, defaultShowDocument());
+  if (count === 0) writeDocument(db, defaultTextState());
 }
 
 interface RosterArtist {
@@ -142,7 +142,7 @@ function writeRows(db: DatabaseSync, rows: ShowRow[]): void {
   }
 }
 
-export function readShowDocument(db: DatabaseSync): ShowDocument {
+export function readTextState(db: DatabaseSync): TextState {
   const rows = readRows(db);
 
   const overrides: LayerOverrides = {};
@@ -158,7 +158,7 @@ export function readShowDocument(db: DatabaseSync): ShowDocument {
   return { show: { rows }, overrides };
 }
 
-function writeDocument(db: DatabaseSync, doc: ShowDocument): void {
+function writeDocument(db: DatabaseSync, doc: TextState): void {
   writeRows(db, doc.show.rows);
   db.exec('DELETE FROM layer_overrides');
   const insertOverride = db.prepare(
@@ -169,7 +169,7 @@ function writeDocument(db: DatabaseSync, doc: ShowDocument): void {
   }
 }
 
-export function writeShowDocument(db: DatabaseSync, doc: ShowDocument): void {
+export function writeTextState(db: DatabaseSync, doc: TextState): void {
   transaction(db, () => writeDocument(db, doc));
   checkpointWal(db);
 }

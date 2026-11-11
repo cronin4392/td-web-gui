@@ -5,10 +5,10 @@ import styles from './TextField.module.css';
 
 export interface TextFieldProps {
   label: string;
-  /** Carries `\n` escapes, while `onCommit` receives real newlines. */
+  /** Carries `\n` escapes, while `onApply` receives real newlines. */
   value: string;
   placeholder: string;
-  onCommit: (text: string) => void;
+  onApply: (text: string) => void;
   onClear: () => void;
   onFilter: (text: string) => void;
   onFocus: () => void;
@@ -28,7 +28,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
 
   function commit() {
     if (escapeNewlines(draft()) === props.value) return;
-    props.onCommit(draft());
+    props.onApply(draft());
   }
 
   return (
@@ -81,7 +81,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
           if (!payload) return;
           event.preventDefault();
           setDraft(payload.phrase);
-          props.onCommit(payload.phrase);
+          props.onApply(payload.phrase);
         }}
       />
     </div>

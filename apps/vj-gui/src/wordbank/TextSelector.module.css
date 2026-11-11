@@ -14,7 +14,7 @@
     gap: var(--spacing-s);
   }
 
-  .clearLayer {
+  .clearOverrides {
     align-self: flex-end;
     padding: var(--spacing-s) var(--spacing-m);
     border: 1px solid var(--color-border);

@@ -1,21 +1,21 @@
-import { defaultShowDocument, isShowDocument, type ShowDocument } from '@domain/showinfo/showinfo';
+import { defaultTextState, isTextState, type TextState } from '@domain/textstate/textstate';
 
-const ENDPOINT = '/api/showinfo';
+const ENDPOINT = '/api/textstate';
 
-export async function fetchShowDocument(): Promise<ShowDocument> {
+export async function fetchTextState(): Promise<TextState> {
   try {
     const res = await fetch(ENDPOINT);
     if (!res.ok) throw new Error(`GET ${ENDPOINT} -> ${res.status}`);
     const body: unknown = await res.json();
-    if (!isShowDocument(body)) throw new Error('response failed shape validation');
+    if (!isTextState(body)) throw new Error('response failed shape validation');
     return body;
   } catch (err) {
-    console.warn('[vj-gui] failed to load show info from server, starting with defaults', err);
-    return defaultShowDocument();
+    console.warn('[vj-gui] failed to load text state from server, starting with defaults', err);
+    return defaultTextState();
   }
 }
 
-export async function saveShowDocument(doc: ShowDocument): Promise<void> {
+export async function saveTextState(doc: TextState): Promise<void> {
   const res = await fetch(ENDPOINT, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

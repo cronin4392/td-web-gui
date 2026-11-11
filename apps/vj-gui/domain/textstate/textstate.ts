@@ -18,7 +18,7 @@ export type NamedValues = Record<Alias, string>;
 /** Each Layer's overrides by slot, keyed by layer id; `''` means "use the act text list". */
 export type LayerOverrides = Record<string, string[]>;
 
-export interface ShowDocument {
+export interface TextState {
   show: ShowInfo;
   overrides: LayerOverrides;
 }
@@ -54,7 +54,7 @@ export function layerTextList(act: string[], overrides: string[]): string[] {
   });
 }
 
-export function defaultShowDocument(): ShowDocument {
+export function defaultTextState(): TextState {
   const order: Alias[] = ['artist', 'event', 'city', 'venue'];
   return {
     show: {
@@ -79,7 +79,7 @@ function isShowRow(x: unknown): x is ShowRow {
   );
 }
 
-export function isShowDocument(x: unknown): x is ShowDocument {
+export function isTextState(x: unknown): x is TextState {
   if (typeof x !== 'object' || x === null) return false;
   const d = x as Record<string, unknown>;
   const show = d.show as Record<string, unknown> | null | undefined;

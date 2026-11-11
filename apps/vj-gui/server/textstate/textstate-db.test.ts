@@ -4,20 +4,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ShowDocument } from '../../domain/showinfo/showinfo';
-import { openShowInfoDb, readShowDocument, writeShowDocument } from './showinfo-db';
+import type { TextState } from '../../domain/textstate/textstate';
+import { openTextStateDb, readTextState, writeTextState } from './textstate-db';
 
 let dir: string;
 let dbPath: string;
 let openDbs: DatabaseSync[] = [];
 
 function open(): DatabaseSync {
-  const db = openShowInfoDb(dbPath);
+  const db = openTextStateDb(dbPath);
   openDbs.push(db);
   return db;
 }
 
-const doc: ShowDocument = {
+const doc: TextState = {
   show: {
     rows: [
       { id: 'r2', alias: 'venue', text: '', on: false },
@@ -29,7 +29,7 @@ const doc: ShowDocument = {
 };
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'showinfo-db-'));
+  dir = mkdtempSync(join(tmpdir(), 'textstate-db-'));
   dbPath = join(dir, 'test.db');
   openDbs = [];
 });
@@ -39,13 +39,13 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe('openShowInfoDb guard', () => {
+describe('openTextStateDb guard', () => {
   it('refuses to create a database its snapshot could still rebuild', () => {
-    const root = mkdtempSync(join(tmpdir(), 'showinfo-guard-'));
+    const root = mkdtempSync(join(tmpdir(), 'textstate-guard-'));
     mkdirSync(join(root, 'snapshots'), { recursive: true });
-    writeFileSync(join(root, 'snapshots', 'showinfo.sql'), '', 'utf8');
-    const path = join(root, 'showinfo.db');
-    expect(() => openShowInfoDb(path)).toThrow(/db:restore/);
+    writeFileSync(join(root, 'snapshots', 'textstate.sql'), '', 'utf8');
+    const path = join(root, 'textstate.db');
+    expect(() => openTextStateDb(path)).toThrow(/db:restore/);
     expect(existsSync(path)).toBe(false);
     rmSync(root, { recursive: true, force: true });
   });
@@ -76,7 +76,7 @@ describe('migration', () => {
     `);
     v1.close();
 
-    expect(readShowDocument(open()).show.rows).toEqual([
+    expect(readTextState(open()).show.rows).toEqual([
       { id: 'a1', alias: 'artist', text: 'Variable', on: true },
       { id: 'r3', alias: 'city', text: 'Boston', on: true },
     ]);
@@ -87,7 +87,7 @@ describe('migration', () => {
       INSERT INTO show_rows VALUES ('r1', 0, 'event', 'Elements', 1), ('r2', 1, 'artist', '', 1), ('r3', 2, 'city', 'Boston', 0);
       INSERT INTO artists VALUES ('a2', 1, 'Audio Fields', 1), ('a1', 0, 'Variable', 1), ('a3', 2, 'Resting', 0);
     `);
-    expect(readShowDocument(open()).show.rows).toEqual([
+    expect(readTextState(open()).show.rows).toEqual([
       { id: 'r1', alias: 'event', text: 'Elements', on: true },
       { id: 'a1', alias: 'artist', text: 'Variable', on: true },
       { id: 'a2', alias: 'artist', text: 'Audio Fields', on: true },
@@ -101,7 +101,7 @@ describe('migration', () => {
       INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 0);
       INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
     `);
-    expect(readShowDocument(open()).show.rows).toEqual([
+    expect(readTextState(open()).show.rows).toEqual([
       { id: 'a1', alias: 'artist', text: 'Variable', on: false },
     ]);
   });
@@ -111,7 +111,7 @@ describe('migration', () => {
       INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1);
       INSERT INTO artists VALUES ('a1', 0, '  ', 1);
     `);
-    expect(readShowDocument(open()).show.rows).toEqual([
+    expect(readTextState(open()).show.rows).toEqual([
       { id: 'r1', alias: 'artist', text: '', on: true },
     ]);
   });
@@ -121,7 +121,7 @@ describe('migration', () => {
       INSERT INTO show_rows VALUES ('r1', 0, 'event', 'Elements', 1);
       INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
     `);
-    expect(readShowDocument(open()).show.rows).toEqual([
+    expect(readTextState(open()).show.rows).toEqual([
       { id: 'r1', alias: 'event', text: 'Elements', on: true },
       { id: 'a1', alias: 'artist', text: 'Variable', on: false },
     ]);
@@ -132,7 +132,7 @@ describe('migration', () => {
       INSERT INTO show_rows VALUES ('r1', 0, 'artist', '', 1), ('r2', 1, 'artist', '', 1);
       INSERT INTO artists VALUES ('a1', 0, 'Variable', 1);
     `);
-    const rows = readShowDocument(open()).show.rows;
+    const rows = readTextState(open()).show.rows;
     expect(rows.map((r) => r.text)).toEqual(['Variable', 'Variable']);
     expect(rows[0]!.id).toBe('a1');
     expect(rows[1]!.id).not.toBe('a1');
@@ -145,7 +145,7 @@ describe('migration', () => {
       INSERT INTO layer_overrides VALUES ('A', 0, 'Hello');
     `);
     const db = open();
-    expect(readShowDocument(db).overrides).toEqual({ A: ['Hello'] });
+    expect(readTextState(db).overrides).toEqual({ A: ['Hello'] });
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as {
       name: string;
     }[];
@@ -156,30 +156,30 @@ describe('migration', () => {
 describe('round trip', () => {
   it('reads back exactly what was written, in order, blanks kept', () => {
     const db = open();
-    writeShowDocument(db, doc);
-    expect(readShowDocument(db)).toEqual(doc);
+    writeTextState(db, doc);
+    expect(readTextState(db)).toEqual(doc);
   });
 
   it('replaces the previous document rather than merging into it', () => {
     const db = open();
-    writeShowDocument(db, doc);
-    const next: ShowDocument = { show: { rows: [] }, overrides: {} };
-    writeShowDocument(db, next);
-    expect(readShowDocument(db)).toEqual(next);
+    writeTextState(db, doc);
+    const next: TextState = { show: { rows: [] }, overrides: {} };
+    writeTextState(db, next);
+    expect(readTextState(db)).toEqual(next);
   });
 
   it('survives reopening without reseeding', () => {
     const db = open();
-    writeShowDocument(db, doc);
+    writeTextState(db, doc);
     db.close();
     openDbs = [];
-    expect(readShowDocument(open())).toEqual(doc);
+    expect(readTextState(open())).toEqual(doc);
   });
 
   it('rolls back a write that fails midway', () => {
     const db = open();
-    writeShowDocument(db, doc);
-    const duplicateIds: ShowDocument = {
+    writeTextState(db, doc);
+    const duplicateIds: TextState = {
       show: {
         rows: [
           { id: 'same', alias: null, text: 'a', on: true },
@@ -188,7 +188,7 @@ describe('round trip', () => {
       },
       overrides: {},
     };
-    expect(() => writeShowDocument(db, duplicateIds)).toThrow();
-    expect(readShowDocument(db)).toEqual(doc);
+    expect(() => writeTextState(db, duplicateIds)).toThrow();
+    expect(readTextState(db)).toEqual(doc);
   });
 });

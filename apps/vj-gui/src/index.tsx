@@ -5,7 +5,7 @@ import './index.css';
 import { render } from 'solid-js/web';
 import { App } from './App';
 import { fetchWordbank } from './wordbank/wordbank-api';
-import { fetchShowDocument } from './showinfo/showinfo-api';
+import { fetchTextState } from './textstate/textstate-api';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element #root not found');
@@ -16,6 +16,6 @@ if (!root) throw new Error('Root element #root not found');
 // default on failure. An async IIFE rather than top-level await —
 // Vite's default build target predates top-level-await support.
 void (async () => {
-  const [wordbank, showDocument] = await Promise.all([fetchWordbank(), fetchShowDocument()]);
+  const [wordbank, showDocument] = await Promise.all([fetchWordbank(), fetchTextState()]);
   render(() => <App wordbank={wordbank} showDocument={showDocument} />, root);
 })();

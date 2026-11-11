@@ -1,5 +1,5 @@
 import { createStore, unwrap } from 'solid-js/store';
-import type { Alias, ShowInfo, ShowRow } from '@domain/showinfo/showinfo';
+import type { Alias, ShowInfo, ShowRow } from '@domain/textstate/textstate';
 import { moveItem } from '@/ui/dnd';
 
 export interface ShowEditor {

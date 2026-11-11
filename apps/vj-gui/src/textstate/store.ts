@@ -1,5 +1,5 @@
 import { createStore, produce, reconcile, unwrap } from 'solid-js/store';
-import { defaultShowDocument, type ShowDocument, type ShowInfo } from '@domain/showinfo/showinfo';
+import { defaultTextState, type TextState, type ShowInfo } from '@domain/textstate/textstate';
 import { createDebouncedSaver } from '@/platform/debounced-saver';
 
 const DEFAULT_DEBOUNCE_MS = 200;
@@ -15,14 +15,14 @@ export function withSlot(
   return next;
 }
 
-export interface CreateShowInfoStoreOptions {
-  initial?: ShowDocument;
-  persistence?: { save: (doc: ShowDocument) => void | Promise<void> };
+export interface CreateTextStateStoreOptions {
+  initial?: TextState;
+  persistence?: { save: (doc: TextState) => void | Promise<void> };
   debounceMs?: number;
 }
 
-export interface ShowInfoStore {
-  state: ShowDocument;
+export interface TextStateStore {
+  state: TextState;
 
   setShow: (show: ShowInfo) => void;
   setOverride: (layer: string, slot: number, text: string) => void;
@@ -32,12 +32,12 @@ export interface ShowInfoStore {
   dispose: () => void;
 }
 
-export function createShowInfoStore(options: CreateShowInfoStoreOptions = {}): ShowInfoStore {
-  const [state, setState] = createStore<ShowDocument>(options.initial ?? defaultShowDocument());
+export function createTextStateStore(options: CreateTextStateStoreOptions = {}): TextStateStore {
+  const [state, setState] = createStore<TextState>(options.initial ?? defaultTextState());
 
   const saver = createDebouncedSaver({
     debounceMs: options.debounceMs ?? DEFAULT_DEBOUNCE_MS,
-    label: 'show info',
+    label: 'text state',
     save: () =>
       options.persistence?.save({
         show: unwrap(state.show),

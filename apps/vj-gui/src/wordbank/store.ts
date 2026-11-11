@@ -91,8 +91,7 @@ export interface CreateStoreOptions {
 export interface WordbankStore {
   state: WordbankState;
 
-  /** Feed a committed phrase (from either text input) into the recent list. */
-  commitRecent: (phrase: string) => void;
+  recordRecent: (phrase: string) => void;
   /** Remove a phrase from the recent list. */
   deleteRecent: (phrase: string) => void;
 
@@ -180,7 +179,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
     return `List ${n}`;
   }
 
-  function commitRecent(phrase: string): void {
+  function recordRecent(phrase: string): void {
     const trimmed = phrase.trim();
     if (!trimmed) return;
     setState('recent', (recent) => moveToFront(recent, trimmed, RECENT_LIMIT));
@@ -295,7 +294,7 @@ export function createWordbankStore(options: CreateStoreOptions = {}): WordbankS
 
   return {
     state,
-    commitRecent,
+    recordRecent,
     deleteRecent,
     addList,
     renameList,

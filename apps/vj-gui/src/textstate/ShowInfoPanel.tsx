@@ -1,6 +1,6 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
-import { aliases, type Alias, type ShowRow } from '@domain/showinfo/showinfo';
+import { aliases, type Alias, type ShowRow } from '@domain/textstate/textstate';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, dropIndexForRow, hasDragMime } from '@/ui/dnd';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
@@ -58,8 +58,8 @@ export function ShowInfoPanel(props: {
   function rowMenu(row: ShowRow): MenuItems {
     return [
       {
-        label: row.on ? 'Hide' : 'Show',
-        checked: !row.on,
+        label: 'On',
+        checked: row.on,
         onSelect: () => editor.toggleRow(row.id),
       },
       'separator',

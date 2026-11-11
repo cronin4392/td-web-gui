@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { defaultShowDocument, type ShowDocument } from '../../domain/showinfo/showinfo';
-import { openShowInfoDb, readShowDocument } from './showinfo-db';
-import { showInfoApiHandler } from './showinfo-api-plugin';
+import { defaultTextState, type TextState } from '../../domain/textstate/textstate';
+import { openTextStateDb, readTextState } from './textstate-db';
+import { textStateApiHandler } from './textstate-api-plugin';
 import { callHandler, callHandlerWithBody } from '../platform/api-plugin.test-helpers';
 
 let dir: string;
@@ -14,7 +14,7 @@ let db: DatabaseSync;
 
 function get() {
   return callHandler(
-    showInfoApiHandler(() => db),
+    textStateApiHandler(() => db),
     'GET',
     '',
   );
@@ -22,7 +22,7 @@ function get() {
 
 function put(body: string) {
   return callHandlerWithBody(
-    showInfoApiHandler(() => db),
+    textStateApiHandler(() => db),
     'PUT',
     '',
     body,
@@ -30,8 +30,8 @@ function put(body: string) {
 }
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'vj-showinfo-api-'));
-  db = openShowInfoDb(join(dir, 'showinfo.db'));
+  dir = mkdtempSync(join(tmpdir(), 'vj-textstate-api-'));
+  db = openTextStateDb(join(dir, 'textstate.db'));
 });
 
 afterEach(() => {
@@ -43,12 +43,12 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-describe('showInfoApiHandler', () => {
+describe('textStateApiHandler', () => {
   it('GET returns the seeded default document', () => {
     const res = get();
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body).show.rows.map((r: { alias: string }) => r.alias)).toEqual(
-      defaultShowDocument().show.rows.map((r) => r.alias),
+      defaultTextState().show.rows.map((r) => r.alias),
     );
   });
 
@@ -58,22 +58,22 @@ describe('showInfoApiHandler', () => {
     expect(res.body).toContain('malformed JSON');
   });
 
-  it('PUT a shape that fails isShowDocument is a 400', async () => {
+  it('PUT a shape that fails isTextState is a 400', async () => {
     const res = await put(JSON.stringify({ show: { rows: 'nope' }, overrides: {} }));
     expect(res.status).toBe(400);
     expect(res.body).toContain('invalid show document shape');
   });
 
   it('PUT from a page still holding an artist roster is a 400 and writes nothing', async () => {
-    const before = readShowDocument(db);
+    const before = readTextState(db);
     const stale = { show: { rows: [], artists: [] }, overrides: {} };
     const res = await put(JSON.stringify(stale));
     expect(res.status).toBe(400);
-    expect(readShowDocument(db)).toEqual(before);
+    expect(readTextState(db)).toEqual(before);
   });
 
   it('PUT a valid document writes it and returns 204', async () => {
-    const doc: ShowDocument = {
+    const doc: TextState = {
       show: {
         rows: [
           { id: 'a1', alias: 'artist', text: 'Variable', on: true },
@@ -87,18 +87,18 @@ describe('showInfoApiHandler', () => {
 
     expect(res.status).toBe(204);
     expect(res.body).toBe('');
-    expect(readShowDocument(db)).toEqual(doc);
+    expect(readTextState(db)).toEqual(doc);
   });
 
   it('PUT reports a write failure as a 500', async () => {
     db.close();
-    const res = await put(JSON.stringify(defaultShowDocument()));
+    const res = await put(JSON.stringify(defaultTextState()));
     expect(res.status).toBe(500);
   });
 
   it('passes other methods to the next middleware', async () => {
     const res = await callHandlerWithBody(
-      showInfoApiHandler(() => db),
+      textStateApiHandler(() => db),
       'DELETE',
       '',
       '',

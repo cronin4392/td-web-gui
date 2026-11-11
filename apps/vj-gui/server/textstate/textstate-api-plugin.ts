@@ -1,16 +1,16 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { Connect, Plugin } from 'vite';
-import { isShowDocument } from '../../domain/showinfo/showinfo';
-import { openShowInfoDb, readShowDocument, showInfoDbPath, writeShowDocument } from './showinfo-db';
+import { isTextState } from '../../domain/textstate/textstate';
+import { openTextStateDb, readTextState, textStateDbPath, writeTextState } from './textstate-db';
 import { readBody, sendError, sendJson, sqliteApiPlugin } from '../platform/api-plugin';
 
-const ROUTE = '/api/showinfo';
+const ROUTE = '/api/textstate';
 
-export function showInfoApiHandler(getDb: () => DatabaseSync): Connect.NextHandleFunction {
+export function textStateApiHandler(getDb: () => DatabaseSync): Connect.NextHandleFunction {
   return async (req, res, next) => {
     if (req.method === 'GET') {
       try {
-        sendJson(res, readShowDocument(getDb()));
+        sendJson(res, readTextState(getDb()));
       } catch (err) {
         sendError(res, 500, err);
       }
@@ -25,12 +25,12 @@ export function showInfoApiHandler(getDb: () => DatabaseSync): Connect.NextHandl
         sendError(res, 400, 'malformed JSON');
         return;
       }
-      if (!isShowDocument(body)) {
+      if (!isTextState(body)) {
         sendError(res, 400, 'invalid show document shape');
         return;
       }
       try {
-        writeShowDocument(getDb(), body);
+        writeTextState(getDb(), body);
         res.statusCode = 204;
         res.end();
       } catch (err) {
@@ -43,11 +43,11 @@ export function showInfoApiHandler(getDb: () => DatabaseSync): Connect.NextHandl
   };
 }
 
-export function vjGuiShowInfoApiPlugin(): Plugin {
+export function vjGuiTextStateApiPlugin(): Plugin {
   return sqliteApiPlugin({
-    name: 'vj-gui-showinfo-api',
+    name: 'vj-gui-textstate-api',
     route: ROUTE,
-    openDb: () => openShowInfoDb(showInfoDbPath()),
-    handler: showInfoApiHandler,
+    openDb: () => openTextStateDb(textStateDbPath()),
+    handler: textStateApiHandler,
   });
 }

@@ -4,8 +4,8 @@ import { PhraseChip } from './PhraseChip';
 import styles from './RecentPanel.module.css';
 
 export interface ShowPanelProps {
-  phrases: readonly string[];
-  onApply: (phrase: string) => void;
+  texts: readonly string[];
+  onApply: (text: string) => void;
 }
 
 export function ShowPanel(props: ShowPanelProps): JSX.Element {
@@ -17,11 +17,11 @@ export function ShowPanel(props: ShowPanelProps): JSX.Element {
       class={styles.panel}
     >
       <ul class={styles.rows}>
-        <For each={props.phrases}>
-          {(phrase) => (
+        <For each={props.texts}>
+          {(text) => (
             <li>
               <PhraseChip
-                phrase={phrase}
+                phrase={text}
                 source="recent"
                 tabId={null}
                 index={null}
@@ -30,7 +30,7 @@ export function ShowPanel(props: ShowPanelProps): JSX.Element {
             </li>
           )}
         </For>
-        <Show when={props.phrases.length === 0}>
+        <Show when={props.texts.length === 0}>
           <li class={styles.empty}>Nothing on in the show.</li>
         </Show>
       </ul>

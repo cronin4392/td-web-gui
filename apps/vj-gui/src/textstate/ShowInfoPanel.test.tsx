@@ -1,6 +1,6 @@
 import { render } from 'solid-js/web';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ShowInfo } from '@domain/showinfo/showinfo';
+import type { ShowInfo } from '@domain/textstate/textstate';
 import { createShowEditor, type ShowEditor } from './show-editor';
 import { ShowInfoPanel } from './ShowInfoPanel';
 
