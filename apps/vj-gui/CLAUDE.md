@@ -19,6 +19,14 @@ elsewhere, and don't spread it.
 
 These terms stop at this directory. Never carry them into `packages/td-core`.
 
+**A Layer's tile shows only that Layer's Overrides — never its Layer text list.**
+This is deliberate and has been "fixed" by mistake before: the Act text list is
+the same on every Layer, so showing it would print identical text over every
+preview and hide what actually differs. A tile with no
+Overrides shows no text even while the Layer shows the Act text list. Don't
+propose changing it, and don't name the tile's text component after the Layer
+text list.
+
 ## Three tiers, three tsconfigs
 
 | Directory | Runs in                        | Config                 |
