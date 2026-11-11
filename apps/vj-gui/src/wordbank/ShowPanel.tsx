@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from 'solid-js';
-import { SHOW_LIST_ID } from './store';
-import { PhraseChip } from './PhraseChip';
+import { SHOW_TAB_ID } from './store';
+import { TextChip } from './TextChip';
 import styles from './RecentPanel.module.css';
 
 export interface ShowPanelProps {
@@ -12,17 +12,17 @@ export function ShowPanel(props: ShowPanelProps): JSX.Element {
   return (
     <div
       role="tabpanel"
-      id={`tabpanel-${SHOW_LIST_ID}`}
-      aria-labelledby={`tab-${SHOW_LIST_ID}`}
+      id={`tabpanel-${SHOW_TAB_ID}`}
+      aria-labelledby={`tab-${SHOW_TAB_ID}`}
       class={styles.panel}
     >
       <ul class={styles.rows}>
         <For each={props.texts}>
           {(text) => (
             <li>
-              <PhraseChip
-                phrase={text}
-                source="recent"
+              <TextChip
+                text={text}
+                source="show"
                 tabId={null}
                 index={null}
                 onApply={props.onApply}

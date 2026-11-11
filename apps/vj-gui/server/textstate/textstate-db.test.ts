@@ -160,7 +160,7 @@ describe('round trip', () => {
     expect(readTextState(db)).toEqual(doc);
   });
 
-  it('replaces the previous document rather than merging into it', () => {
+  it('replaces the previous text state rather than merging into it', () => {
     const db = open();
     writeTextState(db, doc);
     const next: TextState = { show: { rows: [] }, overrides: {} };

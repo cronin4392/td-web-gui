@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PHRASE_MIME,
+  TEXT_MIME,
   TAB_MIME,
-  hasPhraseDragData,
-  readPhraseDragData,
-  setPhraseDragData,
-  type PhraseDragPayload,
+  hasTextDragData,
+  readTextDragData,
+  setTextDragData,
+  type TextDragPayload,
 } from './dnd';
 
 class FakeDataTransfer {
@@ -25,56 +25,56 @@ function dataTransfer(): DataTransfer {
   return new FakeDataTransfer() as unknown as DataTransfer;
 }
 
-describe('setPhraseDragData / readPhraseDragData', () => {
+describe('setTextDragData / readTextDragData', () => {
   it('round-trips a payload through both mimes', () => {
     const dt = dataTransfer();
-    const payload: PhraseDragPayload = {
-      phrase: 'hello',
+    const payload: TextDragPayload = {
+      text: 'hello',
       source: 'list',
       tabId: 'tab-a',
       index: 2,
     };
 
-    setPhraseDragData(dt, payload);
+    setTextDragData(dt, payload);
 
     expect(dt.getData('text/plain')).toBe('hello');
-    expect(readPhraseDragData(dt)).toEqual(payload);
+    expect(readTextDragData(dt)).toEqual(payload);
   });
 
   it('returns null when the custom mime is absent (drag from outside the app)', () => {
     const dt = dataTransfer();
     dt.setData('text/plain', 'some browser selection');
 
-    expect(readPhraseDragData(dt)).toBeNull();
+    expect(readTextDragData(dt)).toBeNull();
   });
 
   it('returns null for malformed JSON on the custom mime', () => {
     const dt = dataTransfer();
-    dt.setData(PHRASE_MIME, '{not json');
+    dt.setData(TEXT_MIME, '{not json');
 
-    expect(readPhraseDragData(dt)).toBeNull();
+    expect(readTextDragData(dt)).toBeNull();
   });
 
   it('returns null when the parsed payload has no phrase string', () => {
     const dt = dataTransfer();
-    dt.setData(PHRASE_MIME, JSON.stringify({ source: 'list', tabId: null, index: null }));
+    dt.setData(TEXT_MIME, JSON.stringify({ source: 'list', tabId: null, index: null }));
 
-    expect(readPhraseDragData(dt)).toBeNull();
+    expect(readTextDragData(dt)).toBeNull();
   });
 });
 
-describe('hasPhraseDragData', () => {
+describe('hasTextDragData', () => {
   it('is false for a tab drag, so the two surfaces never cross-accept', () => {
     const dt = dataTransfer();
     dt.setData(TAB_MIME, '0');
 
-    expect(hasPhraseDragData(dt)).toBe(false);
+    expect(hasTextDragData(dt)).toBe(false);
   });
 
   it('is true once the phrase mime is set', () => {
     const dt = dataTransfer();
-    dt.setData(PHRASE_MIME, '{}');
+    dt.setData(TEXT_MIME, '{}');
 
-    expect(hasPhraseDragData(dt)).toBe(true);
+    expect(hasTextDragData(dt)).toBe(true);
   });
 });

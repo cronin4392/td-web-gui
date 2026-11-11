@@ -37,17 +37,19 @@ relative to `apps/vj-gui`.
 
 ## Playback
 
-| Term               | Definition                                                                               | Aliases to avoid            |
-| ------------------ | ---------------------------------------------------------------------------------------- | --------------------------- |
-| **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process  | Channel, deck, slot, output |
-| **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing          | Player, host, container     |
-| **Selected layer** | The Layer that a pick in the GUI acts on                                                 | Active deck, current output |
-| **Z layer**        | One of the six Layers above the eight-deep stack — `Z1`–`Z6`; held, not performed        | Overlay, aux, extra layer   |
-| **Load**           | Telling a Layer's Loader to play a given Tox path                                        | Play, fire, trigger, cue    |
-| **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project     | MIDI project, controllers   |
-| **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web | Tempo, beat, rate, speed    |
-| **Beat period**    | How many beats one cycle of the rig's beat-driven motion lasts — 1, 2 or 4               | Division, multiplier, bars  |
-| **Status bar**     | The bar along the bottom of the GUI, each item reading its own TouchDesigner process     | Footer, toolbar, tempo row  |
+| Term               | Definition                                                                                                                             | Aliases to avoid                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **Layer**          | One of the GUI's addressable output slots, each backed by its own TouchDesigner process                                                | Channel, deck, slot, output          |
+| **Loader**         | The TouchDesigner component inside a Layer that swaps the Tox currently playing                                                        | Player, host, container              |
+| **Selected layer** | The Layer that a pick in the GUI acts on                                                                                               | Active deck, current output          |
+| **Z layer**        | One of the six Layers above the eight-deep stack — `Z1`–`Z6`; held, not performed                                                      | Overlay, aux, extra layer            |
+| **Load**           | Telling a Layer's Loader to play a given Tox path                                                                                      | Play, fire, trigger, cue             |
+| **Input project**  | The `.toe` holding the rig's MIDI and audio front end, separate from the GUI project                                                   | MIDI project, controllers            |
+| **BPM**            | The tempo the Input project detects, in beats per minute, published read-only to the web                                               | Tempo, beat, rate, speed             |
+| **Beat period**    | How many beats one cycle of the rig's beat-driven motion lasts — 1, 2 or 4                                                             | Division, multiplier, bars           |
+| **Status bar**     | The bar along the bottom of the GUI, each item reading its own TouchDesigner process                                                   | Footer, toolbar, tempo row           |
+| **Tile**           | A Layer's box in the layer previews — its video or thumbnail, Scene name and controls, with its Overrides laid over it                 | Card, cell, preview                  |
+| **Clear layer**    | From a Layer's Tile: loads the Loader's blank Tox, drops the Layer's Overrides, and puts its layout and color back to the first option | Reset layer, unload, Clear overrides |
 
 ## Color
 
@@ -64,30 +66,39 @@ relative to `apps/vj-gui`.
 
 ## Wordbank
 
-| Term            | Definition                                                                                      | Aliases to avoid                    |
-| --------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`    | Library, phrase library, text state |
-| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                  | Tab, phrase tab, list               |
-| **Phrase**      | A single saved line of text a Phrase list holds, applied to a Layer's Override on pick          | Line, entry, saved text             |
-| **Recent**      | The auto-kept list of the most recently applied Phrases; store-managed order, not user-arranged | History, recents                    |
+| Term            | Definition                                                                                                    | Aliases to avoid        |
+| --------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Wordbank**    | The saved collection of Phrase lists plus the Recent list, persisted through `/api/wordbank`                  | Library, phrase library |
+| **Phrase list** | A named, user-ordered collection of Phrases the Wordbank holds                                                | Tab, phrase tab, list   |
+| **Phrase**      | A single saved line of text a Phrase list holds; a Pick applies it to the Selected layer's Override           | Line, entry, saved text |
+| **Recent**      | The auto-kept list of the most recently applied text, typed or picked; store-managed order, not user-arranged | History, recents        |
 
 ## Show info
 
-| Term                | Definition                                                                                                                                                      | Aliases to avoid                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **Show info**       | The ordered Show rows of the night, shared by every Layer and edited in the Show info dialog                                                                    | Metadata, event info, comp, preset, layer text defaults |
-| **Text state**      | Show info plus every Layer's Overrides — everything that decides a Layer's text; `TextState` in code, persisted through `/api/textstate`                        | Show document, show info                                |
-| **Show row**        | One ordered line of Show info — typed text, an optional Alias, and on or off; an artist is a Show row with the `artist` Alias                                   | Line, item, field                                       |
-| **On / off**        | Whether a Show row counts; an off row keeps its text but adds nothing to the Act text list or the Named values                                                  | Shown, hidden, enabled, active                          |
-| **Alias**           | A Show row's label naming the Named value it supplies (`artist`, `event`, `venue`, `city`)                                                                      | Variable, token, placeholder, binding                   |
-| **Named values**    | For each Alias, the text of the first on, non-blank Show row carrying it; never stored                                                                          | Variables, tags, fields                                 |
-| **Text slot**       | One position in a text list — Text 1, Text 2, …; the Act text list, a Layer's Overrides and its Layer text list all line up by Text slot                        | Slot index, field, layer text slot                      |
-| **Act text list**   | The text of the on, non-blank Show rows in order — what a Layer shows when it has no Override                                                                   | Default texts, show texts, act texts                    |
-| **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it Text slot by Text slot, running past its end to the last one — what that Layer actually shows | Layer texts, merged texts, captions                     |
-| **Override**        | A Layer's own text for one Text slot; blank means "use the Act text list"                                                                                       | Custom text, manual text, pin                           |
-| **Apply**           | Writing text to the Selected layer's Override in a Text slot, and recording it in Recent                                                                        | Commit, set, send, pick                                 |
-| **Show tab**        | The Wordbank tab offering the Act text list as text to apply; not a Phrase list, and nothing in it is stored by the Wordbank                                    | Show list, show phrases                                 |
-| **Clear overrides** | Dropping every Override a Layer has, from the Text panel; the Layer keeps its Tox, layout and color                                                             | Clear layer, clear texts, reset text                    |
+| Term                | Definition                                                                                                                                                                                  | Aliases to avoid                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **Show info**       | The ordered Show rows of the night, shared by every Layer and edited in the Show info dialog                                                                                                | Metadata, event info, comp, preset, layer text defaults |
+| **Text state**      | Show info plus every Layer's Overrides — everything that decides a Layer's text; `TextState` in code, persisted through `/api/textstate`                                                    | Show document, show info (that is only the rows)        |
+| **Show row**        | One ordered line of Show info — typed text, an optional Alias, and on or off; an artist is a Show row with the `artist` Alias                                                               | Line, item, field                                       |
+| **On / off**        | Whether a Show row counts; an off row keeps its text but adds nothing to the Act text list or the Named values                                                                              | Shown, hidden, enabled, active                          |
+| **Alias**           | A Show row's label naming the Named value it supplies (`artist`, `event`, `venue`, `city`)                                                                                                  | Variable, token, placeholder, binding                   |
+| **Named values**    | For each Alias, the text of the first on, non-blank Show row carrying it; never stored                                                                                                      | Variables, tags, fields                                 |
+| **Text slot**       | One position in a text list — Text 1, Text 2, …; the Act text list, a Layer's Overrides and its Layer text list all line up by Text slot; `slot` is zero-based in code, so Text 1 is slot 0 | Slot index, field, layer text slot                      |
+| **Act text list**   | The text of the on, non-blank Show rows in order — what a Layer shows when it has no Override                                                                                               | Default texts, show texts, act texts                    |
+| **Layer text list** | The Act text list with a Layer's non-blank Overrides laid over it Text slot by Text slot, running past its end to the last one — what that Layer actually shows                             | Layer texts, merged texts, captions                     |
+| **Override**        | A Layer's own text for one Text slot; blank means "use the Act text list"                                                                                                                   | Custom text, manual text, pin                           |
+| **Apply**           | Writing text to the Selected layer's Override in a Text slot, and recording it in Recent                                                                                                    | Commit, set, send                                       |
+
+## Text panel
+
+| Term                | Definition                                                                                                                                | Aliases to avoid                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Text panel**      | The panel headed "Text" (`TextSelector` in code): a field per Text slot for the Selected layer, Clear overrides, the Tab strip and Search | Text selector, text editor                                |
+| **Tab strip**       | The Text panel's row of tabs: Recent and the Show tab pinned first, then each Phrase list in user order                                   | Tab bar, list tabs, phrase lists                          |
+| **Show tab**        | A pinned tab in the Tab strip offering the Act text list to apply; not a Phrase list, and nothing in it is stored by the Wordbank         | Show list, show phrases                                   |
+| **Search**          | Typing in a Text slot field, which swaps the Tab strip's content for the matching text from every Phrase list and Recent                  | Filter, find                                              |
+| **Pick**            | Clicking text in a tab or Search, or dropping it on a Text slot field — the gesture that Applies it                                       | Select, choose, send                                      |
+| **Clear overrides** | Dropping every Override the Selected layer has, from the Text panel; the Layer keeps its Tox, layout and color                            | Clear texts, reset text — and not Clear layer, the Tile's |
 
 ## Relationships
 
@@ -104,11 +115,11 @@ relative to `apps/vj-gui`.
 - An **Effect** sits inside exactly one **Group** on disk, and the **Effect catalog** deliberately forgets which.
 - A **Wordbank** holds one or more **Phrase lists** plus the **Recent** list; a **Phrase list** holds zero or more **Phrases** in a user-set order.
 - A **Color group** is not a **Group** (the Effect folder) and its list is not a **catalog** — it is enumerated live from TouchDesigner, not synced from disk.
-- **Applying** text is one path whatever its source — typed into a **Text slot**, or picked from a **Phrase list**, **Recent**, the **Show tab** or a search. A **Phrase** is only ever a saved **Wordbank** entry; once applied it is just text in an **Override**.
+- **Applying** text is one path whatever its source — typed into a **Text slot**, or a **Pick** from a **Phrase list**, **Recent**, the **Show tab** or **Search**. A **Phrase** is only ever a saved **Wordbank** entry; once applied it is just text in an **Override**.
 - **Show info** is shared by every **Layer**; the **Overrides** are per **Layer**; together they are the **Text state**. Every **Show row** holds its own text, **Alias** or not; a b2b set is two `artist` rows switched on. Edits in the **Show info** dialog are a draft: nothing reaches a **Layer**, TouchDesigner or the database until the dialog closes.
 - The **Layer text list** is the **Act text list** with each non-blank **Override** replacing its **Text slot**; a blank **Override** is stored as `''`, never as a placeholder, so the **Act text list** shows through. An **Override** past the end of the **Act text list** still reaches TouchDesigner, and editing the **Show rows** never deletes one.
-- **A Layer's tile shows that Layer's Overrides, never its Layer text list.** This is deliberate: the Act text list is the same on every Layer, so showing it would print identical text over every preview and hide what actually differs. A tile with no Overrides shows no text even though the Layer is showing the **Act text list** — that is correct, not a bug, and must not be "fixed".
-- Clearing a **Layer** (from its tile) drops its **Overrides**, so it shows the **Act text list** again; **Loading** a new **Tox** keeps them. Both put its layout and color back to the first option. **Clear overrides** in the Text panel drops the **Overrides** alone.
+- **A Layer's Tile shows that Layer's Overrides, never its Layer text list.** This is deliberate: the Act text list is the same on every Layer, so showing it would print identical text over every preview and hide what actually differs. A tile with no Overrides shows no text even though the Layer is showing the **Act text list** — that is correct, not a bug, and must not be "fixed".
+- **Clear layer** unloads the **Layer**'s **Tox** and drops its **Overrides**, so it shows the **Act text list** again; **Loading** a new **Tox** keeps them. Both put its layout and color back to the first option. **Clear overrides** in the **Text panel** drops the **Overrides** alone.
 - Text 1 and Text 2 are **Text slots** a **Layer** can override, not TouchDesigner params: the **Overrides** live in the web's database, and the **Layer text list** is what reaches TouchDesigner.
 - "Comp" (a Web-GUI-32280 preset) is not a vj-gui term; do not use it for any of the above.
 
@@ -132,8 +143,8 @@ relative to `apps/vj-gui`.
 
 ## Flagged ambiguities
 
-- **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene`, `sceneAText1`…`sceneHText2`, and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
+- **"Scene" was overloaded three ways in the code; two remain.** It still means (a) pickable content backed by `meta.json`, and (c) the load operation itself — `loadScene` on the wire, wrapped by `loadToxOn`, which loads any Tox including an **Effect**. Ambiguity (b) — `SceneId`, `sceneInstances`, `SceneConnections` all naming **Layers** — is now **resolved**: those are `LayerId`, `loaderInstances`, `LayerConnections` (and `LoaderId`, `LoaderCalls`, `LoaderParams`, `LoaderClient`, `LoaderProvider`) throughout `src/`. `src/playback/wire.ts` is now the one file where the legacy `scene*` wire vocabulary is still allowed to appear — `loadScene` and the `sceneA`/`sceneB` instance ids are TD's own contract, not this project's to rename. Renaming the TD-side call itself is a breaking change and has not been done.
 - **"Effect" collides with the `3 Effect` group folder.** That folder is one **Group** among several; every folder under the **Effect** root is an **Effect** regardless of which **Group** it sits in.
 - **"Library" vs "catalog" — resolved on the GUI side.** What was `library.ts`'s saved text/phrase state is now the **Wordbank** (`domain/wordbank/wordbank.ts`), a name **Catalog** no longer has to share. `sceneLibrary` is still the TouchDesigner-side table this project no longer reads; neither it nor the **Wordbank** is a **catalog** — use **catalog** only for the synced set of **Scenes** or **Effects**.
-- **The text wire names are TouchDesigner's, not this glossary's.** `textList` carries the **Layer text list**, and `textVars` — written to the TD table `table_show_info` — carries the **Named values**. They are TD's contract and stay as spelled; don't rename them to match, and don't spread them past `src/playback/wire.ts` and `td/scene-config.py`.
+- **The text wire names are TouchDesigner's, not this glossary's.** `textList` carries the **Layer text list**, and `textVars` — written to the TD table `table_show_info` — carries the **Named values**. They are TD's contract and stay as spelled; don't rename them to match, and don't name anything of this app's after them. Only `src/playback/wire.ts`, `td/scene-config.py` and `src/textstate/TextDelivery.tsx` (which looks the signals up) should spell them.
 - **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` reconcile a database against disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.

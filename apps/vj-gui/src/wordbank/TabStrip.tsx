@@ -1,5 +1,5 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
-import { RECENT_LIST_ID, SHOW_LIST_ID, type WordbankStore } from './store';
+import { RECENT_LIST_ID, SHOW_TAB_ID, type WordbankStore } from './store';
 import { TAB_MIME } from './dnd';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
 import { adjustReorderTarget, hasDragMime } from '@/ui/dnd';
@@ -39,7 +39,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
   function onTabKeyDown(event: KeyboardEvent, id: string) {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    const ids = [RECENT_LIST_ID, SHOW_LIST_ID, ...state.lists.map((t) => t.id)];
+    const ids = [RECENT_LIST_ID, SHOW_TAB_ID, ...state.lists.map((t) => t.id)];
     const index = ids.indexOf(id);
     const nextIndex =
       event.key === 'ArrowRight' ? (index + 1) % ids.length : (index - 1 + ids.length) % ids.length;
@@ -54,7 +54,7 @@ export function TabStrip(props: TabStripProps): JSX.Element {
 
   return (
     <>
-      <div role="tablist" aria-label="Phrase lists" class={styles.strip}>
+      <div role="tablist" aria-label="Text sources" class={styles.strip}>
         <button
           ref={(el) => tabRefs.set(RECENT_LIST_ID, el)}
           type="button"
@@ -71,16 +71,16 @@ export function TabStrip(props: TabStripProps): JSX.Element {
         </button>
 
         <button
-          ref={(el) => tabRefs.set(SHOW_LIST_ID, el)}
+          ref={(el) => tabRefs.set(SHOW_TAB_ID, el)}
           type="button"
           role="tab"
-          id={`tab-${SHOW_LIST_ID}`}
-          aria-selected={state.selectedListId === SHOW_LIST_ID}
-          aria-controls={`tabpanel-${SHOW_LIST_ID}`}
-          tabIndex={state.selectedListId === SHOW_LIST_ID ? 0 : -1}
-          onClick={() => props.store.selectList(SHOW_LIST_ID)}
-          onKeyDown={(event) => onTabKeyDown(event, SHOW_LIST_ID)}
-          class={tabClass(SHOW_LIST_ID)}
+          id={`tab-${SHOW_TAB_ID}`}
+          aria-selected={state.selectedListId === SHOW_TAB_ID}
+          aria-controls={`tabpanel-${SHOW_TAB_ID}`}
+          tabIndex={state.selectedListId === SHOW_TAB_ID ? 0 : -1}
+          onClick={() => props.store.selectList(SHOW_TAB_ID)}
+          onKeyDown={(event) => onTabKeyDown(event, SHOW_TAB_ID)}
+          class={tabClass(SHOW_TAB_ID)}
         >
           Show
         </button>

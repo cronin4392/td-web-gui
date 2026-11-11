@@ -94,7 +94,7 @@ describe('overrides', () => {
 });
 
 describe('persistence', () => {
-  it('debounces edits into one save of the whole document', async () => {
+  it('debounces edits into one save of the whole text state', async () => {
     vi.useFakeTimers();
     const save = vi.fn();
     const store = makeStore({ persistence: { save } });

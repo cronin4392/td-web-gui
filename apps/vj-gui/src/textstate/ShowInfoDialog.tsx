@@ -19,7 +19,7 @@ export function ShowInfoDialog(props: {
     } else if (!props.open && dialog.open) dialog.close();
   });
 
-  function commit() {
+  function saveDraft() {
     const editor = draft();
     setDraft(undefined);
     props.onClose();
@@ -32,7 +32,7 @@ export function ShowInfoDialog(props: {
       class={styles.dialog}
       aria-label="Show info"
       closedby="any"
-      onClose={commit}
+      onClose={saveDraft}
     >
       <Show when={draft()} keyed>
         {(editor) => (

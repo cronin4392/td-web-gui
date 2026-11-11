@@ -26,7 +26,7 @@ export function textStateApiHandler(getDb: () => DatabaseSync): Connect.NextHand
         return;
       }
       if (!isTextState(body)) {
-        sendError(res, 400, 'invalid show document shape');
+        sendError(res, 400, 'invalid text state shape');
         return;
       }
       try {

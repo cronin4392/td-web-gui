@@ -16,6 +16,6 @@ if (!root) throw new Error('Root element #root not found');
 // default on failure. An async IIFE rather than top-level await —
 // Vite's default build target predates top-level-await support.
 void (async () => {
-  const [wordbank, showDocument] = await Promise.all([fetchWordbank(), fetchTextState()]);
-  render(() => <App wordbank={wordbank} showDocument={showDocument} />, root);
+  const [wordbank, textState] = await Promise.all([fetchWordbank(), fetchTextState()]);
+  render(() => <App wordbank={wordbank} initialTextState={textState} />, root);
 })();

@@ -1,27 +1,27 @@
 import { For, Show, createMemo, type JSX } from 'solid-js';
-import { searchPhrases, type WordbankStore } from './store';
-import { PhraseChip } from './PhraseChip';
+import { searchWordbank, type WordbankStore } from './store';
+import { TextChip } from './TextChip';
 import styles from './SearchPanel.module.css';
 
 export interface SearchPanelProps {
   store: WordbankStore;
   query: string;
-  onApply: (phrase: string) => void;
+  onApply: (text: string) => void;
 }
 
 export function SearchPanel(props: SearchPanelProps): JSX.Element {
   const rows = createMemo(() =>
-    searchPhrases(props.store.state.lists, props.store.state.recent, props.query),
+    searchWordbank(props.store.state.lists, props.store.state.recent, props.query),
   );
 
   return (
     <div class={styles.panel}>
       <ul class={styles.rows}>
         <For each={rows()}>
-          {(phrase) => (
+          {(text) => (
             <li>
-              <PhraseChip
-                phrase={phrase}
+              <TextChip
+                text={text}
                 source="search"
                 tabId={null}
                 index={null}
@@ -31,7 +31,7 @@ export function SearchPanel(props: SearchPanelProps): JSX.Element {
           )}
         </For>
         <Show when={rows().length === 0}>
-          <li class={styles.empty}>No phrases match.</li>
+          <li class={styles.empty}>Nothing matches.</li>
         </Show>
       </ul>
     </div>

@@ -44,7 +44,7 @@ afterEach(() => {
 });
 
 describe('textStateApiHandler', () => {
-  it('GET returns the seeded default document', () => {
+  it('GET returns the seeded default text state', () => {
     const res = get();
     expect(res.status).toBe(200);
     expect(JSON.parse(res.body).show.rows.map((r: { alias: string }) => r.alias)).toEqual(
@@ -61,7 +61,7 @@ describe('textStateApiHandler', () => {
   it('PUT a shape that fails isTextState is a 400', async () => {
     const res = await put(JSON.stringify({ show: { rows: 'nope' }, overrides: {} }));
     expect(res.status).toBe(400);
-    expect(res.body).toContain('invalid show document shape');
+    expect(res.body).toContain('invalid text state shape');
   });
 
   it('PUT from a page still holding an artist roster is a 400 and writes nothing', async () => {
@@ -72,7 +72,7 @@ describe('textStateApiHandler', () => {
     expect(readTextState(db)).toEqual(before);
   });
 
-  it('PUT a valid document writes it and returns 204', async () => {
+  it('PUT a valid text state writes it and returns 204', async () => {
     const doc: TextState = {
       show: {
         rows: [

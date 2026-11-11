@@ -152,7 +152,7 @@ describe('defaultTextState', () => {
 });
 
 describe('isTextState', () => {
-  it('accepts the default document', () => {
+  it('accepts the default text state', () => {
     expect(isTextState(defaultTextState())).toBe(true);
   });
 
@@ -173,7 +173,7 @@ describe('isTextState', () => {
     expect(isTextState(d)).toBe(false);
   });
 
-  it('rejects a document that still carries an artist roster', () => {
+  it('rejects a text state that still carries an artist roster', () => {
     const d = { ...defaultTextState(), show: { rows: [], artists: [] } };
     expect(isTextState(d)).toBe(false);
   });

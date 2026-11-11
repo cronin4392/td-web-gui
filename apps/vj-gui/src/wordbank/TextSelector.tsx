@@ -5,7 +5,7 @@ import { usePlayback } from '@/playback/PlaybackProvider';
 import type { TextStateStore } from '@/textstate/store';
 import { ShowInfoDialog } from '@/textstate/ShowInfoDialog';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
-import { RECENT_LIST_ID, SHOW_LIST_ID, type createWordbankStore } from './store';
+import { RECENT_LIST_ID, SHOW_TAB_ID, type createWordbankStore } from './store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { ShowPanel } from './ShowPanel';
@@ -28,7 +28,7 @@ export function TextSelector(props: {
   const [focusedSlot, setFocusedSlot] = createSignal<Slot | null>(null);
   // Pressing a chip blurs the field before the click lands, so the target is
   // read at mousedown — while that field still has focus — and the blur keeps
-  // the search open for the click that follows instead of committing the query.
+  // the search open for the click that follows instead of applying the query.
   let pressedSlot: Slot | null = null;
   const holdEdit = () => (pressedSlot = focusedSlot());
 
@@ -137,7 +137,7 @@ export function TextSelector(props: {
               fallback={<RecentPanel store={props.store} onApply={applyToFocused} />}
             >
               <Show
-                when={props.store.state.selectedListId !== SHOW_LIST_ID}
+                when={props.store.state.selectedListId !== SHOW_TAB_ID}
                 fallback={<ShowPanel texts={showTabTexts()} onApply={applyToFocused} />}
               >
                 <Show when={selectedList()}>

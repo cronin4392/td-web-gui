@@ -147,8 +147,8 @@ function LayerOverrideLines(props: { layer: LayerId }): JSX.Element {
       .map((text) => unescapeNewlines(text).trim())
       .filter(Boolean);
   return (
-    <span class={styles.texts}>
-      <For each={lines()}>{(line) => <span class={styles.textLine}>{line}</span>}</For>
+    <span class={styles.overrides}>
+      <For each={lines()}>{(line) => <span class={styles.overrideLine}>{line}</span>}</For>
     </span>
   );
 }
@@ -309,7 +309,7 @@ function ParamRadios(props: {
 
 /**
  * Puts a layer back to nothing: the Loader swaps in its blank tox, and the
- * captions, layout and color the operator laid over the last scene go with it.
+ * overrides, layout and color the operator laid over the last scene go with it.
  * The Loader resets its own layout and color as it clears, but both are written
  * from here too so the radios move on the press rather than on TD's echo.
  *

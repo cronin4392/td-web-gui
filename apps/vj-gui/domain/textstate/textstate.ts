@@ -27,19 +27,19 @@ export function isBlank(text: string): boolean {
   return text.trim() === '';
 }
 
-function shows(row: ShowRow): boolean {
+function counts(row: ShowRow): boolean {
   return row.on && !isBlank(row.text);
 }
 
 export function actTextList(show: ShowInfo): string[] {
-  return show.rows.filter(shows).map((r) => r.text);
+  return show.rows.filter(counts).map((r) => r.text);
 }
 
 export function namedValues(show: ShowInfo): NamedValues {
   const named: NamedValues = { artist: '', event: '', venue: '', city: '' };
   const seen = new Set<Alias>();
   for (const row of show.rows) {
-    if (!shows(row) || row.alias === null || seen.has(row.alias)) continue;
+    if (!counts(row) || row.alias === null || seen.has(row.alias)) continue;
     named[row.alias] = row.text;
     seen.add(row.alias);
   }

@@ -1,6 +1,6 @@
 import { createEffect, createSignal, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
-import { hasPhraseDragData, readPhraseDragData } from './dnd';
+import { hasTextDragData, readTextDragData } from './dnd';
 import styles from './TextField.module.css';
 
 export interface TextFieldProps {
@@ -26,7 +26,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
     if (document.activeElement !== fieldRef) setDraft(value);
   });
 
-  function commit() {
+  function apply() {
     if (escapeNewlines(draft()) === props.value) return;
     props.onApply(draft());
   }
@@ -56,7 +56,7 @@ export function TextField(props: TextFieldProps): JSX.Element {
         onFocus={props.onFocus}
         onBlur={() => {
           if (props.isPicking()) setDraft(unescapeNewlines(props.value));
-          else commit();
+          else apply();
           props.onBlur();
         }}
         onInput={(event) => {
@@ -69,19 +69,19 @@ export function TextField(props: TextFieldProps): JSX.Element {
             props.onFilter('');
           } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
             event.preventDefault();
-            commit();
+            apply();
             props.onFilter('');
           }
         }}
         onDragOver={(event) => {
-          if (hasPhraseDragData(event.dataTransfer!)) event.preventDefault();
+          if (hasTextDragData(event.dataTransfer!)) event.preventDefault();
         }}
         onDrop={(event) => {
-          const payload = readPhraseDragData(event.dataTransfer!);
+          const payload = readTextDragData(event.dataTransfer!);
           if (!payload) return;
           event.preventDefault();
-          setDraft(payload.phrase);
-          props.onApply(payload.phrase);
+          setDraft(payload.text);
+          props.onApply(payload.text);
         }}
       />
     </div>

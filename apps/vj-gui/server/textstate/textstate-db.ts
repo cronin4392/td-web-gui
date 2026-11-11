@@ -67,7 +67,7 @@ function createSchema(db: DatabaseSync): void {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM show_rows').get() as {
     count: number;
   };
-  if (count === 0) writeDocument(db, defaultTextState());
+  if (count === 0) writeState(db, defaultTextState());
 }
 
 interface RosterArtist {
@@ -158,18 +158,18 @@ export function readTextState(db: DatabaseSync): TextState {
   return { show: { rows }, overrides };
 }
 
-function writeDocument(db: DatabaseSync, doc: TextState): void {
-  writeRows(db, doc.show.rows);
+function writeState(db: DatabaseSync, state: TextState): void {
+  writeRows(db, state.show.rows);
   db.exec('DELETE FROM layer_overrides');
   const insertOverride = db.prepare(
     'INSERT INTO layer_overrides (layer, slot, text) VALUES (?, ?, ?)',
   );
-  for (const [layer, texts] of Object.entries(doc.overrides)) {
+  for (const [layer, texts] of Object.entries(state.overrides)) {
     for (const [slot, text] of texts.entries()) insertOverride.run(layer, slot, text);
   }
 }
 
-export function writeTextState(db: DatabaseSync, doc: TextState): void {
-  transaction(db, () => writeDocument(db, doc));
+export function writeTextState(db: DatabaseSync, state: TextState): void {
+  transaction(db, () => writeState(db, state));
   checkpointWal(db);
 }

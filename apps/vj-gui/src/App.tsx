@@ -18,7 +18,7 @@ import styles from './App.module.css';
 export interface AppProps {
   /** Hydrated by `index.tsx` before mount (via `fetchWordbank()`). */
   wordbank: Wordbank;
-  showDocument: TextState;
+  initialTextState: TextState;
 }
 
 export function App(props: AppProps): JSX.Element {
@@ -29,7 +29,7 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => store.dispose());
 
   const textState = createTextStateStore({
-    initial: props.showDocument,
+    initial: props.initialTextState,
     persistence: { save: saveTextState },
   });
   onCleanup(() => textState.dispose());

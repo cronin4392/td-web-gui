@@ -1,14 +1,15 @@
 # vj-gui
 
 The author's real VJ rig: fourteen scene layers driven from the web, SQLite
-catalogs of scenes and effects, and show info and a wordbank of phrases that
-become each layer's text. Not published — but maintained and tested, not a scratchpad.
+catalogs of scenes and effects, and the text state (show info plus each layer's
+overrides) and a wordbank of phrases that become each layer's text. Not published — but maintained and tested, not a scratchpad.
 
 ## Speak the ubiquitous language
 
 `UBIQUITOUS_LANGUAGE.md` in this directory is canonical. **Read it before naming
 anything.** Scene, Effect, Tox, Group, Layer, Loader, Catalog, Sync, Scan, Tag,
-Rank, Wordbank, Phrase list, Phrase, Recent — each has one meaning here, and the
+Rank, Wordbank, Phrase list, Phrase, Recent, Show info, Text state, Text slot,
+Override, Apply, Pick, Tile — each has one meaning here, and the
 "Aliases to avoid" columns are the names that keep creeping back in.
 
 Its **Flagged ambiguities** section lists where the code still disagrees with

@@ -1,9 +1,9 @@
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { PhraseList, WordbankStore } from './store';
-import { hasPhraseDragData, readPhraseDragData } from './dnd';
+import { hasTextDragData, readTextDragData } from './dnd';
 import { createContextMenu } from '@/ui/ContextMenu';
 import { adjustReorderTarget, dropIndexForRow } from '@/ui/dnd';
-import { PhraseChip } from './PhraseChip';
+import { TextChip } from './TextChip';
 import styles from './ListPanel.module.css';
 
 export interface ListPanelProps {
@@ -78,9 +78,9 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
                 setAdding(false);
                 return;
               }
-              // A textarea raises no implicit submit; Enter commits here
+              // A textarea raises no implicit submit; Enter submits here
               // (Shift+Enter still inserts a line break), matching
-              // TextField/TDClient.TextInput's multiline commit behavior.
+              // TextField/TDClient.TextInput's multiline Enter behavior.
               if (event.key === 'Enter' && !event.isComposing && !event.shiftKey) {
                 event.preventDefault();
                 event.currentTarget.form?.requestSubmit();
@@ -96,14 +96,14 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
             <li
               class={styles.row}
               onDragOver={(event) => {
-                if (!hasPhraseDragData(event.dataTransfer!)) return;
+                if (!hasTextDragData(event.dataTransfer!)) return;
                 event.preventDefault();
                 setDropIndex(dropIndexForRow(event, event.currentTarget, row.index));
               }}
               onDragLeave={() => setDropIndex(null)}
               onDrop={(event) => {
                 setDropIndex(null);
-                const payload = readPhraseDragData(event.dataTransfer!);
+                const payload = readTextDragData(event.dataTransfer!);
                 if (!payload) return;
                 event.preventDefault();
                 // No cross-tab moves in v1: reject a drop whose tabId isn't the active tab.
@@ -133,8 +133,8 @@ export function ListPanel(props: ListPanelProps): JSX.Element {
               <Show when={dropIndex() === row.index}>
                 <div class={styles.dropIndicator} />
               </Show>
-              <PhraseChip
-                phrase={row.phrase}
+              <TextChip
+                text={row.phrase}
                 source="list"
                 tabId={props.list.id}
                 index={row.index}

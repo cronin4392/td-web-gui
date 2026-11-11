@@ -118,7 +118,7 @@
     }
   }
 
-  /* Top-right, out of the caption's way, where the scene picker keeps its own
+  /* Top-right, out of the override text's way, where the scene picker keeps its own
      tile-corner button. */
   .streamToggle {
     position: absolute;
@@ -142,10 +142,10 @@
     white-space: nowrap;
   }
 
-  /* Over the stream rather than beside it, so the caption reads the way the
+  /* Over the stream rather than beside it, so the override text reads the way the
      audience sees it. No scrim — the shadow carries it over a bright frame,
      and a band across the middle of the tile would hide the scene. */
-  .texts {
+  .overrides {
     position: absolute;
     display: block;
     inset-inline: var(--spacing-m);
@@ -162,9 +162,9 @@
     pointer-events: none;
   }
 
-  /* A slot per param, each on its own line — the two are separate captions, not
-     one sentence, so neither should wrap into the other. */
-  .textLine {
+  /* A Text slot per line — the overrides are separate texts, not one sentence,
+     so neither should wrap into the other. */
+  .overrideLine {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;

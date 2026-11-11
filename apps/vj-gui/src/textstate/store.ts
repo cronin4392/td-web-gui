@@ -17,7 +17,7 @@ export function withSlot(
 
 export interface CreateTextStateStoreOptions {
   initial?: TextState;
-  persistence?: { save: (doc: TextState) => void | Promise<void> };
+  persistence?: { save: (state: TextState) => void | Promise<void> };
   debounceMs?: number;
 }
 
@@ -60,8 +60,8 @@ export function createTextStateStore(options: CreateTextStateStoreOptions = {}):
 
   function clearOverrides(layer: string): void {
     setState(
-      produce((doc) => {
-        delete doc.overrides[layer];
+      produce((draft) => {
+        delete draft.overrides[layer];
       }),
     );
     saver.schedule();

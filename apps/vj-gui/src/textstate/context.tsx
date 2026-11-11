@@ -19,6 +19,6 @@ export function useTextState(): TextStateStore {
   return store;
 }
 
-export function layerTextListOf(doc: TextState, layer: string): string[] {
-  return layerTextList(actTextList(doc.show), doc.overrides[layer] ?? []);
+export function layerTextListOf(state: TextState, layer: string): string[] {
+  return layerTextList(actTextList(state.show), state.overrides[layer] ?? []);
 }

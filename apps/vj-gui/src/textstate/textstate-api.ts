@@ -15,11 +15,11 @@ export async function fetchTextState(): Promise<TextState> {
   }
 }
 
-export async function saveTextState(doc: TextState): Promise<void> {
+export async function saveTextState(state: TextState): Promise<void> {
   const res = await fetch(ENDPOINT, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(doc),
+    body: JSON.stringify(state),
     // Lets the save fired from `pagehide` outlive the page.
     keepalive: true,
   });

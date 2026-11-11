@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Wordbank } from '@domain/wordbank/wordbank';
-import { createWordbankStore, searchPhrases, type CreateStoreOptions } from './store';
+import { createWordbankStore, searchWordbank, type CreateStoreOptions } from './store';
 
 class FakeStorage implements Storage {
   private map = new Map<string, string>();
@@ -52,7 +52,7 @@ afterEach(() => {
 // ---- recent list -----------------------------------------------------
 
 describe('recent list', () => {
-  it('adds a committed phrase to the front', () => {
+  it('adds applied text to the front', () => {
     const store = makeStore();
     store.recordRecent('hello world');
     expect(store.state.recent).toEqual(['hello world']);
@@ -76,7 +76,7 @@ describe('recent list', () => {
     expect(store.state.recent).not.toContain('phrase 1');
   });
 
-  it('rejects empty (or whitespace-only) commits', () => {
+  it('rejects empty (or whitespace-only) text', () => {
     const store = makeStore();
     store.recordRecent('');
     store.recordRecent('   ');
@@ -106,7 +106,7 @@ describe('recent list', () => {
     expect(store.state.recent).toEqual(['c', 'a']);
   });
 
-  it('deleteRecent is a no-op for a phrase not in the list', () => {
+  it('deleteRecent is a no-op for text not in Recent', () => {
     const store = makeStore();
     store.recordRecent('a');
     store.deleteRecent('missing');
@@ -373,14 +373,14 @@ describe('persistence', () => {
   });
 });
 
-describe('searchPhrases', () => {
+describe('searchWordbank', () => {
   const lists = [
     { id: 'a', name: 'A', phrases: ['Hello World', 'Goodbye'] },
     { id: 'b', name: 'B', phrases: ['hello again', 'Hello World'] },
   ];
 
   it('matches case-insensitively across every list, then recent, each phrase once', () => {
-    expect(searchPhrases(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
+    expect(searchWordbank(lists, ['say hello', 'Goodbye'], ' HELLO ')).toEqual([
       'Hello World',
       'hello again',
       'say hello',
@@ -388,6 +388,6 @@ describe('searchPhrases', () => {
   });
 
   it('returns nothing when no phrase matches', () => {
-    expect(searchPhrases(lists, [], 'zzz')).toEqual([]);
+    expect(searchWordbank(lists, [], 'zzz')).toEqual([]);
   });
 });

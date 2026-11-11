@@ -1,12 +1,12 @@
 import { For, Show, type JSX } from 'solid-js';
 import { RECENT_LIST_ID, type WordbankStore } from './store';
 import { createContextMenu } from '@/ui/ContextMenu';
-import { PhraseChip } from './PhraseChip';
+import { TextChip } from './TextChip';
 import styles from './RecentPanel.module.css';
 
 export interface RecentPanelProps {
   store: WordbankStore;
-  onApply: (phrase: string) => void;
+  onApply: (text: string) => void;
 }
 
 export function RecentPanel(props: RecentPanelProps): JSX.Element {
@@ -22,20 +22,20 @@ export function RecentPanel(props: RecentPanelProps): JSX.Element {
     >
       <ul class={styles.rows}>
         <For each={rows()}>
-          {(phrase) => (
+          {(text) => (
             <li
               onContextMenu={(event) =>
                 menu.open(event, [
                   {
                     label: 'Delete',
                     danger: true,
-                    onSelect: () => props.store.deleteRecent(phrase),
+                    onSelect: () => props.store.deleteRecent(text),
                   },
                 ])
               }
             >
-              <PhraseChip
-                phrase={phrase}
+              <TextChip
+                text={text}
                 source="recent"
                 tabId={null}
                 index={null}
