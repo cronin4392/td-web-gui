@@ -36,6 +36,31 @@ function mount() {
   dispose = render(() => <ShowInfoPanel store={s} />, host);
 }
 
+class FakeDataTransfer {
+  private data = new Map<string, string>();
+  effectAllowed = 'none';
+  get types(): string[] {
+    return [...this.data.keys()];
+  }
+  setData(format: string, value: string): void {
+    this.data.set(format, value);
+  }
+  getData(format: string): string {
+    return this.data.get(format) ?? '';
+  }
+  setDragImage(): void {}
+}
+
+function drag(type: string, target: Element, dataTransfer: FakeDataTransfer, clientY = 0) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.assign(event, { dataTransfer, clientX: 0, clientY });
+  target.dispatchEvent(event);
+}
+
+function rowItems() {
+  return [...host!.querySelectorAll('li')].filter((li) => li.querySelector('select'));
+}
+
 function rowTexts() {
   return [...host!.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Row text"]')];
 }
@@ -52,5 +77,29 @@ describe('ShowInfoPanel', () => {
     box.value = 'Bea';
     box.dispatchEvent(new InputEvent('input', { bubbles: true }));
     expect(store!.state.show.rows[1]!.text).toBe('Bea');
+  });
+
+  it('reorders a row dragged by its handle', () => {
+    mount();
+    const dataTransfer = new FakeDataTransfer();
+    drag('dragstart', rowItems()[0]!.querySelector('[draggable="true"]')!, dataTransfer);
+    drag('dragover', rowItems()[2]!, dataTransfer, 1);
+    drag('drop', rowItems()[2]!, dataTransfer, 1);
+    expect(store!.state.show.rows.map((r) => r.id)).toEqual(['a2', 'r1', 'a1']);
+  });
+
+  it('drags only from the handle, not the whole row', () => {
+    mount();
+    const draggable = host!.querySelectorAll('[draggable="true"]');
+    expect(draggable).toHaveLength(3);
+    for (const handle of draggable) expect(handle.tagName).not.toBe('LI');
+  });
+
+  it('ignores a drop that is not a show row', () => {
+    mount();
+    const dataTransfer = new FakeDataTransfer();
+    dataTransfer.setData('text/plain', 'from outside');
+    drag('drop', rowItems()[0]!, dataTransfer);
+    expect(store!.state.show.rows.map((r) => r.id)).toEqual(['a1', 'a2', 'r1']);
   });
 });

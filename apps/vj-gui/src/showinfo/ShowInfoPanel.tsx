@@ -1,27 +1,27 @@
-import { For, Show, type JSX } from 'solid-js';
+import { For, Show, createSignal, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
-import { aliases, type Alias } from '@domain/showinfo/showinfo';
+import { aliases, type Alias, type ShowRow } from '@domain/showinfo/showinfo';
+import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
+import { adjustReorderTarget, dropIndexForRow, hasDragMime } from '@/ui/dnd';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
 import type { ShowInfoStore } from './store';
 import styles from './ShowInfoPanel.module.css';
 
-function EyeIcon(props: { open: boolean }): JSX.Element {
+const ROW_MIME = 'application/x-td-show-row';
+
+function GripIcon(): JSX.Element {
   return (
     <svg
-      viewBox="0 0 24 24"
-      width="16"
-      height="16"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
       fill="none"
       stroke="currentColor"
-      stroke-width="2"
+      stroke-width="1.5"
       stroke-linecap="round"
-      stroke-linejoin="round"
       aria-hidden="true"
     >
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <Show when={props.open} fallback={<path d="M3 3l18 18" />}>
-        <circle cx="12" cy="12" r="3" />
-      </Show>
+      <path d="M3 4h10M3 8h10M3 12h10" />
     </svg>
   );
 }
@@ -44,63 +44,28 @@ function MultilineText(props: {
   );
 }
 
-function RowControls(props: {
-  label: string;
-  index: number;
-  count: number;
-  on: boolean;
-  onToggle: () => void;
-  onMove: (toIndex: number) => void;
-  onRemove: () => void;
-}): JSX.Element {
-  return (
-    <div class={styles.controls}>
-      <button
-        type="button"
-        class={styles.iconButton}
-        aria-pressed={props.on}
-        aria-label={`${props.label} ${props.on ? 'shown' : 'hidden'}`}
-        title={props.on ? 'Shown' : 'Hidden'}
-        onClick={props.onToggle}
-      >
-        <EyeIcon open={props.on} />
-      </button>
-      <button
-        type="button"
-        class={styles.iconButton}
-        aria-label={`Move ${props.label} up`}
-        disabled={props.index === 0}
-        onClick={() => props.onMove(props.index - 1)}
-      >
-        ↑
-      </button>
-      <button
-        type="button"
-        class={styles.iconButton}
-        aria-label={`Move ${props.label} down`}
-        disabled={props.index === props.count - 1}
-        onClick={() => props.onMove(props.index + 1)}
-      >
-        ↓
-      </button>
-      <button
-        type="button"
-        class={`${styles.iconButton} ${styles.danger}`}
-        aria-label={`Remove ${props.label}`}
-        onClick={props.onRemove}
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
 export function ShowInfoPanel(props: {
   store: ShowInfoStore;
   class?: string;
   onClose?: () => void;
 }): JSX.Element {
   const { store } = props;
+  const menu = createContextMenu({ overTextEntry: true });
+  const [dropIndex, setDropIndex] = createSignal<number | null>(null);
+
+  const count = () => store.state.show.rows.length;
+
+  function rowMenu(row: ShowRow): MenuItems {
+    return [
+      {
+        label: row.on ? 'Hide' : 'Show',
+        checked: !row.on,
+        onSelect: () => store.toggleRow(row.id),
+      },
+      'separator',
+      { label: 'Delete', danger: true, onSelect: () => store.removeRow(row.id) },
+    ];
+  }
 
   return (
     <section class={`${styles.panel} ${props.class ?? ''}`}>
@@ -115,21 +80,54 @@ export function ShowInfoPanel(props: {
       </PanelHeader>
 
       <div class={styles.body}>
-        <div class={styles.sectionHeader}>
-          <h3 class={styles.sectionTitle}>Show</h3>
-          <button
-            type="button"
-            class={styles.iconButton}
-            aria-label="Add a show row"
-            onClick={() => store.addRow()}
-          >
-            +
-          </button>
-        </div>
         <ul class={styles.list}>
           <For each={store.state.show.rows}>
             {(row, index) => (
-              <li class={styles.item} classList={{ [styles.off!]: !row.on }}>
+              <li
+                class={styles.item}
+                classList={{ [styles.off!]: !row.on }}
+                onDragOver={(event) => {
+                  if (!hasDragMime(event.dataTransfer!, ROW_MIME)) return;
+                  event.preventDefault();
+                  setDropIndex(dropIndexForRow(event, event.currentTarget, index()));
+                }}
+                onDragLeave={() => setDropIndex(null)}
+                onDrop={(event) => {
+                  setDropIndex(null);
+                  const raw = event.dataTransfer!.getData(ROW_MIME);
+                  if (!raw) return;
+                  event.preventDefault();
+                  const from = Number(raw);
+                  const to = dropIndexForRow(event, event.currentTarget, index());
+                  store.moveRow(from, adjustReorderTarget(from, to));
+                }}
+                onContextMenu={(event) => menu.open(event, rowMenu(row))}
+              >
+                <Show when={dropIndex() === index()}>
+                  <div class={styles.dropIndicator} />
+                </Show>
+                <Show when={dropIndex() === count() && index() === count() - 1}>
+                  <div class={`${styles.dropIndicator} ${styles.dropAfter}`} />
+                </Show>
+                <span
+                  class={styles.handle}
+                  draggable="true"
+                  title="Drag to reorder"
+                  onDragStart={(event) => {
+                    const dataTransfer = event.dataTransfer!;
+                    const item = event.currentTarget.parentElement!;
+                    const box = item.getBoundingClientRect();
+                    dataTransfer.setData(ROW_MIME, String(index()));
+                    dataTransfer.effectAllowed = 'move';
+                    dataTransfer.setDragImage(
+                      item,
+                      event.clientX - box.left,
+                      event.clientY - box.top,
+                    );
+                  }}
+                >
+                  <GripIcon />
+                </span>
                 <select
                   class={styles.select}
                   aria-label="Alias"
@@ -138,7 +136,7 @@ export function ShowInfoPanel(props: {
                     store.setRowAlias(row.id, (event.currentTarget.value || null) as Alias | null)
                   }
                 >
-                  <option value="">none</option>
+                  <option value="" aria-label="No alias" />
                   <For each={aliases}>{(alias) => <option value={alias}>{alias}</option>}</For>
                 </select>
                 <MultilineText
@@ -147,23 +145,24 @@ export function ShowInfoPanel(props: {
                   value={row.text}
                   onInput={(text) => store.setRowText(row.id, text)}
                 />
-                <RowControls
-                  label={`row ${index() + 1}`}
-                  index={index()}
-                  count={store.state.show.rows.length}
-                  on={row.on}
-                  onToggle={() => store.toggleRow(row.id)}
-                  onMove={(to) => store.moveRow(index(), to)}
-                  onRemove={() => store.removeRow(row.id)}
-                />
               </li>
             )}
           </For>
-          <Show when={store.state.show.rows.length === 0}>
+          <Show when={count() === 0}>
             <li class={styles.empty}>No rows yet.</li>
           </Show>
         </ul>
+        <button
+          type="button"
+          class={`${styles.iconButton} ${styles.add}`}
+          aria-label="Add a show row"
+          onClick={() => store.addRow()}
+        >
+          +
+        </button>
       </div>
+
+      {menu.element}
     </section>
   );
 }
