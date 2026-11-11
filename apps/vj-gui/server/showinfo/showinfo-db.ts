@@ -9,7 +9,12 @@ import {
   type ShowDocument,
   type ShowRow,
 } from '../../domain/showinfo/showinfo';
-import { catalogDbPath, checkpointWal, requireRestoredDb } from '../platform/catalog-db';
+import {
+  catalogDbPath,
+  checkpointWal,
+  requireRestoredDb,
+  transaction,
+} from '../platform/catalog-db';
 
 const SCHEMA_VERSION = 3;
 
@@ -31,13 +36,15 @@ function migrate(db: DatabaseSync): void {
     user_version: number;
   };
   if (version >= SCHEMA_VERSION) return;
-  if (version === 0) {
-    createSchema(db);
-  } else {
-    if (version === 1) db.exec("DELETE FROM show_rows WHERE alias = 'crew'");
-    mergeArtistsIntoRows(db);
-  }
-  db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  transaction(db, () => {
+    if (version === 0) {
+      createSchema(db);
+    } else {
+      if (version === 1) db.exec("DELETE FROM show_rows WHERE alias = 'crew'");
+      mergeArtistsIntoRows(db);
+    }
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  });
 }
 
 function createSchema(db: DatabaseSync): void {
@@ -60,7 +67,7 @@ function createSchema(db: DatabaseSync): void {
   const { count } = db.prepare('SELECT COUNT(*) AS count FROM show_rows').get() as {
     count: number;
   };
-  if (count === 0) writeShowDocument(db, defaultShowDocument());
+  if (count === 0) writeDocument(db, defaultShowDocument());
 }
 
 interface RosterArtist {
@@ -105,17 +112,8 @@ function mergeArtistsIntoRows(db: DatabaseSync): void {
       is_active: number;
     }[]
   ).map((row): RosterArtist => ({ id: row.id, name: row.name, active: row.is_active === 1 }));
-  const rows = artistRowsFromRoster(readRows(db), roster);
-
-  db.exec('BEGIN');
-  try {
-    writeRows(db, rows);
-    db.exec('DROP TABLE artists');
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  writeRows(db, artistRowsFromRoster(readRows(db), roster));
+  db.exec('DROP TABLE artists');
 }
 
 function readRows(db: DatabaseSync): ShowRow[] {
@@ -160,23 +158,18 @@ export function readShowDocument(db: DatabaseSync): ShowDocument {
   return { show: { rows }, overrides };
 }
 
-export function writeShowDocument(db: DatabaseSync, doc: ShowDocument): void {
-  db.exec('BEGIN');
-  try {
-    writeRows(db, doc.show.rows);
-    db.exec('DELETE FROM layer_overrides');
-
-    const insertOverride = db.prepare(
-      'INSERT INTO layer_overrides (layer, slot, text) VALUES (?, ?, ?)',
-    );
-    for (const [layer, texts] of Object.entries(doc.overrides)) {
-      for (const [slot, text] of texts.entries()) insertOverride.run(layer, slot, text);
-    }
-
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
+function writeDocument(db: DatabaseSync, doc: ShowDocument): void {
+  writeRows(db, doc.show.rows);
+  db.exec('DELETE FROM layer_overrides');
+  const insertOverride = db.prepare(
+    'INSERT INTO layer_overrides (layer, slot, text) VALUES (?, ?, ?)',
+  );
+  for (const [layer, texts] of Object.entries(doc.overrides)) {
+    for (const [slot, text] of texts.entries()) insertOverride.run(layer, slot, text);
   }
+}
+
+export function writeShowDocument(db: DatabaseSync, doc: ShowDocument): void {
+  transaction(db, () => writeDocument(db, doc));
   checkpointWal(db);
 }
