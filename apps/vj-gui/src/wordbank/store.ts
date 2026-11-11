@@ -62,7 +62,7 @@ export function searchWordbank(
   return [...all].filter((text) => text.toLowerCase().includes(q));
 }
 
-/** The persisted `selectedTabId` if it names one of `lists` (or the pinned Recent list); the first list otherwise. Never throws. */
+/** The persisted `selectedTabId` if it names one of `lists` or a pinned tab; the first list otherwise. Never throws. */
 function loadSelectedTabId(storage: Storage | undefined, lists: readonly PhraseList[]): string {
   const fallback = lists[0]!.id;
   if (!storage) return fallback;

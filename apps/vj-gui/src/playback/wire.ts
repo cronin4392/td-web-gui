@@ -186,7 +186,7 @@ export interface LoaderParams {
   textVars: string[][];
 }
 
-/** Scene readout names, declared read-only so their controls render disabled. */
+/** Loader readout names, declared read-only so their controls render disabled. */
 export const loaderReadonly = [
   'level',
   'performance',

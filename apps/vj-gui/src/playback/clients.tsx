@@ -98,7 +98,7 @@ export function LoaderProvider(props: {
   children: JSX.Element;
 }): JSX.Element {
   const instance = loaderInstances.find((s) => s.id === props.loader);
-  if (!instance) throw new Error(`[td] unknown scene id: ${props.loader}`);
+  if (!instance) throw new Error(`[td] unknown Loader id: ${props.loader}`);
   return (
     <LoaderClient.Provider
       url={instance.url}

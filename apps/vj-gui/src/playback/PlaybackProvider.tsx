@@ -48,7 +48,7 @@ const PlaybackContext = createContext<PlaybackContextValue>();
  *
  * The GUI project's MIDI select button drives it too, by firing `selectLayer` at
  * the page. Registered here rather than in `LayerPreviews` so a press lands
- * whether or not the tiles are on screen. Must render inside `GuiProvider` and
+ * whether or not the Layer previews are on screen. Must render inside `GuiProvider` and
  * `InputProvider`.
  */
 export function PlaybackProvider(props: { children: JSX.Element }): JSX.Element {

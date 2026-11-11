@@ -42,10 +42,10 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
     <div class={[styles.column, props.class].filter(Boolean).join(' ')}>
       <PanelHeader title="Layers" />
       <div class={styles.zGrid}>
-        <For each={zLoaders}>{(loader) => <LayerPanel loader={loader.id} compact />}</For>
+        <For each={zLoaders}>{(loader) => <LayerPreview loader={loader.id} compact />}</For>
       </div>
       <div class={styles.grid}>
-        <For each={topDown}>{(loader) => <LayerPanel loader={loader.id} />}</For>
+        <For each={topDown}>{(loader) => <LayerPreview loader={loader.id} />}</For>
       </div>
     </div>
   );
@@ -63,7 +63,7 @@ export function LayerPreviews(props: { class?: string }): JSX.Element {
  * The body is a separate component because `useVideo()` reads the nearest
  * provider from context, and the provider isn't in context until inside it.
  */
-function LayerPanel(props: { loader: LoaderId; compact?: boolean }): JSX.Element {
+function LayerPreview(props: { loader: LoaderId; compact?: boolean }): JSX.Element {
   const { selectedLayer, selectLayer } = usePlayback();
   const layer = layerIdForLoader(props.loader);
   const Body = props.compact ? CompactLayerBody : LayerBody;

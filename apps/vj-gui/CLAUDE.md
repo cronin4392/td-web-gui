@@ -1,6 +1,6 @@
 # vj-gui
 
-The author's real VJ rig: fourteen scene layers driven from the web, SQLite
+The author's real VJ rig: fourteen layers driven from the web, SQLite
 catalogs of scenes and effects, the text state (show info plus each layer's
 overrides) that decides each layer's text, and a wordbank of phrases to apply to it. Not published — but maintained and tested, not a scratchpad.
 

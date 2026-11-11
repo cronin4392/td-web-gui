@@ -6,13 +6,13 @@ import { adjustReorderTarget, dropIndexForRow } from '@/ui/dnd';
 import { TextChip } from './TextChip';
 import styles from './PhraseListPanel.module.css';
 
-export interface ListPanelProps {
+export interface PhraseListPanelProps {
   store: WordbankStore;
   list: PhraseList;
   onApply: (phrase: string) => void;
 }
 
-export function PhraseListPanel(props: ListPanelProps): JSX.Element {
+export function PhraseListPanel(props: PhraseListPanelProps): JSX.Element {
   const [adding, setAdding] = createSignal(false);
   const [dropIndex, setDropIndex] = createSignal<number | null>(null);
   const menu = createContextMenu();

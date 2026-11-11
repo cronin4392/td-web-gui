@@ -68,7 +68,7 @@ export function TextPanel(props: {
   const showTabTexts = createMemo(() => actText().map(unescapeNewlines));
 
   return (
-    <div class={styles.selector}>
+    <div class={styles.panel}>
       <PanelHeader title="Text">
         <PanelHeaderButton
           label="Show info"
