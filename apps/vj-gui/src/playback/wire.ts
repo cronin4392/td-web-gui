@@ -144,6 +144,16 @@ export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
 export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**
+ * Calls the Input instance exposes — the TS half of `HANDLERS` in
+ * `td/input-config.py`. The new tempo arrives on {@link InputParams.bpm}, not
+ * in the result.
+ */
+export interface InputCalls {
+  bpmDouble: { args?: undefined; result: { ok: boolean } };
+  bpmHalf: { args?: undefined; result: { ok: boolean } };
+}
+
+/**
  * Calls each Loader instance exposes — the TS half of `HANDLERS` in
  * `td/scene-config.py`.
  *

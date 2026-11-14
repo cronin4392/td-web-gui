@@ -24,6 +24,7 @@ import {
   type GuiCalls,
   type GuiHandlers,
   type GuiParams,
+  type InputCalls,
   type InputParams,
   type LoaderCalls,
   type LoaderId,
@@ -38,7 +39,7 @@ export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
  * `loadScene` call. */
 export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
 
-export const InputClient = createTDClient<InputParams>();
+export const InputClient = createTDClient<InputParams, InputCalls>();
 
 /** One Loader instance's connection, typed by its params and its calls. */
 export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;

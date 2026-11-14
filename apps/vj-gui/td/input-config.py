@@ -6,11 +6,13 @@ Backing operators this project expects:
         the analyser CHOP named by AUDIO_CHOP below, with `low`/`mid`/`high`
         the COMP named by GUI_STATE below, with a `Selectedloader` string par
         the COMP named by BEAT below, with a `Periodindex` int par
+        the COMP named by SET_TEMPO below, with `BpmDouble()` / `BpmHalf()`
 
 Mostly read-only: what this project detects rides READOUTS, and the two REGISTRY
 entries go the other way — the web's selected loader, parked here so this
 project's MIDI scripts can read it, and the beat period, which this project
-sends on to every scene loader.
+sends on to every scene loader. HANDLERS double and halve the tempo; the new
+tempo comes back on the `bpm` readout rather than in the call's result.
 
 The GUI and scene configs are separate: gui-config.py and scene-config.py,
 beside this file.
@@ -30,6 +32,8 @@ GUI_STATE = "/project1/GuiState"
 
 # Its Touch Out on BeatPeriodPort (8006) is what every scene loader reads.
 BEAT = "/project1/Beat"
+
+SET_TEMPO = "/project1/SetTempo"
 
 REGISTRY = {
     # Which layer the web has selected, as its loader key ("A"-"H", "Z1"-"Z6") —
@@ -63,3 +67,16 @@ READOUTS = {
         "chan": ["low", "mid", "high"],
     },
 }
+
+
+def _bpm_double(args):
+    opex(SET_TEMPO).BpmDouble()
+    return {"ok": True}
+
+
+def _bpm_half(args):
+    opex(SET_TEMPO).BpmHalf()
+    return {"ok": True}
+
+
+HANDLERS = {"bpmDouble": _bpm_double, "bpmHalf": _bpm_half}
