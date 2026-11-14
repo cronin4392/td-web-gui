@@ -1,12 +1,12 @@
 import { For, type JSX } from 'solid-js';
 import { RadioButton } from '@/ui/RadioButton';
 import { RadioGroup } from '@/ui/RadioGroup';
-import { GuiClient } from './clients';
+import { InputClient } from './clients';
 import { BEAT_PERIODS } from './wire';
 import styles from './BeatPeriod.module.css';
 
 export function BeatPeriod(): JSX.Element {
-  const period = GuiClient.signal('beatPeriod');
+  const period = InputClient.signal('beatPeriod');
   return (
     <RadioGroup
       name="beat-period"

@@ -1,7 +1,7 @@
 /**
  * The narrow right-hand column, reading a different TouchDesigner process per
- * item — the Color schemes and beat period the GUI project holds, the audio
- * bands and tempo the Input project detects. Each factory reaches its own
+ * item — the Color schemes the GUI project holds, the audio bands, tempo and
+ * beat period the Input project owns. Each factory reaches its own
  * provider, so this renders inside both.
  */
 

@@ -55,10 +55,7 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
 /** Authored here, like {@link LAYOUT_OPTIONS}: TD announces menus, not radios. */
 export const BEAT_PERIODS = [1, 2, 4] as const;
 
-/**
- * Param schema for the `vj-gui` instance: the selected Color scheme and beat
- * period.
- */
+/** Param schema for the `vj-gui` instance: the selected Color scheme. */
 export interface GuiParams {
   /**
    * Path of the Color scheme driving the GUI — TD's `Activecolorpath`, and the
@@ -69,9 +66,6 @@ export interface GuiParams {
    * in TD's own panel moves the web's selection with it.
    */
   activeColorScheme: string;
-  /** Index into {@link BEAT_PERIODS}, which is what TD's radio par holds — not
-   * the period in beats. */
-  beatPeriod: number;
 }
 
 /**
@@ -115,7 +109,7 @@ export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
 
 /**
  * Param schema for the `input` instance — the TS half of `READOUTS` in
- * `td/input-config.py`, plus the one `REGISTRY` entry that goes the other way.
+ * `td/input-config.py`, plus the two `REGISTRY` entries that go the other way.
  */
 export interface InputParams {
   bpm: number;
@@ -127,12 +121,14 @@ export interface InputParams {
    * The selected layer's id, typed as a plain string: it comes off the wire, so
    * it is a claim about a layer until {@link asLayerId} has agreed.
    *
-   * The only writable name on this instance, and the only one the web drives
-   * rather than reads — the page parks its selection on a TD par so the rig's
-   * MIDI scripts can read it, and follows the par back so a press in TD moves
-   * the page. See `PlaybackProvider`.
+   * The page parks its selection on a TD par so the rig's MIDI scripts can read
+   * it, and follows the par back so a press in TD moves the page. See
+   * `PlaybackProvider`.
    */
   selectedLoader: string;
+  /** Index into {@link BEAT_PERIODS}, which is what TD's `Periodindex` par
+   * holds — not the period in beats. */
+  beatPeriod: number;
 }
 
 /**
@@ -144,7 +140,7 @@ export interface InputParams {
 export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
 
 /** Input readout names, declared read-only so their controls render disabled.
- * `selectedLoader` is deliberately absent: the page writes it. */
+ * `selectedLoader` and `beatPeriod` are deliberately absent: the page writes them. */
 export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**
