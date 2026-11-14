@@ -22,6 +22,11 @@ An event rather than a parameter deliberately: the press is what this project
 has to say, and where the selection is kept is not its business — which is why
 moving it to the Input project cost this file nothing.
 
+Clearing a layer from here (MIDI clear, the TD panel's clear button) goes the
+same way. ExternalScene.Clear() sends `clear-scene` to the loader, then
+`Notify('clearLayer', {'layer': ...})` so the page drops that layer's
+Overrides, which live in the web's database, not in TD.
+
 The scenes are separate processes with their own config: td/scene-config.py.
 """
 

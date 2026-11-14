@@ -6,6 +6,7 @@ import { saveWordbank } from './wordbank/wordbank-api';
 import { createTextStateStore } from './textstate/store';
 import { saveTextState } from './textstate/textstate-api';
 import { TextStateProvider } from './textstate/context';
+import { RigClearHandler } from './textstate/RigClearHandler';
 import type { Wordbank } from '@domain/wordbank/wordbank';
 import type { TextState } from '@domain/textstate/textstate';
 import { EffectSelector } from './catalog/EffectSelector';
@@ -42,6 +43,7 @@ export function App(props: AppProps): JSX.Element {
       <InputProvider>
         <PlaybackProvider>
           <TextStateProvider store={textState}>
+            <RigClearHandler />
             <main class={styles.app}>
               <LayerPreviews class={styles.previews} />
               <SceneSelector class={styles.scenes} />

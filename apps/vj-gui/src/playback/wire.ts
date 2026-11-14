@@ -95,12 +95,17 @@ export interface GuiCalls {
  * selection itself is {@link InputParams.selectedLoader}, on the Input
  * instance, which the page writes when the press lands.
  *
+ * `clearLayer` is any clear the GUI project runs itself (MIDI clear button,
+ * its own panel button): TD has already swapped in the blank tox, but the
+ * Overrides are the web's, so the page has to drop them.
+ *
  * `layer` is a loader's `Scenekey` letter, but typed as a plain string: it
  * arrives off the wire, so it is a claim about a layer until
  * {@link asLayerId} has agreed.
  */
 export interface GuiHandlers {
   selectLayer: { args: { layer: string } };
+  clearLayer: { args: { layer: string } };
 }
 
 /** GUI readout names, declared read-only so bound controls render disabled —

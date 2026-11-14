@@ -31,7 +31,7 @@ import {
 } from './wire';
 
 /** The GUI project: the color ramp, the Color
- * scheme catalog, and the MIDI select button's `selectLayer`. */
+ * scheme catalog, and the rig's `selectLayer` and `clearLayer` presses. */
 export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
 
 /** Every scene project: performance readouts, the video stream, and the
