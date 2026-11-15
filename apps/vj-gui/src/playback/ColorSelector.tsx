@@ -1,12 +1,12 @@
 /**
- * The GUI project's Color schemes, as a tab per Color group and a swatch per
+ * The Input project's Color schemes, as a tab per Color group and a swatch per
  * scheme. Clicking one writes its path to `activeColorScheme`, which is the
  * whole of selecting it — everything downstream in TouchDesigner hangs off that
  * one parameter.
  *
  * The catalog arrives by `call` rather than as a readout, so it is fetched once
  * the connection syncs and re-fetched if it syncs again. Must render inside
- * `GuiProvider`.
+ * `InputProvider`.
  *
  * Which tab is open is local state. Its TD counterpart, `Activecolorgroup`, is
  * a bind-mode par that td-core would refuse to write, and there is no reason for
@@ -15,13 +15,13 @@
 
 import { createEffect, createSignal, For, Show, type JSX } from 'solid-js';
 import { colorStopsGradient } from '@/ui/gradient';
-import { GuiClient } from './clients';
+import { InputClient } from './clients';
 import { openColorGroup, parseColorGroups, schemesInGroup, type ColorGroup } from './colorSchemes';
 import styles from './ColorSelector.module.css';
 
 export function ColorSelector(props: { class?: string }): JSX.Element {
-  const connection = GuiClient.useConnection();
-  const active = GuiClient.signal('activeColorScheme');
+  const connection = InputClient.useConnection();
+  const active = InputClient.signal('activeColorScheme');
   const [groups, setGroups] = createSignal<ColorGroup[]>([]);
   const [pickedGroup, setPickedGroup] = createSignal<string>();
   const tabRefs = new Map<string, HTMLButtonElement>();

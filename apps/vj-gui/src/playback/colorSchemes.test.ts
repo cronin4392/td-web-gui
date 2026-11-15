@@ -1,6 +1,6 @@
 /**
  * A call's reply is untyped JSON, so the catalog parser is the only thing
- * standing between a drifted `td/gui-config.py` and a crash mid-render. It has
+ * standing between a drifted `td/input-config.py` and a crash mid-render. It has
  * to keep every scheme it can read and drop the rest.
  */
 

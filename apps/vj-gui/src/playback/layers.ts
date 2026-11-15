@@ -6,15 +6,13 @@
  * Vite `import.meta.env` for local tweaks, but resolved at build/startup, not
  * discovered at runtime.
  *
- * The page drives **sixteen** TouchDesigner servers, of **three** kinds:
+ * The page drives **fifteen** TouchDesigner servers, of **two** kinds:
  *
- *   - the GUI project (`td/gui-config.py`), which owns the color scheme — one
- *     of a kind, one schema;
  *   - the scene projects (`td/scene-config.py`), one process per live scene;
  *   - the Input project (`td/input-config.py`), the rig's MIDI and audio front
- *     end — one of a kind, one schema, and holder of the selected loader
- *     (`selectedLayer` in `PlaybackProvider`), which its MIDI select buttons
- *     write directly.
+ *     end and owner of the color scheme — one of a kind, one schema, and holder
+ *     of the selected loader (`selectedLayer` in `PlaybackProvider`), which its
+ *     MIDI select buttons write directly.
  *
  * The fourteen scene servers run the same project, so they publish the same wire
  * names and share one schema, one read-only set, and one TD-side config file.
@@ -40,18 +38,7 @@ export const host = import.meta.env.VITE_TD_HOST ?? 'localhost';
  * ports are whatever each `.toe`'s WebGuiServer `Port` par says, and nothing
  * makes them contiguous.
  */
-const guiPort = import.meta.env.VITE_TD_PORT_GUI ?? '8765';
 const inputPort = import.meta.env.VITE_TD_PORT_INPUT ?? '8766';
-
-/**
- * The GUI project. `id` matches its WebGuiServer `Identifier` par — the
- * `welcome` message carries that back, and the provider treats the config value
- * as authoritative when they disagree.
- */
-export const guiInstance = {
-  id: 'gui',
-  url: `ws://${host}:${guiPort}`,
-} as const satisfies TDInstanceConfig;
 
 /** The Input project — the rig's MIDI and audio front end. */
 export const inputInstance = {

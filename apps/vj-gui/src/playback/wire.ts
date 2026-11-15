@@ -10,7 +10,7 @@ const loaderAPort = import.meta.env.VITE_TD_PORT_SCENE_A ?? '4007';
 const loaderBPort = import.meta.env.VITE_TD_PORT_SCENE_B ?? '5007';
 const loaderCPort = import.meta.env.VITE_TD_PORT_SCENE_C ?? '6007';
 const loaderDPort = import.meta.env.VITE_TD_PORT_SCENE_D ?? '7007';
-// 8007 is skipped: the GUI project already owns the 8000 block (8765).
+// 8007 is skipped: the Input project already owns the 8000 block (8766).
 const loaderEPort = import.meta.env.VITE_TD_PORT_SCENE_E ?? '9007';
 const loaderFPort = import.meta.env.VITE_TD_PORT_SCENE_F ?? '10007';
 const loaderGPort = import.meta.env.VITE_TD_PORT_SCENE_G ?? '11007';
@@ -55,40 +55,9 @@ export function layerIdForLoader(instance: LoaderId): LayerId {
 /** Authored here, like {@link LAYOUT_OPTIONS}: TD announces menus, not radios. */
 export const BEAT_PERIODS = [1, 2, 4] as const;
 
-/** Param schema for the `vj-gui` instance: the selected Color scheme. */
-export interface GuiParams {
-  /**
-   * Path of the Color scheme driving the GUI — TD's `Activecolorpath`, and the
-   * `path` of one entry in the {@link GuiCalls} catalog.
-   *
-   * Writing it *is* selecting a scheme; everything TouchDesigner derives from a
-   * color hangs off this one parameter. It reads back too, so a scheme picked
-   * in TD's own panel moves the web's selection with it.
-   */
-  activeColorScheme: string;
-}
-
-/**
- * Calls the GUI instance exposes — the TS half of `HANDLERS` in
- * `td/gui-config.py`.
- *
- * The Color scheme catalog is a call rather than a readout because it is a
- * question asked once, not a value that streams: TD walks its own two
- * enumeration DATs and samples each scheme's ramp on demand, so nothing has to
- * be materialised in the network to watch. Re-ask it after a reconnect.
- */
-export interface GuiCalls {
-  colorSchemes: { args?: undefined; result: JsonValue };
-}
-
-/** GUI readout names, declared read-only so bound controls render disabled —
- * `td/gui-config.py`'s `READOUTS` plus its non-writable `REGISTRY` entries.
- * Empty today: everything the GUI publishes, the web also drives. */
-export const guiReadonly = [] as const satisfies readonly (keyof GuiParams)[];
-
 /**
  * Param schema for the `input` instance — the TS half of `READOUTS` in
- * `td/input-config.py`, plus the two `REGISTRY` entries that go the other way.
+ * `td/input-config.py`, plus the `REGISTRY` entries that go the other way.
  */
 export interface InputParams {
   bpm: number;
@@ -108,6 +77,15 @@ export interface InputParams {
   /** Index into {@link BEAT_PERIODS}, which is what TD's `Periodindex` par
    * holds — not the period in beats. */
   beatPeriod: number;
+  /**
+   * The Color scheme in play — TD's `Activecolorpath`, the scheme COMP's path
+   * relative to the Colors tool, and the `path` of one entry in the
+   * `colorSchemes` catalog.
+   *
+   * Writing it *is* selecting a scheme; everything TouchDesigner derives from a
+   * color hangs off this one parameter.
+   */
+  activeColorScheme: string;
 }
 
 /**
@@ -119,17 +97,22 @@ export interface InputParams {
 export const AUDIO_BANDS = ['low', 'mid', 'high'] as const;
 
 /** Input readout names, declared read-only so their controls render disabled.
- * `selectedLoader` and `beatPeriod` are deliberately absent: the page writes them. */
+ * The `REGISTRY` entries are deliberately absent: the page writes them. */
 export const inputReadonly = ['bpm', 'audio'] as const satisfies readonly (keyof InputParams)[];
 
 /**
  * Calls the Input instance exposes — the TS half of `HANDLERS` in
  * `td/input-config.py`. The new tempo arrives on {@link InputParams.bpm}, not
  * in the result.
+ *
+ * The Color scheme catalog is a call rather than a readout because it is a
+ * question asked once, not a value that streams: TD walks its own enumeration
+ * DATs and samples each scheme's ramp on demand. Re-ask it after a reconnect.
  */
 export interface InputCalls {
   bpmDouble: { args?: undefined; result: { ok: boolean } };
   bpmHalf: { args?: undefined; result: { ok: boolean } };
+  colorSchemes: { args?: undefined; result: JsonValue };
 }
 
 /**

@@ -2,27 +2,24 @@
  * The `createTDClient` factories, shared across the app's components — a
  * factory must be created once per *schema*, not per-component.
  *
- * Three factories for sixteen instances, because a factory selects a *schema*,
+ * Two factories for fifteen instances, because a factory selects a *schema*,
  * not an instance: its members bind the nearest `<Provider>` **of that factory**,
  * so the fourteen Layers — same scene project, same wire names — share one.
  * `LoaderClient` rendered under sceneA's provider reads sceneA; the identical
  * markup under sceneB's reads sceneB.
  *
- * Scoping is per factory, so the providers may nest freely: `GuiProvider` and
- * `InputProvider` wrap the whole app in `App.tsx`, and a `GuiClient` control
- * down inside a Layer preview still reaches the GUI project, not the Layer's.
+ * Scoping is per factory, so the providers may nest freely: `InputProvider`
+ * wraps the whole app in `App.tsx`, and an `InputClient` control down inside a
+ * Layer preview still reaches the Input project, not the Layer's.
  */
 
 import type { JSX } from 'solid-js';
 import { createTDClient } from 'td-core';
-import { guiInstance, inputInstance, type LayerId } from './layers';
+import { inputInstance, type LayerId } from './layers';
 import {
-  guiReadonly,
   inputReadonly,
   loaderInstances,
   loaderReadonly,
-  type GuiCalls,
-  type GuiParams,
   type InputCalls,
   type InputHandlers,
   type InputParams,
@@ -31,9 +28,6 @@ import {
   type LoaderId,
   type LoaderParams,
 } from './wire';
-
-/** The GUI project: the color ramp and the Color scheme catalog. */
-export const GuiClient = createTDClient<GuiParams, GuiCalls>();
 
 /** Every scene project: performance readouts, the video stream, the
  * `loadScene` call, and the `cleared` event. */
@@ -48,7 +42,6 @@ export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;
  * A layer with no running process is simply absent. */
 export type LayerConnections = Partial<Record<LayerId, LoaderConnection>>;
 
-export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
 
 /**
@@ -64,15 +57,6 @@ export async function loadOnLayer(
   const connection = connections[layer];
   if (!connection) throw new Error(`Layer ${layer} has no connected Loader`);
   await connection.call('loadScene', scene);
-}
-
-/** `GuiClient.Provider` bound to the app's one GUI instance. */
-export function GuiProvider(props: { children: JSX.Element }): JSX.Element {
-  return (
-    <GuiClient.Provider url={guiInstance.url} instance={guiInstance.id} readonly={[...guiReadonly]}>
-      {props.children}
-    </GuiClient.Provider>
-  );
 }
 
 export function InputProvider(props: { children: JSX.Element }): JSX.Element {

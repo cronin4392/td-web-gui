@@ -122,12 +122,12 @@ thing. They read SQLite through `node:sqlite`.
 
 ## The TouchDesigner side
 
-`td/gui-config.py` is the GUI project's config (port 8765). `td/scene-config.py`
-is shared by **all fourteen** scene servers — same file, fourteen `WebGuiServer`
-components, differing only in their `Identifier` and `Port` parameters. That's
-why no wire name in it is scene-prefixed: a name is scoped to its instance.
-`td/input-config.py` is the Input project's config (port 8766) — the rig's MIDI
-and audio front end.
+`td/scene-config.py` is shared by **all fourteen** scene servers — same file,
+fourteen `WebGuiServer` components, differing only in their `Identifier` and
+`Port` parameters. That's why no wire name in it is scene-prefixed: a name is
+scoped to its instance. `td/input-config.py` is the Input project's config
+(port 8766) — the rig's MIDI and audio front end, and owner of the color
+schemes.
 
 No port is chosen on this side: the web-side defaults are copies of the
 `ExternalPorts` tool in the TouchDesigner project, which every `.toe` reads its

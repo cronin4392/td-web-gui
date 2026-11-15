@@ -4,7 +4,7 @@
  *
  * A call's `value` is untyped JSON — unlike a param, nothing coerces it against
  * a registry entry — so it is parsed here rather than cast. The catalog is also
- * the one place the two sides' shapes are hand-matched: `td/gui-config.py`'s
+ * the one place the two sides' shapes are hand-matched: `td/input-config.py`'s
  * `_color_schemes` builds exactly this, and nothing checks that it still does.
  */
 

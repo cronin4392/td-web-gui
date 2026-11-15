@@ -2,7 +2,7 @@
  * A ramp TouchDesigner sampled for us, as a CSS gradient.
  *
  * TD walks its own Color scheme COMPs and reduces each one's ramp to a handful
- * of `[pos, r, g, b, a]` stops (`_ramp_stops` in `td/gui-config.py`), so
+ * of `[pos, r, g, b, a]` stops (`_ramp_stops` in `td/input-config.py`), so
  * everything a Ramp TOP models — phase, period, interpolation, the ramp's own
  * shape — has already been applied by the time a row gets here. Nothing in this
  * file talks to TouchDesigner; it turns what arrived into a `background-image`.

@@ -1,5 +1,5 @@
 import { onCleanup, type JSX } from 'solid-js';
-import { GuiProvider, InputProvider } from './playback/clients';
+import { InputProvider } from './playback/clients';
 import { PlaybackProvider } from './playback/PlaybackProvider';
 import { createWordbankStore } from './wordbank/store';
 import { saveWordbank } from './wordbank/wordbank-api';
@@ -39,21 +39,19 @@ export function App(props: AppProps): JSX.Element {
   onCleanup(() => window.removeEventListener('pagehide', flushTextState));
 
   return (
-    <GuiProvider>
-      <InputProvider>
-        <PlaybackProvider>
-          <TextStateProvider store={textState}>
-            <RigClipboardHandler />
-            <main class={styles.app}>
-              <LayerPreviews class={styles.previews} />
-              <SceneSelector class={styles.scenes} />
-              <TextPanel store={store} textState={textState} />
-              <EffectSelector />
-              <Tools />
-            </main>
-          </TextStateProvider>
-        </PlaybackProvider>
-      </InputProvider>
-    </GuiProvider>
+    <InputProvider>
+      <PlaybackProvider>
+        <TextStateProvider store={textState}>
+          <RigClipboardHandler />
+          <main class={styles.app}>
+            <LayerPreviews class={styles.previews} />
+            <SceneSelector class={styles.scenes} />
+            <TextPanel store={store} textState={textState} />
+            <EffectSelector />
+            <Tools />
+          </main>
+        </TextStateProvider>
+      </PlaybackProvider>
+    </InputProvider>
   );
 }
