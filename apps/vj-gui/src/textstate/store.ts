@@ -26,6 +26,8 @@ export interface TextStateStore {
 
   setShow: (show: ShowInfo) => void;
   setOverride: (layer: string, slot: number, text: string) => void;
+  /** Replaces every slot of `layer` at once; an empty list clears it. */
+  setOverrides: (layer: string, texts: readonly string[]) => void;
   clearOverrides: (layer: string) => void;
 
   flush: () => void;
@@ -58,6 +60,15 @@ export function createTextStateStore(options: CreateTextStateStoreOptions = {}):
     saver.schedule();
   }
 
+  function setOverrides(layer: string, texts: readonly string[]): void {
+    if (texts.length === 0) {
+      clearOverrides(layer);
+      return;
+    }
+    setState('overrides', layer, [...texts]);
+    saver.schedule();
+  }
+
   function clearOverrides(layer: string): void {
     setState(
       produce((draft) => {
@@ -71,6 +82,7 @@ export function createTextStateStore(options: CreateTextStateStoreOptions = {}):
     state,
     setShow,
     setOverride,
+    setOverrides,
     clearOverrides,
     flush: saver.flush,
     dispose: saver.dispose,

@@ -102,13 +102,17 @@ READOUTS = {
 
 
 # No layout/color handler on purpose: they are state, so they ride the REGISTRY
-# above as ordinary params. Only the load itself is behaviour.
+# above as ordinary params. A load resets both, so it may name the ones to load
+# with instead.
 def _load_scene(args):
-    path = str((args or {}).get("path", ""))
-    if not path:
+    args = args or {}
+    path = args.get("path")
+    if not isinstance(path, str) or not path:
         raise ValueError("loadScene needs a tox path")
     # Forward slashes only: the loader splits on '/' to derive folder and name.
-    opex(LOADER).LoadComp({"toxPath": path})
+    opex(LOADER).LoadComp(
+        {"toxPath": path, "layout": args.get("layout"), "color": args.get("color")}
+    )
     return {"ok": True}
 
 

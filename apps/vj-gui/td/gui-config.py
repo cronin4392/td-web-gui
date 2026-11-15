@@ -4,27 +4,9 @@ Config for the GUI instance — the scene-loader control surface, on port 8765.
 Backing operators this project expects:
         the Colors tool named by COLOR_TOOL below, and its color scheme COMPs
 
-Loading a scene does NOT go through here: the web app calls each SceneLoader
-process directly (`loadScene` in td/scene-config.py), bypassing this project's
-MessageDispatcher entirely.
-
-Which loader the web app shows is not this project's: it is parked on the Input
-project's `Selectedloader` par (input-config.py), which is the project whose
-Python reads it. The MIDI select button here nudges it with a fire-and-forget
-call the web registered, which needs nothing in this file:
-
-        op.GUI.op('Tools/WebGuiServer').Notify(
-                'selectLayer', {'layer': parent.ToxLoader.par.Scenekey.eval()}
-        )
-
-An event rather than a parameter deliberately: the press is what this project
-has to say, and where the selection is kept is not its business — which is why
-moving it to the Input project cost this file nothing.
-
-Clearing a layer from here (MIDI clear, the TD panel's clear button) goes the
-same way. ExternalScene.Clear() sends `clear-scene` to the loader, then
-`Notify('clearLayer', {'layer': ...})` so the page drops that layer's
-Overrides, which live in the web's database, not in TD.
+Loading, clearing and selecting layers do NOT go through here. The web app calls
+each SceneLoader process directly (td/scene-config.py), and the rig's MIDI layer
+buttons are handled by the Input project and the SceneLoaders themselves.
 
 The scenes are separate processes with their own config: td/scene-config.py.
 """

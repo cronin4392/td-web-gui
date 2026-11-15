@@ -1,18 +1,12 @@
 import { onCleanup, type JSX } from 'solid-js';
-import { GuiClient } from '@/playback/clients';
-import { asLayerId } from '@/playback/wire';
+import { LoaderClient } from '@/playback/clients';
+import type { LayerId } from '@/playback/layers';
 import { useTextState } from './context';
 
-export function RigClearHandler(): JSX.Element {
+export function RigClearHandler(props: { layer: LayerId }): JSX.Element {
   const { clearOverrides } = useTextState();
 
-  onCleanup(
-    GuiClient.useConnection().handle('clearLayer', (args) => {
-      // Optional despite the schema: TD omits `args` entirely when it notifies without a payload.
-      const layer = asLayerId(args?.layer);
-      if (layer) clearOverrides(layer);
-    }),
-  );
+  onCleanup(LoaderClient.useConnection().handle('cleared', () => clearOverrides(props.layer)));
 
   return null;
 }

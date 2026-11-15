@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import { unescapeNewlines, type SelectOption } from 'td-core';
 import { useTextState } from '@/textstate/context';
+import { RigClearHandler } from '@/textstate/RigClearHandler';
 import { TextDelivery } from '@/textstate/TextDelivery';
 import { sceneThumbnailUrlFrom } from '@domain/catalog/thumbnail';
 import { RadioButton } from '@/ui/RadioButton';
@@ -70,6 +71,7 @@ function LayerPreview(props: { loader: LoaderId; compact?: boolean }): JSX.Eleme
   return (
     <LoaderProvider loader={props.loader} video={!props.compact}>
       <TextDelivery layer={layer} />
+      <RigClearHandler layer={layer} />
       <Body layer={layer} active={layer === selectedLayer()} onSelect={() => selectLayer(layer)} />
     </LoaderProvider>
   );

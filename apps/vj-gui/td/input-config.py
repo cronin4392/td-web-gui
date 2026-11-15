@@ -9,10 +9,14 @@ Backing operators this project expects:
         the COMP named by SET_TEMPO below, with `BpmDouble()` / `BpmHalf()`
 
 Mostly read-only: what this project detects rides READOUTS, and the two REGISTRY
-entries go the other way — the web's selected loader, parked here so this
-project's MIDI scripts can read it, and the beat period, which this project
-sends on to every scene loader. HANDLERS double and halve the tempo; the new
-tempo comes back on the `bpm` readout rather than in the call's result.
+entries go the other way — the selected loader, which the web and this
+project's MIDI select buttons both write, and the beat period, which this
+project sends on to every scene loader. HANDLERS double and halve the tempo; the
+new tempo comes back on the `bpm` readout rather than in the call's result.
+
+The MIDI store/recall buttons notify the web (`copyLayer` / `pasteLayer`, from
+Midi/chopexec_clipboard), which owns the clipboard because it owns the layers'
+text overrides.
 
 The GUI and scene configs are separate: gui-config.py and scene-config.py,
 beside this file.
@@ -36,13 +40,12 @@ BEAT = "/project1/Beat"
 SET_TEMPO = "/project1/SetTempo"
 
 REGISTRY = {
-    # Which layer the web has selected, as its loader key ("A"-"H", "Z1"-"Z6") —
-    # the same `Scenekey` the GUI project's select button reports.
+    # The selected layer, as its loader key ("A"-"H", "Z1"-"Z6"). Written by the
+    # web and by Midi/chopexec_layer_select.
     #
     # It lives here rather than in the web alone because a browser signal is
-    # unreachable from TouchDesigner, and it lives in THIS project rather than
-    # the GUI's because this is the one that needs to read it. Must stay in
-    # CONSTANT mode; a write to an expression- or bind-driven par is refused.
+    # unreachable from TouchDesigner. Must stay in CONSTANT mode; a write to an
+    # expression- or bind-driven par is refused.
     "selectedLoader": {"op": GUI_STATE, "par": "Selectedloader", "type": "string"},
     # 0-2 selects the period rather than being it: Beat/constant_period maps it
     # onto 1, 2, 4 beats. Must stay in CONSTANT mode, like selectedLoader.

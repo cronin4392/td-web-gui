@@ -81,27 +81,6 @@ export interface GuiCalls {
   colorSchemes: { args?: undefined; result: JsonValue };
 }
 
-/**
- * Calls the GUI instance invokes on the web — what its `Notify`/`Call` may name.
- *
- * `selectLayer` is the rig's MIDI select button reaching the page. An event
- * rather than a param because it is the press that carries meaning; the
- * selection itself is {@link InputParams.selectedLoader}, on the Input
- * instance, which the page writes when the press lands.
- *
- * `clearLayer` is any clear the GUI project runs itself (MIDI clear button,
- * its own panel button): TD has already swapped in the blank tox, but the
- * Overrides are the web's, so the page has to drop them.
- *
- * `layer` is a loader's `Scenekey` letter, but typed as a plain string: it
- * arrives off the wire, so it is a claim about a layer until
- * {@link asLayerId} has agreed.
- */
-export interface GuiHandlers {
-  selectLayer: { args: { layer: string } };
-  clearLayer: { args: { layer: string } };
-}
-
 /** GUI readout names, declared read-only so bound controls render disabled —
  * `td/gui-config.py`'s `READOUTS` plus its non-writable `REGISTRY` entries.
  * Empty today: everything the GUI publishes, the web also drives. */
@@ -154,22 +133,44 @@ export interface InputCalls {
 }
 
 /**
+ * Calls the Input instance invokes on the web: the rig's MIDI store/recall
+ * buttons. No `layer` argument — both act on the selected layer, which the page
+ * already holds as {@link InputParams.selectedLoader}.
+ */
+export interface InputHandlers {
+  copyLayer: { args?: undefined };
+  pasteLayer: { args?: undefined };
+}
+
+/**
  * Calls each Loader instance exposes — the TS half of `HANDLERS` in
  * `td/scene-config.py`.
  *
  * There is no `scene` argument: the connection *is* the routing. A call reaches
- * the one SceneLoader process it was sent to, which is why this bypasses the GUI
- * project (and its MessageDispatcher) entirely.
+ * the one SceneLoader process it was sent to.
  *
  * `path` is the scene's absolute `.tox`, forward slashes only — TD's
  * `Loader` splits it on `/` into folder + name.
  *
- * A scene's layout and color are deliberately not here: they are state, not
- * behaviour, so they ride {@link LoaderParams} as ordinary params.
+ * A load resets layout and color to their first menu entry unless `layout` /
+ * `color` name the ones to load with. Changing them afterwards is a plain
+ * {@link LoaderParams} write.
  */
 export interface LoaderCalls {
-  loadScene: { args: { path: string }; result: { ok: boolean } };
+  loadScene: {
+    args: { path: string; layout?: string; color?: string };
+    result: { ok: boolean };
+  };
   clearScene: { args?: undefined; result: { ok: boolean } };
+}
+
+/**
+ * Calls each Loader instance invokes on the web. `cleared` fires on every clear,
+ * whoever started it: TD has already swapped in the blank tox, but the
+ * Overrides are the web's, so the page has to drop them.
+ */
+export interface LoaderHandlers {
+  cleared: { args?: undefined };
 }
 
 /**
@@ -266,10 +267,8 @@ export function performanceStat(table: string[][] | undefined, stat: string): nu
   return Number.isFinite(value) ? value : undefined;
 }
 
-/** A `selectLayer` payload's `layer` as a {@link LayerId}, `undefined` for a
- * letter that names no loader — a loader whose `Scenekey` is blank or mis-set
- * says nothing about where the operator wants to be, so its press is dropped
- * rather than answered by moving the selection somewhere they didn't ask for. */
+/** A wire layer letter as a {@link LayerId}, `undefined` for one that names no
+ * loader. */
 export function asLayerId(value: string | undefined): LayerId | undefined {
   return layerIds.includes(value as LayerId) ? (value as LayerId) : undefined;
 }

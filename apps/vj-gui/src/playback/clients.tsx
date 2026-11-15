@@ -22,24 +22,24 @@ import {
   loaderInstances,
   loaderReadonly,
   type GuiCalls,
-  type GuiHandlers,
   type GuiParams,
   type InputCalls,
+  type InputHandlers,
   type InputParams,
   type LoaderCalls,
+  type LoaderHandlers,
   type LoaderId,
   type LoaderParams,
 } from './wire';
 
-/** The GUI project: the color ramp, the Color
- * scheme catalog, and the rig's `selectLayer` and `clearLayer` presses. */
-export const GuiClient = createTDClient<GuiParams, GuiCalls, GuiHandlers>();
+/** The GUI project: the color ramp and the Color scheme catalog. */
+export const GuiClient = createTDClient<GuiParams, GuiCalls>();
 
-/** Every scene project: performance readouts, the video stream, and the
- * `loadScene` call. */
-export const LoaderClient = createTDClient<LoaderParams, LoaderCalls>();
+/** Every scene project: performance readouts, the video stream, the
+ * `loadScene` call, and the `cleared` event. */
+export const LoaderClient = createTDClient<LoaderParams, LoaderCalls, LoaderHandlers>();
 
-export const InputClient = createTDClient<InputParams, InputCalls>();
+export const InputClient = createTDClient<InputParams, InputCalls, InputHandlers>();
 
 /** One Loader instance's connection, typed by its params and its calls. */
 export type LoaderConnection = ReturnType<typeof LoaderClient.useConnection>;
@@ -52,18 +52,18 @@ export type GuiParamName = keyof GuiParams & string;
 export type { LayerId } from './layers';
 
 /**
- * Resolves `layer` to its live connection and loads `path` on it — the one
- * place a catalog picker's `load` callback turns a layer id into an actual
- * TD connection. Rejects if that layer's loader process isn't connected.
+ * Resolves `layer` to its live connection and loads a scene on it — the one
+ * place a layer id turns into an actual TD connection for a load. Rejects if
+ * that layer's loader process isn't connected.
  */
 export async function loadOnLayer(
   layer: LayerId,
   connections: LayerConnections,
-  path: string,
+  scene: LoaderCalls['loadScene']['args'],
 ): Promise<void> {
   const connection = connections[layer];
   if (!connection) throw new Error(`Layer ${layer} has no connected Loader`);
-  await connection.call('loadScene', { path });
+  await connection.call('loadScene', scene);
 }
 
 /** `GuiClient.Provider` bound to the app's one GUI instance. */

@@ -91,6 +91,20 @@ describe('overrides', () => {
     store.clearOverrides('A');
     expect(store.state.overrides).toEqual({ B: ['b'] });
   });
+
+  it('replaces every slot of a layer, without sharing the list it was given', () => {
+    const store = makeStore();
+    const texts = ['p', 'q', 'r'];
+    store.setOverrides('A', texts);
+    texts[0] = 'changed';
+    expect(store.state.overrides.A).toEqual(['p', 'q', 'r']);
+  });
+
+  it('clears a layer when replacing it with no slots', () => {
+    const store = makeStore();
+    store.setOverrides('A', []);
+    expect(store.state.overrides).toEqual({});
+  });
 });
 
 describe('persistence', () => {
