@@ -90,6 +90,15 @@ describe('ShowInfoPanel', () => {
     for (const handle of draggable) expect(handle.tagName).not.toBe('LI');
   });
 
+  it('toggles a row on and off from its eye button', () => {
+    mount();
+    const eye = rowItems()[1]!.querySelector<HTMLButtonElement>('button[aria-label="On"]')!;
+    expect(eye.getAttribute('aria-pressed')).toBe('false');
+    eye.click();
+    expect(editor!.state.rows[1]!.on).toBe(true);
+    expect(eye.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('ignores a drop that is not a show row', () => {
     mount();
     const dataTransfer = new FakeDataTransfer();

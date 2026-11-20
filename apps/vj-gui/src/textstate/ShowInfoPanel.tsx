@@ -26,6 +26,28 @@ function GripIcon(): JSX.Element {
   );
 }
 
+function EyeIcon(props: { open: boolean }): JSX.Element {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
+      <circle cx="8" cy="8" r="2" />
+      <Show when={!props.open}>
+        <path d="M2.5 13.5l11-11" />
+      </Show>
+    </svg>
+  );
+}
+
 function MultilineText(props: {
   label: string;
   placeholder: string;
@@ -128,6 +150,19 @@ export function ShowInfoPanel(props: {
                 >
                   <GripIcon />
                 </span>
+                <button
+                  type="button"
+                  class={`${styles.iconButton} ${styles.toggle}`}
+                  aria-label="On"
+                  aria-pressed={row.on}
+                  title={row.on ? 'Turn off' : 'Turn on'}
+                  onMouseDown={(event) => {
+                    if (event.detail > 1) event.preventDefault();
+                  }}
+                  onClick={() => editor.toggleRow(row.id)}
+                >
+                  <EyeIcon open={row.on} />
+                </button>
                 <select
                   class={styles.select}
                   aria-label="Alias"

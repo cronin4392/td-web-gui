@@ -121,4 +121,9 @@
   .add {
     align-self: flex-start;
   }
+
+  .toggle {
+    flex-shrink: 0;
+    padding: var(--spacing-s);
+  }
 }
