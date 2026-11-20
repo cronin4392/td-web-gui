@@ -14,8 +14,7 @@ import { PhraseListPanel } from './PhraseListPanel';
 import { SearchPanel } from './SearchPanel';
 import styles from './TextPanel.module.css';
 
-const SLOTS = [0, 1] as const;
-type Slot = (typeof SLOTS)[number];
+const PINNED_SLOTS = 2;
 
 export function TextPanel(props: {
   store: ReturnType<typeof createWordbankStore>;
@@ -25,20 +24,34 @@ export function TextPanel(props: {
 
   const [query, setQuery] = createSignal('');
   const [showInfoOpen, setShowInfoOpen] = createSignal(false);
-  const [focusedSlot, setFocusedSlot] = createSignal<Slot | null>(null);
+  const [expanded, setExpanded] = createSignal(false);
+  const [focusedSlot, setFocusedSlot] = createSignal<number | null>(null);
   // Pressing a chip blurs the field before the click lands, so the target is
   // read at mousedown — while that field still has focus — and the blur keeps
   // the search open for the click that follows instead of applying the query.
-  let pressedSlot: Slot | null = null;
+  let pressedSlot: number | null = null;
   const holdEdit = () => (pressedSlot = focusedSlot());
 
   const actText = createMemo(() => actTextList(props.textState.state.show));
+
+  function slotCount(layer: string): number {
+    const overrides = props.textState.state.overrides[layer] ?? [];
+    return Math.max(
+      PINNED_SLOTS,
+      actText().length,
+      overrides.findLastIndex((text) => !isBlank(text)) + 1,
+    );
+  }
+  function visibleSlots(layer: string): number[] {
+    const count = expanded() ? slotCount(layer) : PINNED_SLOTS;
+    return Array.from({ length: count }, (_, i) => i);
+  }
 
   function resetSearch() {
     pressedSlot = null;
     setQuery('');
   }
-  function applyText(layer: string, slot: Slot, text: string) {
+  function applyText(layer: string, slot: number, text: string) {
     props.textState.setOverride(layer, slot, isBlank(text) ? '' : escapeNewlines(text));
     props.store.recordRecent(text);
     resetSearch();
@@ -46,7 +59,7 @@ export function TextPanel(props: {
   function applyToFocused(text: string) {
     applyText(selectedLayer(), focusedSlot() ?? pressedSlot ?? 0, text);
   }
-  function clearText(layer: string, slot: Slot) {
+  function clearText(layer: string, slot: number) {
     props.textState.setOverride(layer, slot, '');
     resetSearch();
   }
@@ -88,7 +101,7 @@ export function TextPanel(props: {
       <Show when={selectedLayer()} keyed>
         {(layer) => (
           <section class={styles.fields}>
-            <For each={SLOTS}>
+            <For each={visibleSlots(layer)}>
               {(slot) => (
                 <TextField
                   label={`Text ${slot + 1}`}
@@ -106,15 +119,29 @@ export function TextPanel(props: {
                 />
               )}
             </For>
-            <button
-              type="button"
-              tabIndex={-1}
-              class={styles.clearOverrides}
-              onMouseDown={holdEdit}
-              onClick={() => clearOverrides(layer)}
-            >
-              Clear overrides
-            </button>
+            <div class={styles.fieldActions}>
+              <Show when={slotCount(layer) > PINNED_SLOTS}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-expanded={expanded()}
+                  class={styles.expand}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => setExpanded((open) => !open)}
+                >
+                  {expanded() ? '▴ Fewer texts' : `▾ All texts (${slotCount(layer)})`}
+                </button>
+              </Show>
+              <button
+                type="button"
+                tabIndex={-1}
+                class={styles.clearOverrides}
+                onMouseDown={holdEdit}
+                onClick={() => clearOverrides(layer)}
+              >
+                Clear overrides
+              </button>
+            </div>
           </section>
         )}
       </Show>
