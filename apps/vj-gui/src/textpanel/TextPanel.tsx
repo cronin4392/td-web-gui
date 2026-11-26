@@ -12,7 +12,7 @@ import { ShowPanel } from './ShowPanel';
 import { TabStrip } from './TabStrip';
 import { PhraseListPanel } from './PhraseListPanel';
 import { SearchPanel } from './SearchPanel';
-import { COLLAPSED_SLOTS, expandedSlots, isOverridden, reachedSlots } from './slots';
+import { COLLAPSED_SLOTS, expandedSlots, isOverridden } from './slots';
 import styles from './TextPanel.module.css';
 
 const slotLabel = (slot: number) => `Text ${slot + 1}`;
@@ -140,7 +140,8 @@ export function TextPanel(props: {
             <div class={styles.fieldActions}>
               <Show
                 when={
-                  expanded() || reachedSlots(actText().length, overridesOf(layer)) > COLLAPSED_SLOTS
+                  expanded() ||
+                  expandedSlots(actText().length, overridesOf(layer)) > COLLAPSED_SLOTS
                 }
               >
                 <button
@@ -149,7 +150,7 @@ export function TextPanel(props: {
                   aria-expanded={expanded()}
                   class={styles.expand}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => setExpanded((open) => !open)}
+                  onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
                 >
                   {expanded() ? '▴ Fewer texts' : '▾ All texts'}
                 </button>
