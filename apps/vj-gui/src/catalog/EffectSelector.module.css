@@ -17,7 +17,7 @@
     color: var(--color-text);
 
     &:focus-visible {
-      border-color: var(--color-border-hover);
+      border-color: var(--color-action);
     }
 
     /* The search filters the list below it and not the favorites above, so it
@@ -66,10 +66,11 @@
     background: var(--color-surface);
     font-size: var(--text-m);
     text-align: left;
-    color: var(--color-text);
+    color: var(--color-action);
 
     &:hover {
       border-color: var(--color-border-hover);
+      background: var(--color-hover);
     }
 
     &:disabled {
@@ -77,6 +78,7 @@
 
       &:hover {
         border-color: var(--color-border);
+        background: var(--color-surface);
       }
     }
 

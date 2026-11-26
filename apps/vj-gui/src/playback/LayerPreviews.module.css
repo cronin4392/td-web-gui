@@ -176,7 +176,7 @@
     flex-shrink: 0;
     border-radius: var(--radius);
     background:
-      linear-gradient(to top, var(--color-accent) var(--level, 0%), transparent var(--level, 0%)),
+      linear-gradient(to top, var(--color-action) var(--level, 0%), transparent var(--level, 0%)),
       var(--color-border);
   }
 
@@ -193,17 +193,17 @@
   .clear {
     grid-column: 1 / -1;
     padding: var(--spacing-m);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-attention);
     border-radius: var(--radius);
     background: var(--color-canvas);
     font-family: var(--font-mono);
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-attention);
     cursor: pointer;
 
     &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
+      background: var(--color-attention);
+      color: var(--color-canvas);
     }
   }
 
@@ -221,11 +221,12 @@
     background: var(--color-overlay);
     font-size: var(--text-l);
     line-height: 1;
-    color: var(--color-text);
+    color: var(--color-attention);
     cursor: pointer;
 
     &:hover {
-      color: var(--color-danger);
+      background: var(--color-attention);
+      color: var(--color-canvas);
     }
   }
 
@@ -258,7 +259,7 @@
   }
 
   .warn {
-    background: #fbbf24;
+    background: var(--color-attention);
   }
 
   .bad {

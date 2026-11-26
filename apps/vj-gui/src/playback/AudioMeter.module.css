@@ -14,7 +14,7 @@
   .label {
     font-family: var(--font-mono);
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-label);
     text-transform: uppercase;
   }
 
@@ -32,6 +32,6 @@
     /* Scaled rather than sized so a level arriving every frame stays off the
        layout path; the origin is what makes it grow rightward. */
     transform-origin: left;
-    background: var(--color-accent);
+    background: var(--color-action);
   }
 }

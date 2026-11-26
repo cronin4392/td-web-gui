@@ -12,16 +12,16 @@
   .tab {
     padding: var(--spacing-s) var(--spacing-m);
     font-size: var(--text-m);
-    color: var(--color-text-muted);
+    color: var(--color-label);
 
     &:hover {
-      color: var(--color-text);
+      color: var(--color-action);
     }
   }
 
   .tabSelected {
     font-weight: var(--font-weight-bold);
-    color: var(--color-text);
+    color: var(--color-action);
   }
 
   .tabSlot {
@@ -50,10 +50,10 @@
     padding: var(--spacing-s) var(--spacing-m);
     font-size: var(--text-m);
     font-weight: var(--font-weight-bold);
-    color: var(--color-text-muted);
+    color: var(--color-action);
 
     &:hover {
-      color: var(--color-text);
+      background: var(--color-action-hover);
     }
   }
 }
