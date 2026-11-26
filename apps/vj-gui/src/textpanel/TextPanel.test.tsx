@@ -2,7 +2,7 @@ import { render } from 'solid-js/web';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TextState } from '@domain/textstate/textstate';
 import { createTextStateStore, type TextStateStore } from '@/textstate/store';
-import { createWordbankStore } from '@/wordbank/store';
+import { createWordbankStore, type WordbankStore } from '@/wordbank/store';
 import { TextPanel } from './TextPanel';
 
 vi.mock('@/playback/PlaybackProvider', () => ({
@@ -19,24 +19,40 @@ function state(act: string[], overrides: string[] = []): TextState {
 let dispose: (() => void) | undefined;
 let host: HTMLDivElement | undefined;
 let textState: TextStateStore | undefined;
+let wordbank: WordbankStore | undefined;
 
 afterEach(() => {
   dispose?.();
   textState?.dispose();
+  wordbank?.dispose();
   host?.remove();
-  dispose = textState = host = undefined;
+  dispose = textState = wordbank = host = undefined;
 });
+
+function emptyStorage(): Storage {
+  const data = new Map<string, string>();
+  return {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+    removeItem: (key) => void data.delete(key),
+    clear: () => data.clear(),
+    key: (index) => [...data.keys()][index] ?? null,
+    get length() {
+      return data.size;
+    },
+  };
+}
 
 function mount(initial: TextState, phrases: string[] = []) {
   const t = (textState = createTextStateStore({ initial }));
-  const wordbank = createWordbankStore({
+  const w = (wordbank = createWordbankStore({
     initial: { lists: [{ id: 'list', name: 'List', phrases }], recent: [] },
-    uiStorage: undefined,
-  });
+    uiStorage: emptyStorage(),
+  }));
   host = document.createElement('div');
   document.body.appendChild(host);
-  dispose = render(() => <TextPanel wordbank={wordbank} textState={t} />, host);
-  return { textState: t, wordbank };
+  dispose = render(() => <TextPanel wordbank={w} textState={t} />, host);
+  return { textState: t, wordbank: w };
 }
 
 function fields(): HTMLTextAreaElement[] {
@@ -99,8 +115,14 @@ describe('TextPanel fields', () => {
   });
 
   it('offers no toggle with nothing past Text 2', () => {
-    mount(state(['a'], ['X', 'Y']));
+    mount(state(['a'], ['X']));
     expect(toggle()).toBeUndefined();
+  });
+
+  it('offers the toggle once Text 1 and Text 2 are filled, to reach an empty Text 3', () => {
+    mount(state(['a'], ['X', 'Y']));
+    toggle()!.click();
+    expect(fields().map((f) => f.value)).toEqual(['X', 'Y', '']);
   });
 
   it('hints the act text list while the layer has no override', () => {
