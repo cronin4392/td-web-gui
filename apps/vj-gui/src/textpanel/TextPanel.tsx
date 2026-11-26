@@ -1,23 +1,24 @@
-import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
+import { createMemo, createSignal, For, Match, Show, Switch, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
 import { actTextList, isBlank } from '@domain/textstate/textstate';
 import { usePlayback } from '@/playback/PlaybackProvider';
 import { withSlot, type TextStateStore } from '@/textstate/store';
 import { ShowInfoDialog } from '@/textstate/ShowInfoDialog';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
-import { RECENT_TAB_ID, SHOW_TAB_ID, type createWordbankStore } from '@/wordbank/store';
+import { RECENT_TAB_ID, SHOW_TAB_ID, type WordbankStore } from '@/wordbank/store';
 import { TextField } from './TextField';
 import { RecentPanel } from './RecentPanel';
 import { ShowPanel } from './ShowPanel';
 import { TabStrip } from './TabStrip';
 import { PhraseListPanel } from './PhraseListPanel';
 import { SearchPanel } from './SearchPanel';
+import { COLLAPSED_SLOTS, expandedSlots, isOverridden, reachedSlots } from './slots';
 import styles from './TextPanel.module.css';
 
-const PINNED_SLOTS = 2;
+const slotLabel = (slot: number) => `Text ${slot + 1}`;
 
 export function TextPanel(props: {
-  store: ReturnType<typeof createWordbankStore>;
+  wordbank: WordbankStore;
   textState: TextStateStore;
 }): JSX.Element {
   const { selectedLayer } = usePlayback();
@@ -26,44 +27,29 @@ export function TextPanel(props: {
   const [showInfoOpen, setShowInfoOpen] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
   const [focusedSlot, setFocusedSlot] = createSignal<number | null>(null);
-  // Pressing a chip blurs the field before the click lands, so the target is
-  // read at mousedown — while that field still has focus — and the blur keeps
-  // the search open for the click that follows instead of applying the query.
+  // Pressing a chip blurs the field before its click lands, so the target slot is captured at mousedown.
   let pressedSlot: number | null = null;
   const holdEdit = () => (pressedSlot = focusedSlot());
 
   const actText = createMemo(() => actTextList(props.textState.state.show));
+  const overridesOf = (layer: string) => props.textState.state.overrides[layer] ?? [];
 
-  function slotCount(layer: string): number {
-    const overrides = props.textState.state.overrides[layer] ?? [];
-    return Math.max(
-      PINNED_SLOTS,
-      actText().length,
-      overrides.findLastIndex((text) => !isBlank(text)) + 1,
-    );
-  }
-  function isOverridden(layer: string): boolean {
-    return (props.textState.state.overrides[layer] ?? []).some((text) => !isBlank(text));
-  }
-  // A full run of filled slots always ends in one spare field, so a next slot can be added.
-  function expandedCount(layer: string, overrides = props.textState.state.overrides[layer] ?? []) {
-    const filled = overrides.findIndex((text) => isBlank(text));
-    return Math.max(slotCount(layer), (filled === -1 ? overrides.length : filled) + 1);
-  }
   function visibleSlots(layer: string): number[] {
-    const count = expanded() ? expandedCount(layer) : PINNED_SLOTS;
+    const count = expanded()
+      ? expandedSlots(actText().length, overridesOf(layer))
+      : COLLAPSED_SLOTS;
     return Array.from({ length: count }, (_, i) => i);
   }
   function tabIntoHiddenSlot(event: KeyboardEvent, layer: string, fields: HTMLElement) {
     const slot = focusedSlot();
+    const current = event.target;
     if (event.key !== 'Tab' || event.shiftKey || slot === null) return;
-    const textareas = fields.querySelectorAll('textarea');
-    const current = textareas[slot];
+    if (!(current instanceof HTMLTextAreaElement)) return;
     const next = slot + 1;
-    if (!current || next < textareas.length) return;
+    if (next < visibleSlots(layer).length) return;
     // The focused field's draft is only applied on blur, so count it as filled already.
-    const withDraft = withSlot(props.textState.state.overrides[layer], slot, current.value);
-    if (next >= expandedCount(layer, withDraft)) return;
+    const withDraft = withSlot(overridesOf(layer), slot, current.value);
+    if (next >= expandedSlots(actText().length, withDraft)) return;
     event.preventDefault();
     current.blur();
     setExpanded(true);
@@ -76,7 +62,7 @@ export function TextPanel(props: {
   }
   function applyText(layer: string, slot: number, text: string) {
     props.textState.setOverride(layer, slot, isBlank(text) ? '' : escapeNewlines(text));
-    props.store.recordRecent(text);
+    props.wordbank.recordRecent(text);
     resetSearch();
   }
   function applyToFocused(text: string) {
@@ -90,6 +76,9 @@ export function TextPanel(props: {
     props.textState.clearOverrides(layer);
     resetSearch();
   }
+  function endPick() {
+    if (pressedSlot !== null) resetSearch();
+  }
   function endEdit() {
     setFocusedSlot(null);
     if (pressedSlot === null) setQuery('');
@@ -97,8 +86,8 @@ export function TextPanel(props: {
 
   const selectedList = createMemo(
     () =>
-      props.store.state.lists.find((l) => l.id === props.store.state.selectedTabId) ??
-      props.store.state.lists[0],
+      props.wordbank.state.lists.find((l) => l.id === props.wordbank.state.selectedTabId) ??
+      props.wordbank.state.lists[0],
   );
 
   const showTabTexts = createMemo(() => actText().map(unescapeNewlines));
@@ -130,10 +119,11 @@ export function TextPanel(props: {
             <For each={visibleSlots(layer)}>
               {(slot) => (
                 <TextField
-                  label={`Text ${slot + 1}`}
-                  value={props.textState.state.overrides[layer]?.[slot] ?? ''}
+                  label={slotLabel(slot)}
+                  value={overridesOf(layer)[slot] ?? ''}
                   placeholder={
-                    (isOverridden(layer) ? undefined : actText()[slot]) ?? `Text ${slot + 1}`
+                    (isOverridden(overridesOf(layer)) ? undefined : actText()[slot]) ??
+                    slotLabel(slot)
                   }
                   onApply={(text) => applyText(layer, slot, text)}
                   onClear={() => clearText(layer, slot)}
@@ -148,7 +138,11 @@ export function TextPanel(props: {
               )}
             </For>
             <div class={styles.fieldActions}>
-              <Show when={expanded() || slotCount(layer) > PINNED_SLOTS}>
+              <Show
+                when={
+                  expanded() || reachedSlots(actText().length, overridesOf(layer)) > COLLAPSED_SLOTS
+                }
+              >
                 <button
                   type="button"
                   tabIndex={-1}
@@ -175,34 +169,24 @@ export function TextPanel(props: {
       </Show>
 
       <section class={styles.lists}>
-        <TabStrip store={props.store} />
-        <div
-          class={styles.body}
-          onMouseDown={holdEdit}
-          onClick={() => {
-            if (pressedSlot !== null) resetSearch();
-          }}
-        >
-          <Show
-            when={!query().trim()}
-            fallback={<SearchPanel store={props.store} query={query()} onApply={applyToFocused} />}
-          >
-            <Show
-              when={props.store.state.selectedTabId !== RECENT_TAB_ID}
-              fallback={<RecentPanel store={props.store} onApply={applyToFocused} />}
-            >
-              <Show
-                when={props.store.state.selectedTabId !== SHOW_TAB_ID}
-                fallback={<ShowPanel texts={showTabTexts()} onApply={applyToFocused} />}
-              >
-                <Show when={selectedList()}>
-                  {(list) => (
-                    <PhraseListPanel store={props.store} list={list()} onApply={applyToFocused} />
-                  )}
-                </Show>
-              </Show>
-            </Show>
-          </Show>
+        <TabStrip store={props.wordbank} />
+        <div class={styles.body} onMouseDown={holdEdit} onClick={endPick}>
+          <Switch>
+            <Match when={query().trim() !== ''}>
+              <SearchPanel store={props.wordbank} query={query()} onApply={applyToFocused} />
+            </Match>
+            <Match when={props.wordbank.state.selectedTabId === RECENT_TAB_ID}>
+              <RecentPanel store={props.wordbank} onApply={applyToFocused} />
+            </Match>
+            <Match when={props.wordbank.state.selectedTabId === SHOW_TAB_ID}>
+              <ShowPanel texts={showTabTexts()} onApply={applyToFocused} />
+            </Match>
+            <Match when={selectedList()}>
+              {(list) => (
+                <PhraseListPanel store={props.wordbank} list={list()} onApply={applyToFocused} />
+              )}
+            </Match>
+          </Switch>
         </div>
       </section>
     </div>

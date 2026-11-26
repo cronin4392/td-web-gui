@@ -46,7 +46,7 @@ export function App(props: AppProps): JSX.Element {
           <main class={styles.app}>
             <LayerPreviews class={styles.previews} />
             <SceneSelector class={styles.scenes} />
-            <TextPanel store={store} textState={textState} />
+            <TextPanel wordbank={store} textState={textState} />
             <EffectSelector />
             <Tools />
           </main>
