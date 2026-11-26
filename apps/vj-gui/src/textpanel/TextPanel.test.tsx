@@ -278,6 +278,28 @@ describe('TextPanel pick', () => {
     expect(wordbank.state.recent).toEqual(['World']);
     expect(chips()).toEqual(['Hello', 'World']);
   });
+  it('applies what was typed on a click in the tab panel that misses every result', () => {
+    const { textState, wordbank } = mount(state([]), ['Hello', 'World']);
+    type(field(2), 'wor');
+    click(button('World')!.closest('ul')!);
+
+    expect(textState.state.overrides.A).toEqual(['', 'wor']);
+    expect(wordbank.state.recent).toEqual(['wor']);
+    expect(chips()).toEqual(['Hello', 'World']);
+  });
+
+  it('applies what was typed on a right-click of a result, which is not a pick', () => {
+    const { textState } = mount(state([]), ['Hello', 'World']);
+    type(field(2), 'wor');
+    button('World')!.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 2 }),
+    );
+    field(2).blur();
+
+    expect(textState.state.overrides.A).toEqual(['', 'wor']);
+    expect(chips()).toEqual(['Hello', 'World']);
+  });
+
   it('closes the search when a dragged result is dropped on nothing', () => {
     const { textState } = mount(state([], ['X']), ['Hello', 'World']);
     type(field(2), 'wor');

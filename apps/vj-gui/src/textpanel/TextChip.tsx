@@ -15,6 +15,7 @@ export function TextChip(props: TextChipProps): JSX.Element {
     <div class={styles.chip}>
       <button
         type="button"
+        data-text-chip
         draggable="true"
         onDragStart={(event) => {
           if (!event.dataTransfer) return;

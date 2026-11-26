@@ -29,7 +29,14 @@ export function TextPanel(props: {
   const [focusedSlot, setFocusedSlot] = createSignal<number | null>(null);
   // Pressing a chip blurs the field before its click lands, so the target slot is captured at mousedown.
   let pressedSlot: number | null = null;
-  const holdEdit = () => (pressedSlot = focusedSlot());
+  function holdEdit(event: MouseEvent) {
+    pressedSlot = event.button === 0 ? focusedSlot() : null;
+  }
+  function holdEditForPick(event: MouseEvent) {
+    const onChip = event.target instanceof Element && event.target.closest('[data-text-chip]');
+    if (onChip) holdEdit(event);
+    else pressedSlot = null;
+  }
 
   const actText = createMemo(() => actTextList(props.textState.state.show));
   const overridesOf = (layer: string) => props.textState.state.overrides[layer] ?? [];
@@ -171,7 +178,12 @@ export function TextPanel(props: {
 
       <section class={styles.lists}>
         <TabStrip store={props.wordbank} />
-        <div class={styles.body} onMouseDown={holdEdit} onClick={endPick} onDragEnd={endPick}>
+        <div
+          class={styles.body}
+          onMouseDown={holdEditForPick}
+          onClick={endPick}
+          onDragEnd={endPick}
+        >
           <Switch>
             <Match when={query().trim() !== ''}>
               <SearchPanel store={props.wordbank} query={query()} onApply={applyToFocused} />
