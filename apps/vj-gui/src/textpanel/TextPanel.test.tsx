@@ -256,6 +256,18 @@ describe('TextPanel pick', () => {
     expect(wordbank.state.recent).toEqual(['World']);
     expect(chips()).toEqual(['Hello', 'World']);
   });
+  it('closes the search when a dragged result is dropped on nothing', () => {
+    const { textState } = mount(state([], ['X']), ['Hello', 'World']);
+    type(field(2), 'wor');
+    const chip = button('World')!;
+    chip.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    field(2).blur();
+    chip.dispatchEvent(new Event('dragend', { bubbles: true }));
+
+    expect(chips()).toEqual(['Hello', 'World']);
+    expect(field(2).value).toBe('');
+    expect(textState.state.overrides.A).toEqual(['X']);
+  });
 });
 
 describe('TextPanel clear', () => {

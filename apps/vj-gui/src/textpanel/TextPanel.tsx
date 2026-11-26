@@ -170,7 +170,7 @@ export function TextPanel(props: {
 
       <section class={styles.lists}>
         <TabStrip store={props.wordbank} />
-        <div class={styles.body} onMouseDown={holdEdit} onClick={endPick}>
+        <div class={styles.body} onMouseDown={holdEdit} onClick={endPick} onDragEnd={endPick}>
           <Switch>
             <Match when={query().trim() !== ''}>
               <SearchPanel store={props.wordbank} query={query()} onApply={applyToFocused} />
