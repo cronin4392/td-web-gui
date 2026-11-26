@@ -2,7 +2,7 @@ import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { escapeNewlines, unescapeNewlines } from 'td-core';
 import { actTextList, isBlank } from '@domain/textstate/textstate';
 import { usePlayback } from '@/playback/PlaybackProvider';
-import type { TextStateStore } from '@/textstate/store';
+import { withSlot, type TextStateStore } from '@/textstate/store';
 import { ShowInfoDialog } from '@/textstate/ShowInfoDialog';
 import { PanelHeader, PanelHeaderButton } from '@/ui/PanelHeader';
 import { RECENT_TAB_ID, SHOW_TAB_ID, type createWordbankStore } from '@/wordbank/store';
@@ -45,9 +45,29 @@ export function TextPanel(props: {
   function isOverridden(layer: string): boolean {
     return (props.textState.state.overrides[layer] ?? []).some((text) => !isBlank(text));
   }
+  // A full run of filled slots always ends in one spare field, so a next slot can be added.
+  function expandedCount(layer: string, overrides = props.textState.state.overrides[layer] ?? []) {
+    const filled = overrides.findIndex((text) => isBlank(text));
+    return Math.max(slotCount(layer), (filled === -1 ? overrides.length : filled) + 1);
+  }
   function visibleSlots(layer: string): number[] {
-    const count = expanded() ? slotCount(layer) : PINNED_SLOTS;
+    const count = expanded() ? expandedCount(layer) : PINNED_SLOTS;
     return Array.from({ length: count }, (_, i) => i);
+  }
+  function tabIntoHiddenSlot(event: KeyboardEvent, layer: string, fields: HTMLElement) {
+    const slot = focusedSlot();
+    if (event.key !== 'Tab' || event.shiftKey || slot === null) return;
+    const textareas = fields.querySelectorAll('textarea');
+    const current = textareas[slot];
+    const next = slot + 1;
+    if (!current || next < textareas.length) return;
+    // The focused field's draft is only applied on blur, so count it as filled already.
+    const withDraft = withSlot(props.textState.state.overrides[layer], slot, current.value);
+    if (next >= expandedCount(layer, withDraft)) return;
+    event.preventDefault();
+    current.blur();
+    setExpanded(true);
+    fields.querySelectorAll('textarea')[next]?.focus();
   }
 
   function resetSearch() {
@@ -103,7 +123,10 @@ export function TextPanel(props: {
       {/* `keyed` so switching layers remounts the fields and drops any draft. */}
       <Show when={selectedLayer()} keyed>
         {(layer) => (
-          <section class={styles.fields}>
+          <section
+            class={styles.fields}
+            onKeyDown={(event) => tabIntoHiddenSlot(event, layer, event.currentTarget)}
+          >
             <For each={visibleSlots(layer)}>
               {(slot) => (
                 <TextField
@@ -125,7 +148,7 @@ export function TextPanel(props: {
               )}
             </For>
             <div class={styles.fieldActions}>
-              <Show when={slotCount(layer) > PINNED_SLOTS}>
+              <Show when={expanded() || slotCount(layer) > PINNED_SLOTS}>
                 <button
                   type="button"
                   tabIndex={-1}
@@ -134,7 +157,7 @@ export function TextPanel(props: {
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => setExpanded((open) => !open)}
                 >
-                  {expanded() ? '▴ Fewer texts' : `▾ All texts (${slotCount(layer)})`}
+                  {expanded() ? '▴ Fewer texts' : '▾ All texts'}
                 </button>
               </Show>
               <button
