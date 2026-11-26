@@ -15,7 +15,7 @@ export interface ShowInfo {
 
 export type NamedValues = Record<Alias, string>;
 
-/** Each Layer's overrides by slot, keyed by layer id; `''` means "use the act text list". */
+/** Each Layer's overrides by slot, keyed by layer id; all `''` means "use the act text list". */
 export type LayerOverrides = Record<string, string[]>;
 
 export interface TextState {
@@ -47,11 +47,9 @@ export function namedValues(show: ShowInfo): NamedValues {
 }
 
 export function layerTextList(act: string[], overrides: string[]): string[] {
-  const length = Math.max(act.length, overrides.findLastIndex((text) => !isBlank(text)) + 1);
-  return Array.from({ length }, (_, i) => {
-    const override = overrides[i];
-    return override !== undefined && !isBlank(override) ? override : (act[i] ?? '');
-  });
+  const last = overrides.findLastIndex((text) => !isBlank(text));
+  if (last === -1) return act;
+  return overrides.slice(0, last + 1).map((text) => (isBlank(text) ? '' : text));
 }
 
 export function defaultTextState(): TextState {

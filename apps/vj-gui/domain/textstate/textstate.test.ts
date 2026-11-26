@@ -116,24 +116,24 @@ describe('namedValues', () => {
 describe('layerTextList', () => {
   const act = ['a', 'b', 'c'];
 
-  it('replaces only the overridden slot', () => {
-    expect(layerTextList(act, ['', 'X'])).toEqual(['a', 'X', 'c']);
+  it('is the overrides alone once any slot is overridden', () => {
+    expect(layerTextList(act, ['X'])).toEqual(['X']);
   });
 
-  it('falls back on a space-only override', () => {
-    expect(layerTextList(act, ['  '])).toEqual(act);
+  it('sends a blank slot between overrides as empty', () => {
+    expect(layerTextList(act, ['', 'X', '', 'Z'])).toEqual(['', 'X', '', 'Z']);
   });
 
-  it('runs past the end of the act to the last override', () => {
-    expect(layerTextList(act, ['', '', '', '', 'Z'])).toEqual(['a', 'b', 'c', '', 'Z']);
+  it('blanks a space-only slot between overrides', () => {
+    expect(layerTextList(act, ['X', '  ', 'Z'])).toEqual(['X', '', 'Z']);
   });
 
-  it('is the overrides alone when the act is empty', () => {
-    expect(layerTextList([], ['DJ X'])).toEqual(['DJ X']);
+  it('drops blank overrides after the last one', () => {
+    expect(layerTextList(act, ['X', 'Y', ' ', ''])).toEqual(['X', 'Y']);
   });
 
-  it('ignores blank overrides past the end of the act', () => {
-    expect(layerTextList(act, ['', '', '', ' '])).toEqual(act);
+  it('returns the act when every override is blank', () => {
+    expect(layerTextList(act, ['', '  '])).toEqual(act);
   });
 
   it('returns the act for empty overrides', () => {

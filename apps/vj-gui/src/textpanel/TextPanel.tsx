@@ -42,6 +42,9 @@ export function TextPanel(props: {
       overrides.findLastIndex((text) => !isBlank(text)) + 1,
     );
   }
+  function isOverridden(layer: string): boolean {
+    return (props.textState.state.overrides[layer] ?? []).some((text) => !isBlank(text));
+  }
   function visibleSlots(layer: string): number[] {
     const count = expanded() ? slotCount(layer) : PINNED_SLOTS;
     return Array.from({ length: count }, (_, i) => i);
@@ -106,7 +109,9 @@ export function TextPanel(props: {
                 <TextField
                   label={`Text ${slot + 1}`}
                   value={props.textState.state.overrides[layer]?.[slot] ?? ''}
-                  placeholder={actText()[slot] ?? `Text ${slot + 1}`}
+                  placeholder={
+                    (isOverridden(layer) ? undefined : actText()[slot]) ?? `Text ${slot + 1}`
+                  }
                   onApply={(text) => applyText(layer, slot, text)}
                   onClear={() => clearText(layer, slot)}
                   onSearch={setQuery}
