@@ -76,7 +76,7 @@ interface RosterArtist {
   active: boolean;
 }
 
-// Keeps the act text list identical, so every layer's slot-indexed overrides still point at the same text.
+// Keeps the act text list identical, so a layer showing it shows the same text after the migration.
 function artistRowsFromRoster(rows: ShowRow[], roster: RosterArtist[]): ShowRow[] {
   const named = roster.filter((artist) => !isBlank(artist.name));
   const result: ShowRow[] = [];
