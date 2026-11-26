@@ -1,15 +1,3 @@
-/**
- * Native HTML5 drag-and-drop payload helpers.
- *
- * Every text drag sets both `text/plain` (interop/debuggability) and a
- * custom mime carrying structured origin info. Drop targets key off the
- * custom mime, not `text/plain`, so a drag originating outside the app (a
- * browser selection, another window) is never accepted.
- *
- * The mime check and the reorder index maths this builds on are in
- * `@/ui/dnd` — the scene picker drags too, and they belong to neither.
- */
-
 import { hasDragMime } from '@/ui/dnd';
 
 export const TEXT_MIME = 'application/x-td-text';
@@ -26,6 +14,7 @@ export interface TextDragPayload {
 }
 
 export function setTextDragData(dataTransfer: DataTransfer, payload: TextDragPayload): void {
+  // `text/plain` is for interop only: drop targets key off the custom mime, so an outside drag is never accepted.
   dataTransfer.setData('text/plain', payload.text);
   dataTransfer.setData(TEXT_MIME, JSON.stringify(payload));
 }
