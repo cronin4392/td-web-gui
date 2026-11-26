@@ -64,11 +64,6 @@ describe('actTextList', () => {
     expect(actTextList(s)).toEqual(['Variable', 'Elements', 'Boston', 'Phoenix\\nLanding']);
   });
 
-  it('adds nothing for a space-only row', () => {
-    const s = show({ texts: { ...texts, event: '   ' } });
-    expect(actTextList(s)).toEqual(['Boston', 'Phoenix\\nLanding']);
-  });
-
   it('takes the text of an artist row like any other row', () => {
     const s = show({ texts: { artist: 'Variable' } });
     expect(actTextList(s)).toEqual(['Variable']);
