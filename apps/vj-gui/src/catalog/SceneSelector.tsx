@@ -178,7 +178,6 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
               <div
                 class={styles.cell}
                 data-hidden={scene.hidden}
-                data-dark={scene.dark}
                 // Filing a scene is the one tag action worth doing mid-set, and
                 // Chrome suppresses the click that follows a drag, so the tile
                 // stays a load target.
