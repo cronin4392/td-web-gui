@@ -64,7 +64,8 @@
     }
   }
 
-  .schemeActive {
+  .schemeActive,
+  .schemeActive:hover {
     border-color: var(--color-action);
     background: var(--color-selected);
   }
