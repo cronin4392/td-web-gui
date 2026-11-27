@@ -6,9 +6,6 @@
     --neon-blue: #2fdbe6;
     --neon-yellow: #ffd23f;
 
-    /* Hue says what a thing is; fill and opacity say what state it is in.
-       Cyan: you can press it. Red: names or frames it. Yellow: wants you.
-       White: content. A dimmed state keeps its hue. */
     --color-canvas: var(--black);
     --color-surface: var(--black);
     --color-overlay: rgb(0 0 0 / 60%);
@@ -23,7 +20,9 @@
     --color-action-dim: color-mix(in srgb, var(--neon-blue) 35%, transparent);
     --color-action-hover: color-mix(in srgb, var(--neon-blue) 15%, transparent);
     --color-attention: var(--neon-yellow);
-    --color-danger: var(--neon-red);
+    --color-danger: var(--neon-yellow);
+    --color-status-bad: var(--neon-red);
+    --color-inactive: color-mix(in srgb, var(--white) 40%, transparent);
 
     --spacing-s: 0.25rem;
     --spacing-m: 0.5rem;

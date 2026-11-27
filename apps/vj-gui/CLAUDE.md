@@ -53,6 +53,15 @@ feature is fair game the day Chrome ships it — `text-box`, `color-mix()`,
 This stops at this directory. `packages/td-core` and `apps/example` are
 published, and what they support is not this app's call.
 
+## Colour says what a thing is; fill says its state
+
+`src/styles/tokens.css` gives each hue one role: cyan is something you can
+press, red names or frames, yellow wants your attention (warnings and errors),
+white is content. State is shown by fill and opacity, never by switching hue.
+Components use the `--color-*` roles, never the palette primitives. The one
+exception is the Layer preview stats dot, which keeps the green/yellow/red
+traffic-light range (`--color-status-bad` is its red).
+
 ## The server is Vite plugins, not a separate service
 
 `server/*/**-api-plugin.ts` mount as Vite middleware (see `vite.config.ts`), so

@@ -73,8 +73,6 @@
     aspect-ratio: 16 / 9;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    /* Not the scene picker's `--color-surface`: the video is letterboxed by
-       `object-fit: contain`, and black is what belongs in the bars. */
     background: var(--color-canvas);
     text-align: left;
     cursor: pointer;
@@ -276,11 +274,11 @@
   }
 
   .bad {
-    background: var(--color-danger);
+    background: var(--color-status-bad);
   }
 
   .unknown {
-    background: var(--color-border);
+    background: var(--color-inactive);
   }
 
   .statLabel,
