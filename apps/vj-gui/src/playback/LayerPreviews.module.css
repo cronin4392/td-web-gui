@@ -188,7 +188,7 @@
     border-radius: var(--radius);
     background:
       linear-gradient(to top, var(--color-action) var(--level, 0%), transparent var(--level, 0%)),
-      var(--color-border);
+      var(--color-action-dim);
   }
 
   /* A grid rather than a row so the Clear button below can span both param
