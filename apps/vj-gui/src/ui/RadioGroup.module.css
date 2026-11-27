@@ -6,32 +6,16 @@
 
     &[data-direction='horizontal'] {
       grid-auto-flow: column;
-
-      & > *:first-child {
-        --radio-radius: var(--radius) 0 0 var(--radius);
-      }
-
-      & > *:last-child {
-        --radio-radius: 0 var(--radius) var(--radius) 0;
-      }
     }
 
     &[data-direction='vertical'] {
       grid-auto-flow: row;
-
-      & > *:first-child {
-        --radio-radius: var(--radius) var(--radius) 0 0;
-      }
-
-      & > *:last-child {
-        --radio-radius: 0 0 var(--radius) var(--radius);
-      }
     }
 
     /* Set on the child, whether that is the radio or a wrapper around one:
        custom properties inherit, so the pill inside reads it either way. */
-    &[data-direction] > *:only-child {
-      --radio-radius: var(--radius);
+    &[data-direction] > *:last-child {
+      --radio-radius: 0 0 var(--notch) 0;
     }
   }
 }

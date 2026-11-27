@@ -1,27 +1,28 @@
 @layer tokens {
   :root {
-    --gray-100: #f5f5f5;
-    --gray-400: #a3a3a3;
-    --gray-500: #737373;
-    --gray-700: #404040;
-    --gray-800: #262626;
+    --white: #f5f5f5;
     --black: #000000;
-    --blue-400: #60a5fa;
-    --red-400: #f87171;
+    --neon-red: #f0443d;
+    --neon-blue: #2fdbe6;
+    --neon-yellow: #ffd23f;
 
-    --color-text: var(--gray-100);
-    --color-text-muted: var(--gray-400);
-    --color-text-faint: var(--gray-500);
-    --color-surface: var(--gray-800);
     --color-canvas: var(--black);
+    --color-surface: var(--black);
     --color-overlay: rgb(0 0 0 / 60%);
-    --color-border: var(--gray-700);
-    --color-border-hover: var(--gray-500);
-    --color-accent: var(--blue-400);
-    /* Tinted surface, not a fill: the selected panel is the largest coloured area in
-       the GUI, and it carries the accent-coloured level bar and radios on top. */
-    --color-selected: color-mix(in oklab, var(--color-accent) 70%, var(--color-surface));
-    --color-danger: var(--red-400);
+    --color-text: var(--white);
+    --color-label: var(--neon-red);
+    --color-text-faint: color-mix(in srgb, var(--neon-red) 50%, transparent);
+    --color-border: var(--neon-red);
+    --color-border-hover: color-mix(in oklab, var(--neon-red) 65%, var(--white));
+    --color-hover: color-mix(in srgb, var(--neon-red) 20%, transparent);
+    --color-selected: color-mix(in srgb, var(--neon-blue) 20%, transparent);
+    --color-action: var(--neon-blue);
+    --color-action-dim: color-mix(in srgb, var(--neon-blue) 35%, transparent);
+    --color-action-hover: color-mix(in srgb, var(--neon-blue) 15%, transparent);
+    --color-attention: var(--neon-yellow);
+    --color-danger: var(--neon-yellow);
+    --color-status-bad: var(--neon-red);
+    --color-inactive: color-mix(in srgb, var(--white) 40%, transparent);
 
     --spacing-s: 0.25rem;
     --spacing-m: 0.5rem;
@@ -34,6 +35,8 @@
     --font-weight-normal: 200;
     --font-weight-bold: 500;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    --radius: 0.25rem;
+    --notch: 10px;
+    /* Hover fills snap on and linger off: pair with `transition: none` on :hover. */
+    --hover-fade: background-color 120ms ease-out 50ms, color 120ms ease-out 50ms;
   }
 }

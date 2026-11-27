@@ -40,6 +40,17 @@
 
     &[data-active='true'] {
       background-color: var(--color-selected);
+
+      .picture,
+      .picture:hover {
+        border-color: var(--color-action);
+        box-shadow: 0 0 0 1px var(--color-action);
+      }
+
+      .layerKey {
+        background: var(--color-action);
+        color: var(--color-canvas);
+      }
     }
   }
 
@@ -62,9 +73,6 @@
     aspect-ratio: 16 / 9;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    /* Not the scene picker's `--color-surface`: the video is letterboxed by
-       `object-fit: contain`, and black is what belongs in the bars. */
     background: var(--color-canvas);
     text-align: left;
     cursor: pointer;
@@ -174,10 +182,9 @@
   .level {
     width: 6px;
     flex-shrink: 0;
-    border-radius: var(--radius);
     background:
-      linear-gradient(to top, var(--color-accent) var(--level, 0%), transparent var(--level, 0%)),
-      var(--color-border);
+      linear-gradient(to top, var(--color-action) var(--level, 0%), transparent var(--level, 0%)),
+      var(--color-action-dim);
   }
 
   /* A grid rather than a row so the Clear button below can span both param
@@ -193,17 +200,20 @@
   .clear {
     grid-column: 1 / -1;
     padding: var(--spacing-m);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    border: 1px solid var(--color-attention);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-canvas);
     font-family: var(--font-mono);
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-attention);
     cursor: pointer;
+    transition: var(--hover-fade);
 
     &:hover {
-      border-color: var(--color-danger);
-      color: var(--color-danger);
+      background: var(--color-attention);
+      color: var(--color-canvas);
+      transition: none;
     }
   }
 
@@ -217,15 +227,17 @@
     width: 1.75rem;
     height: 1.75rem;
     place-items: center;
-    border-radius: var(--radius);
     background: var(--color-overlay);
     font-size: var(--text-l);
     line-height: 1;
-    color: var(--color-text);
+    color: var(--color-attention);
     cursor: pointer;
+    transition: var(--hover-fade);
 
     &:hover {
-      color: var(--color-danger);
+      background: var(--color-attention);
+      color: var(--color-canvas);
+      transition: none;
     }
   }
 
@@ -258,15 +270,15 @@
   }
 
   .warn {
-    background: #fbbf24;
+    background: var(--color-attention);
   }
 
   .bad {
-    background: var(--color-danger);
+    background: var(--color-status-bad);
   }
 
   .unknown {
-    background: var(--color-border);
+    background: var(--color-inactive);
   }
 
   .statLabel,

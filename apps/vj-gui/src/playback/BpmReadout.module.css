@@ -21,7 +21,7 @@
 
   .unit {
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-label);
   }
 
   /* Mirrors RadioGroup's horizontal strip and BeatPeriod's width floor. */
@@ -33,36 +33,33 @@
 
   .step {
     padding: var(--spacing-m);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-action-dim);
+    corner-shape: bevel;
     border-radius: 0;
     background: var(--color-canvas);
     font-family: var(--font-mono);
     font-size: var(--text-m);
     white-space: nowrap;
-    color: var(--color-text);
+    color: var(--color-action-dim);
     cursor: pointer;
 
-    &:first-child {
-      border-radius: var(--radius) 0 0 var(--radius);
-    }
-
-    &:last-child {
-      border-radius: 0 var(--radius) var(--radius) 0;
-    }
-
     &:hover:not(:disabled) {
-      background: var(--color-border);
-      border-color: var(--color-border-hover);
+      color: var(--color-action);
+      border-color: var(--color-action);
     }
 
     &:focus-visible {
-      outline: 2px solid var(--color-text);
+      outline: 2px solid var(--color-action);
       outline-offset: 2px;
     }
 
     &:disabled {
-      color: var(--color-text-faint);
+      opacity: 0.4;
       cursor: default;
     }
+  }
+
+  .step:last-child {
+    border-radius: 0 0 var(--notch) 0;
   }
 }

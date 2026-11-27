@@ -14,15 +14,14 @@
   .label {
     font-family: var(--font-mono);
     font-size: var(--text-s);
-    color: var(--color-text-muted);
+    color: var(--color-label);
     text-transform: uppercase;
   }
 
   .track {
     overflow: hidden;
     height: var(--spacing-m);
-    border-radius: var(--radius);
-    background: var(--color-canvas);
+    background: var(--color-action-dim);
   }
 
   .fill {
@@ -32,6 +31,6 @@
     /* Scaled rather than sized so a level arriving every frame stays off the
        layout path; the origin is what makes it grow rightward. */
     transform-origin: left;
-    background: var(--color-accent);
+    background: var(--color-action);
   }
 }

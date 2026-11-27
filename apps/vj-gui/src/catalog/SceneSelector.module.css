@@ -13,13 +13,14 @@
     height: var(--button-size);
     padding: 0 var(--spacing-m);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-size: var(--text-m);
     color: var(--color-text);
 
     &:focus-visible {
-      border-color: var(--color-border-hover);
+      border-color: var(--color-action);
     }
   }
 
@@ -55,7 +56,9 @@
     width: 100%;
     min-width: 0;
     padding: var(--spacing-s);
-    border: 1px solid var(--color-accent);
+    border: 1px solid var(--color-action);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-family: var(--font-mono);
     font-size: var(--text-m);
@@ -68,10 +71,12 @@
     padding: var(--spacing-s);
     font-size: var(--text-m);
     font-weight: var(--font-weight-bold);
-    color: var(--color-text-muted);
+    color: var(--color-action);
+    transition: var(--hover-fade);
 
     &:hover {
-      color: var(--color-text);
+      background: var(--color-action-hover);
+      transition: none;
     }
   }
 
@@ -102,22 +107,6 @@
     min-width: 0;
   }
 
-  /* A dark scene's thumbnail is near-black on transparency; the checkerboard
-     behind it (the tile goes transparent) makes the artwork readable, the way
-     Photoshop shows an alpha channel. */
-  .cell[data-dark='true'] {
-    border-radius: var(--radius);
-    background: repeating-conic-gradient(
-        var(--color-surface) 0deg 90deg,
-        var(--color-border) 90deg 180deg
-      )
-      0 0 / 16px 16px;
-  }
-
-  .cell[data-dark='true'] .tile {
-    background-color: transparent;
-  }
-
   .tile {
     position: relative;
     display: flex;
@@ -126,7 +115,6 @@
     align-items: flex-end;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
     background-color: var(--color-surface);
     background-size: cover;
     background-position: center;
@@ -168,6 +156,6 @@
     padding: var(--spacing-s);
     background: var(--color-overlay);
     font-size: var(--text-s);
-    color: var(--color-text);
+    color: var(--color-action);
   }
 }

@@ -18,7 +18,6 @@
     overflow: hidden;
   }
 
-  /* One rule for every panel, so the page's canvas shows through the gap. */
   .app > * {
     background-color: var(--color-surface);
   }
