@@ -13,7 +13,8 @@
     height: var(--button-size);
     padding: 0 var(--spacing-m);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-size: var(--text-m);
     color: var(--color-text);
@@ -56,6 +57,8 @@
     min-width: 0;
     padding: var(--spacing-s);
     border: 1px solid var(--color-action);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-family: var(--font-mono);
     font-size: var(--text-m);
@@ -69,9 +72,11 @@
     font-size: var(--text-m);
     font-weight: var(--font-weight-bold);
     color: var(--color-action);
+    transition: var(--hover-fade);
 
     &:hover {
       background: var(--color-action-hover);
+      transition: none;
     }
   }
 
@@ -106,7 +111,6 @@
      behind it (the tile goes transparent) makes the artwork readable, the way
      Photoshop shows an alpha channel. */
   .cell[data-dark='true'] {
-    border-radius: var(--radius);
     background: repeating-conic-gradient(
         var(--color-surface) 0deg 90deg,
         var(--color-border) 90deg 180deg
@@ -126,7 +130,6 @@
     align-items: flex-end;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
     background-color: var(--color-surface);
     background-size: cover;
     background-position: center;

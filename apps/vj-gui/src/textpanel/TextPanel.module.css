@@ -23,8 +23,14 @@
   .clearOverrides {
     padding: var(--spacing-s) var(--spacing-m);
     border: 1px solid currentcolor;
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     font-size: var(--text-s);
+    transition: var(--hover-fade);
+
+    &:hover {
+      transition: none;
+    }
   }
 
   .expand {

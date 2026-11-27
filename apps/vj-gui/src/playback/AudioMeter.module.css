@@ -21,7 +21,6 @@
   .track {
     overflow: hidden;
     height: var(--spacing-m);
-    border-radius: var(--radius);
     background: var(--color-canvas);
   }
 

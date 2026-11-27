@@ -11,7 +11,8 @@
     flex-shrink: 0;
     padding: var(--spacing-s) var(--spacing-m);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-size: var(--text-m);
     color: var(--color-text);
@@ -62,15 +63,18 @@
     min-width: 0;
     padding: var(--spacing-m);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-surface);
     font-size: var(--text-m);
     text-align: left;
     color: var(--color-action);
+    transition: var(--hover-fade);
 
     &:hover {
       border-color: var(--color-border-hover);
       background: var(--color-hover);
+      transition: none;
     }
 
     &:disabled {

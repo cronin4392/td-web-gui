@@ -36,6 +36,8 @@
     --font-weight-normal: 200;
     --font-weight-bold: 500;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    --radius: 0.25rem;
+    --notch: 10px;
+    /* Hover fills snap on and linger off: pair with `transition: none` on :hover. */
+    --hover-fade: background-color 120ms ease-out 50ms;
   }
 }

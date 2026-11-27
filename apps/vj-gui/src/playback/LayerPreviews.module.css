@@ -73,7 +73,6 @@
     aspect-ratio: 16 / 9;
     overflow: hidden;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
     /* Not the scene picker's `--color-surface`: the video is letterboxed by
        `object-fit: contain`, and black is what belongs in the bars. */
     background: var(--color-canvas);
@@ -185,7 +184,6 @@
   .level {
     width: 6px;
     flex-shrink: 0;
-    border-radius: var(--radius);
     background:
       linear-gradient(to top, var(--color-action) var(--level, 0%), transparent var(--level, 0%)),
       var(--color-action-dim);
@@ -205,16 +203,19 @@
     grid-column: 1 / -1;
     padding: var(--spacing-m);
     border: 1px solid var(--color-attention);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     background: var(--color-canvas);
     font-family: var(--font-mono);
     font-size: var(--text-s);
     color: var(--color-attention);
     cursor: pointer;
+    transition: var(--hover-fade);
 
     &:hover {
       background: var(--color-attention);
       color: var(--color-canvas);
+      transition: none;
     }
   }
 
@@ -228,16 +229,17 @@
     width: 1.75rem;
     height: 1.75rem;
     place-items: center;
-    border-radius: var(--radius);
     background: var(--color-overlay);
     font-size: var(--text-l);
     line-height: 1;
     color: var(--color-attention);
     cursor: pointer;
+    transition: var(--hover-fade);
 
     &:hover {
       background: var(--color-attention);
       color: var(--color-canvas);
+      transition: none;
     }
   }
 

@@ -39,13 +39,16 @@
     height: var(--button-size);
     place-items: center;
     border: 1px solid var(--color-action);
-    border-radius: var(--radius);
+    corner-shape: bevel;
+    border-radius: 0 0 var(--notch) 0;
     font-size: var(--text-m);
     line-height: 1;
     color: var(--color-action);
+    transition: var(--hover-fade);
 
     &:hover {
       background: var(--color-action-hover);
+      transition: none;
     }
 
     &:disabled {

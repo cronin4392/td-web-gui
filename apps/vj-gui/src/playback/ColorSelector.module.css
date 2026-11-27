@@ -44,12 +44,13 @@
     display: grid;
     padding: var(--spacing-s);
     border: 1px solid transparent;
-    border-radius: var(--radius);
     cursor: pointer;
+    transition: var(--hover-fade);
 
     &:hover {
       border-color: var(--color-border-hover);
       background: var(--color-hover);
+      transition: none;
     }
 
     &:focus-visible {
@@ -71,7 +72,6 @@
   .swatch {
     height: 1.5rem;
     border: 1px solid var(--color-border);
-    border-radius: var(--radius);
     /* Shows through wherever a stop's alpha is under 1, so a transparent ramp
        reads as transparent rather than as whatever sits behind the panel. */
     background-color: var(--color-surface);
