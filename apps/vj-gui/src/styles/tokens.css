@@ -18,7 +18,7 @@
     --color-border: var(--neon-red);
     --color-border-hover: color-mix(in oklab, var(--neon-red) 65%, var(--white));
     --color-hover: color-mix(in srgb, var(--neon-red) 20%, transparent);
-    --color-selected: color-mix(in srgb, var(--neon-red) 30%, transparent);
+    --color-selected: color-mix(in srgb, var(--neon-blue) 20%, transparent);
     --color-action: var(--neon-blue);
     --color-action-dim: color-mix(in srgb, var(--neon-blue) 35%, transparent);
     --color-action-hover: color-mix(in srgb, var(--neon-blue) 15%, transparent);

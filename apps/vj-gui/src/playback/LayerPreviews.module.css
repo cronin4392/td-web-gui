@@ -40,6 +40,17 @@
 
     &[data-active='true'] {
       background-color: var(--color-selected);
+
+      .picture,
+      .picture:hover {
+        border-color: var(--color-action);
+        box-shadow: 0 0 0 1px var(--color-action);
+      }
+
+      .layerKey {
+        background: var(--color-action);
+        color: var(--color-canvas);
+      }
     }
   }
 
