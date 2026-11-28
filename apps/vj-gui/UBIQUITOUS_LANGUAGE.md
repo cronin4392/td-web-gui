@@ -70,6 +70,26 @@ relative to `apps/vj-gui`.
 - Selecting a **Color scheme** writes its path and nothing else — the **Active scheme** is the only state, and every color TouchDesigner derives hangs off it.
 - A **Ramp** belongs to a **Color scheme** and never stands alone; it is what a scheme's swatch draws, and the only reason a scheme is recognisable at a glance.
 
+## Usage
+
+| Term            | Definition                                                                                                                  | Aliases to avoid                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Live mode**   | Whether usage is being tracked. Held in the dev server's memory, so it is off whenever the node process starts              | Recording, tracking mode, armed    |
+| **Show**        | One Live mode session. Turning Live mode on within an hour of the last Show ending continues that Show                      | Session, gig, set, night           |
+| **Span**        | One stored row: one Tox on one Layer, with one layout and one color, while the Layer is on                                  | Event, sample, segment             |
+| **Scheme span** | One stored row: one Color scheme active while at least one Layer is on                                                      | Color span, scheme event           |
+| **Play**        | Back-to-back Spans of the same Tox on the same Layer, joined across gaps of up to 10 s. Derived at query time, never stored | Use, run, appearance               |
+| **Usage score** | The decayed weight of an entry's Plays. Derived at query time, never stored                                                 | Popularity, play count, rank       |
+| **Idle pause**  | Tracking suspended after 5 minutes with no change; resumes on the next change                                               | Timeout, sleep, auto-off           |
+| **Usage sort**  | The picker mode that orders entries by Usage score, highest first, leaving unplayed ones in their usual order               | Popular, most played, sort by rank |
+
+- A **Layer** is on at `level >= 2/127`; a **Span** exists only while its **Layer** is on, and a change of **Tox**, layout or color while on ends one **Span** and opens the next.
+- A **Span** names its **Scene** or **Effect** by `name`, not by a key into a catalog: `data/usage.db` is its own database, so a **Sync** that prunes an entry leaves its history alone.
+- An **Idle pause** closes every **Span** and **Scheme span**; the row that reopens one after it is stored as `resumed`, which is how a **Tox** held through the pause stays one **Play**.
+- A **Play** and a **Usage score** are computed from **Spans** on every read. The Play gap, the minimum Play length and the half-life are query-time numbers; changing one rescores everything already recorded.
+- A **Usage score** decays by **Shows**, not days — the newest **Show** counts in full, one five **Shows** back counts half.
+- A **Usage sort** is not a **Rank**: the **Rank** is scanned from `meta.json`, the **Usage score** is earned. In the Scene picker the sort applies within the current **Tag**; in the Color picker, within the open **Color group**.
+
 ## Wordbank
 
 | Term            | Definition                                                                                                         | Aliases to avoid                   |
@@ -156,4 +176,5 @@ relative to `apps/vj-gui`.
 - **"Effect" collides with the `3 Effect` group folder.** That folder is one **Group** among several; every folder under the **Effect** root is an **Effect** regardless of which **Group** it sits in.
 - **"Library" vs "catalog" — resolved on the GUI side.** What was `library.ts`'s saved text/phrase state is now the **Wordbank** (`domain/wordbank/wordbank.ts`), a name **Catalog** no longer has to share. `sceneLibrary` is still the TouchDesigner-side table this project no longer reads; neither it nor the **Wordbank** is a **catalog** — use **catalog** only for the synced set of **Scenes** or **Effects**.
 - **The text wire names are TouchDesigner's, not this glossary's.** `textList` carries the **Layer text list**, and `textVars` — written to the TD table `table_show_info` — carries the **Named values**. They are TD's contract and stay as spelled; don't rename them to match, and don't name anything of this app's after them. Only `src/playback/wire.ts`, `td/scene-config.py` and `src/textstate/TextDelivery.tsx` (which looks the signals up) should spell them.
+- **"Show" means two things.** In the **Text state** it is the night's billing — **Show info**, a **Show row**, the **Show tab**. In usage it is one **Live mode** session, the `shows` table. Neither is derived from the other; say **Show info** when the text is meant.
 - **"Sync" runs in two directions.** Server-side `syncScenes` / `syncEffects` reconcile a database against disk; client-side `syncCatalog` / `syncEffectCatalog` ask the server to do that and return the result. Same word, opposite ends of the wire — keep the `*Catalog` suffix for the client-side pair.

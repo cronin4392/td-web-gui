@@ -9,7 +9,8 @@ overrides) that decides each layer's text, and a wordbank of phrases to apply to
 `UBIQUITOUS_LANGUAGE.md` in this directory is canonical. **Read it before naming
 anything.** Scene, Effect, Tox, Group, Layer, Loader, Catalog, Sync, Scan, Tag,
 Rank, Wordbank, Phrase list, Phrase, Recent, Show info, Text state, Text slot,
-Override, Apply, Pick, Text field, Layer preview — each has one meaning here, and the
+Override, Apply, Pick, Text field, Layer preview, Live mode, Show, Span, Play,
+Usage score — each has one meaning here, and the
 "Aliases to avoid" columns are the names that keep creeping back in.
 
 Its **Flagged ambiguities** section lists where the code still disagrees with

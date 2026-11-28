@@ -8,6 +8,7 @@ import {
 import type { Effect, EffectCatalog } from '@domain/catalog/effect';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
+import { createUsageSort } from '@/usage/createUsageSort';
 import { PickerToolbar } from './PickerToolbar';
 import { PanelHeader } from '@/ui/PanelHeader';
 import { createContextMenu, type MenuItems } from '@/ui/ContextMenu';
@@ -22,6 +23,7 @@ export function EffectSelector(): JSX.Element {
     load: loadTox,
   });
   const menu = createContextMenu();
+  const usage = createUsageSort('effect');
 
   const [search, setSearch] = createSignal('');
   const query = createMemo(() => search().trim().toLowerCase());
@@ -29,11 +31,12 @@ export function EffectSelector(): JSX.Element {
   const visibleEffects = createMemo(() => {
     const needle = query();
     const showHidden = picker.showHidden();
-    return picker
+    const visible = picker
       .catalog()
       .filter(
         (effect) => (showHidden || !effect.hidden) && effect.name.toLowerCase().includes(needle),
       );
+    return usage.sorted(visible, (effect) => effect.name);
   });
 
   /** Favorites are a second view of the same effects, not a slice taken out of
@@ -87,9 +90,11 @@ export function EffectSelector(): JSX.Element {
         <PickerToolbar
           refreshing={picker.refreshing()}
           showHidden={picker.showHidden()}
+          byUsage={usage.byUsage()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
           onToggleShowHidden={() => picker.toggleShowHidden()}
+          onToggleByUsage={() => usage.toggle()}
         />
       </PanelHeader>
 

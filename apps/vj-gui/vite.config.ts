@@ -7,6 +7,7 @@ import { vjGuiWordbankApiPlugin } from './server/wordbank/wordbank-api-plugin';
 import { vjGuiTextStateApiPlugin } from './server/textstate/textstate-api-plugin';
 import { vjGuiScenesApiPlugin } from './server/catalog/scenes-api-plugin';
 import { vjGuiThumbnailsPlugin } from './server/catalog/thumbnails-plugin';
+import { vjGuiUsageApiPlugin } from './server/usage/usage-api-plugin';
 
 loadDotEnv();
 
@@ -18,6 +19,7 @@ export default defineConfig({
     vjGuiScenesApiPlugin(),
     vjGuiEffectsApiPlugin(),
     vjGuiThumbnailsPlugin(),
+    vjGuiUsageApiPlugin(),
   ],
   resolve: {
     alias: {

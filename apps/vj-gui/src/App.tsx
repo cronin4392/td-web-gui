@@ -14,6 +14,8 @@ import { LayerPreviews } from './playback/LayerPreviews';
 import { SceneSelector } from './catalog/SceneSelector';
 import { TextPanel } from './textpanel/TextPanel';
 import { Tools } from './playback/Tools';
+import { LiveModeProvider } from './usage/LiveMode';
+import { UsageReporter } from './usage/UsageReporter';
 import styles from './App.module.css';
 
 export interface AppProps {
@@ -42,14 +44,17 @@ export function App(props: AppProps): JSX.Element {
     <InputProvider>
       <PlaybackProvider>
         <TextStateProvider store={textState}>
-          <RigClipboardHandler />
-          <main class={styles.app}>
-            <LayerPreviews class={styles.previews} />
-            <SceneSelector class={styles.scenes} />
-            <TextPanel wordbank={store} textState={textState} />
-            <EffectSelector />
-            <Tools />
-          </main>
+          <LiveModeProvider>
+            <RigClipboardHandler />
+            <UsageReporter />
+            <main class={styles.app}>
+              <LayerPreviews class={styles.previews} />
+              <SceneSelector class={styles.scenes} />
+              <TextPanel wordbank={store} textState={textState} />
+              <EffectSelector />
+              <Tools />
+            </main>
+          </LiveModeProvider>
         </TextStateProvider>
       </PlaybackProvider>
     </InputProvider>

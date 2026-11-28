@@ -5,9 +5,11 @@ import styles from './PickerToolbar.module.css';
 export function PickerToolbar(props: {
   refreshing: boolean;
   showHidden: boolean;
+  byUsage: boolean;
   error?: string;
   onRefresh: () => void;
   onToggleShowHidden: () => void;
+  onToggleByUsage: () => void;
 }): JSX.Element {
   return (
     <>
@@ -25,6 +27,13 @@ export function PickerToolbar(props: {
         onClick={() => props.onToggleShowHidden()}
       >
         ◉
+      </PanelHeaderButton>
+      <PanelHeaderButton
+        label={props.byUsage ? 'Stop sorting by usage' : 'Sort by usage'}
+        pressed={props.byUsage}
+        onClick={() => props.onToggleByUsage()}
+      >
+        ⇅
       </PanelHeaderButton>
     </>
   );

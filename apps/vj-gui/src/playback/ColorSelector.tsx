@@ -15,6 +15,7 @@
 
 import { createEffect, createSignal, For, Show, type JSX } from 'solid-js';
 import { colorStopsGradient } from '@/ui/gradient';
+import { createUsageSort } from '@/usage/createUsageSort';
 import { InputClient } from './clients';
 import { openColorGroup, parseColorGroups, schemesInGroup, type ColorGroup } from './colorSchemes';
 import styles from './ColorSelector.module.css';
@@ -25,6 +26,7 @@ export function ColorSelector(props: { class?: string }): JSX.Element {
   const [groups, setGroups] = createSignal<ColorGroup[]>([]);
   const [pickedGroup, setPickedGroup] = createSignal<string>();
   const tabRefs = new Map<string, HTMLButtonElement>();
+  const usage = createUsageSort('scheme');
 
   createEffect(() => {
     if (connection.status() !== 'synced') return;
@@ -37,7 +39,8 @@ export function ColorSelector(props: { class?: string }): JSX.Element {
   });
 
   const openGroup = () => openColorGroup(groups(), pickedGroup(), active.value());
-  const openSchemes = () => schemesInGroup(groups(), openGroup());
+  const openSchemes = () =>
+    usage.sorted(schemesInGroup(groups(), openGroup()), (scheme) => scheme.path);
 
   function onTabKeyDown(event: KeyboardEvent, name: string) {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
@@ -53,25 +56,37 @@ export function ColorSelector(props: { class?: string }): JSX.Element {
 
   return (
     <section class={[styles.schemes, props.class].filter(Boolean).join(' ')}>
-      <div role="tablist" aria-label="Color groups" class={styles.tabs}>
-        <For each={groups()}>
-          {(group) => (
-            <button
-              ref={(el) => tabRefs.set(group.name, el)}
-              type="button"
-              role="tab"
-              id={`color-group-${group.name}`}
-              aria-selected={openGroup() === group.name}
-              aria-controls="color-schemes"
-              tabIndex={openGroup() === group.name ? 0 : -1}
-              onClick={() => setPickedGroup(group.name)}
-              onKeyDown={(event) => onTabKeyDown(event, group.name)}
-              class={`${styles.tab} ${openGroup() === group.name ? styles.tabSelected : ''}`}
-            >
-              {group.name}
-            </button>
-          )}
-        </For>
+      <div class={styles.bar}>
+        <div role="tablist" aria-label="Color groups" class={styles.tabs}>
+          <For each={groups()}>
+            {(group) => (
+              <button
+                ref={(el) => tabRefs.set(group.name, el)}
+                type="button"
+                role="tab"
+                id={`color-group-${group.name}`}
+                aria-selected={openGroup() === group.name}
+                aria-controls="color-schemes"
+                tabIndex={openGroup() === group.name ? 0 : -1}
+                onClick={() => setPickedGroup(group.name)}
+                onKeyDown={(event) => onTabKeyDown(event, group.name)}
+                class={`${styles.tab} ${openGroup() === group.name ? styles.tabSelected : ''}`}
+              >
+                {group.name}
+              </button>
+            )}
+          </For>
+        </div>
+        <button
+          type="button"
+          class={styles.sort}
+          aria-label={usage.byUsage() ? 'Stop sorting by usage' : 'Sort by usage'}
+          title={usage.byUsage() ? 'Stop sorting by usage' : 'Sort by usage'}
+          aria-pressed={usage.byUsage()}
+          onClick={() => usage.toggle()}
+        >
+          ⇅
+        </button>
       </div>
 
       <div

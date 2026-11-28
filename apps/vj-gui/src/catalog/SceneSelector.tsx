@@ -12,6 +12,7 @@ import {
 import { emptyCatalog, type Catalog, type Scene } from '@domain/catalog/scene';
 import { createCatalogPicker } from './createCatalogPicker';
 import { usePlayback } from '@/playback/PlaybackProvider';
+import { createUsageSort } from '@/usage/createUsageSort';
 import { PickerToolbar } from './PickerToolbar';
 import { PanelHeader } from '@/ui/PanelHeader';
 import { RadioButton } from '@/ui/RadioButton';
@@ -35,6 +36,7 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     load: loadTox,
   });
   const menu = createContextMenu();
+  const usage = createUsageSort('scene');
 
   const scenes = () => picker.catalog().scenes;
 
@@ -55,12 +57,13 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
     const tag = selectedTag();
     const needle = query();
     const showHidden = picker.showHidden();
-    return scenes().filter(
+    const visible = scenes().filter(
       (scene) =>
         (showHidden || !scene.hidden) &&
         (tag === null || scene.tags.includes(tag)) &&
         scene.name.toLowerCase().includes(needle),
     );
+    return usage.sorted(visible, (scene) => scene.name);
   });
 
   const [renaming, setRenaming] = createSignal<string | null>(null);
@@ -160,9 +163,11 @@ export function SceneSelector(props: { class?: string }): JSX.Element {
         <PickerToolbar
           refreshing={picker.refreshing()}
           showHidden={picker.showHidden()}
+          byUsage={usage.byUsage()}
           error={picker.error()}
           onRefresh={() => void picker.refresh()}
           onToggleShowHidden={() => picker.toggleShowHidden()}
+          onToggleByUsage={() => usage.toggle()}
         />
       </PanelHeader>
 

@@ -1,4 +1,5 @@
 import type { JsonValue, SelectOption } from 'td-core';
+import { toxName } from '@domain/catalog/tox';
 import { host, layerIds, type LayerId, type TDInstanceConfig } from './layers';
 
 /**
@@ -233,10 +234,7 @@ export function activeSceneFolder(path: string | undefined): string | undefined 
  * from it by the same split, so there is nothing to learn by asking twice.
  */
 export function activeSceneName(path: string | undefined): string | undefined {
-  if (!path) return undefined;
-  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  const file = path.slice(cut + 1);
-  return file ? file.replace(/\.tox$/i, '') : undefined;
+  return toxName(path);
 }
 
 /** One stat out of the `performance` table by its TD row name (`fps`,
