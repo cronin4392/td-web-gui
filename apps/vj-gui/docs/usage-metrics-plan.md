@@ -4,7 +4,7 @@ Track how long each Scene, Effect and Color scheme is actually on during a
 performance, so the pickers can sort by how much they get used — all-time, with
 recent Shows weighted higher so a new favourite ranks high quickly.
 
-Status: agreed, not started.
+Status: implemented.
 
 Nothing on the TouchDesigner side or in `td-core` changes. Every value this
 needs is already on the wire: each Loader's `level`, `activeScene`, `layout`
@@ -12,7 +12,7 @@ and `color`, and the Input project's `activeColorScheme`.
 
 ## Terms
 
-Add these to `UBIQUITOUS_LANGUAGE.md` when the feature lands.
+These are in `UBIQUITOUS_LANGUAGE.md`, which is now the canonical copy.
 
 | Term            | Definition                                                                                                                  |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -34,8 +34,9 @@ as off, guarding against a controller that sticks just short of the bottom.
   changes while it is on — a change while on also opens the next Span at once.
 - Changes made while a Layer is off — loads, layout, color — record nothing.
 - The 15 s heartbeat only extends the open Span's `ended_at`. It never adds a row.
-- A Tox under neither `VJ_SCENES_ROOT` nor `VJ_EFFECTS_ROOT` (the blank Tox,
-  anything else) is not tracked.
+- A Tox under neither `VJ_SCENES_ROOT` nor `VJ_EFFECTS_ROOT` is not tracked.
+  Nor is the Loader's blank Tox, `0Blank`: it sits under the scenes root, so it
+  is left out by name.
 - Z layers are recorded like any other Layer. They still report a layout and a
   color (`normal`/`normal`); only the GUI hides them.
 
@@ -67,13 +68,28 @@ Play durations count on-time only, not the gaps: Play 1 is 3:24, Play 2 is
 After 5 minutes with no change, every open Span and Scheme span closes at the
 5-minute mark (those 5 minutes count), and nothing is written until the next
 change opens fresh ones. A change is: a load, a `level` move of at least one
-MIDI step (1/127), a layout, color or Color scheme change. The Play query joins
-a Tox that stayed on through the pause back into one Play.
+MIDI step (1/127), a layout, color or Color scheme change.
+
+A fresh row that reopens what the pause closed — the same Tox on the same Layer,
+or the same Color scheme — is written with `resumed = 1`, and the Play query
+joins it back into one Play however long the pause ran. Only the first report
+after the pause can set it: a Tox that had gone off by then and came back later
+starts a new Play, and so does one whose reports were lost during the pause.
+The flag is written rather than inferred because the rows alone cannot tell a
+pause from a fade-out.
 
 ### Lost reports
 
-If no report arrives for 30 s (tab closed, browser crashed), open spans end at
-the last report.
+If no report arrives for 90 s (tab closed, browser crashed), open spans end at
+the last report. Not 30 s: Chrome throttles a hidden page's timers to one a
+minute, and a late heartbeat must not read as a lost one.
+
+A report says what one page can see. A Layer it leaves out, or an empty Color
+scheme, is a Loader that page has not synced yet — no information, not "off" —
+so its row is neither extended nor closed, and ends at the last report that
+mentioned it once that is 90 s old. This is what keeps a page reload, a Loader
+that drops for a moment, or a second tab with fewer Loaders connected from
+splitting rows.
 
 ## What is fixed at write time vs. tunable later
 
@@ -82,7 +98,7 @@ the last report.
 | Off level (2/127)             | Play gap (10 s)                                             |
 | What splits a Span            | Minimum Play length (3 s)                                   |
 | Idle pause (5 min)            | Minimum Color scheme use (10 s)                             |
-|                               | Half-life (5 Shows)                                         |
+| Which rows are `resumed`      | Half-life (5 Shows)                                         |
 
 ## Storage: `data/usage.db`
 
@@ -107,7 +123,8 @@ CREATE TABLE spans (
   layout     TEXT NOT NULL,
   color      TEXT NOT NULL,
   started_at INTEGER NOT NULL,
-  ended_at   INTEGER NOT NULL
+  ended_at   INTEGER NOT NULL,
+  resumed    INTEGER NOT NULL DEFAULT 0  -- 1: reopens the row an Idle pause closed
 );
 CREATE INDEX spans_by_entry ON spans (kind, name);
 CREATE TABLE scheme_spans (
@@ -115,7 +132,8 @@ CREATE TABLE scheme_spans (
   show_id    INTEGER NOT NULL REFERENCES shows(id),
   path       TEXT NOT NULL,     -- the Color scheme's identity on the wire
   started_at INTEGER NOT NULL,
-  ended_at   INTEGER NOT NULL
+  ended_at   INTEGER NOT NULL,
+  resumed    INTEGER NOT NULL DEFAULT 0
 );
 ```
 
@@ -142,7 +160,8 @@ stays manual like the rest. The repo being public is accepted.
   or close. Classifies scene vs effect by matching `activeScene` against the
   two content roots (which never reach the browser), and derives the name the
   same way `activeSceneName` does. Reports carry state, not events, so two open
-  tabs sending the same report produce one Span.
+  tabs sending the same report produce one Span — and a tab that turns Live
+  mode on is followed by every other open tab, which poll `GET /live`.
 - **`usage-api-plugin.ts`** — mounted in `vite.config.ts`.
 
 | Route                    | Does                                                             |
@@ -160,18 +179,21 @@ writes.
 Pure functions, tested on their own.
 
 ```
-play value = 1 + log2(1 + minutes on)
+play value = minutes on
 weight     = play value × 0.5^(shows ago / half-life)
 score      = Σ weight over Plays of at least 3 s
 ```
 
-- Every Play is worth at least 1, so many quick hits still rank high; longer
-  Plays count for more, with diminishing returns.
+- A score is time on and nothing else: two Plays of 10 s score the same as one
+  of 20 s, so an entry reached for often does not outrank one left up for as
+  long. `playValue` is the one function to change to weigh Plays differently —
+  the Plays are still derived, so a per-Play bonus or diminishing returns can
+  come back without touching what is stored.
 - "Shows ago" counts Shows, not days — the newest Show is 0 — so a month off
   doesn't fade everything.
 - SQL joins Spans into Plays (`LAG()` over `(layer, kind, name)` ordered by
-  `started_at`, gap ≤ 10 s) and tags each with its Show index; TypeScript
-  applies the formula.
+  `started_at`, gap ≤ 10 s or `resumed`) and tags each with its Show index;
+  TypeScript applies the formula.
 - Scheme spans score the same way: spans of one Color scheme join across gaps
   of up to 10 s, counting on-time only. Their minimum is **10 s**, not 3 s, so
   flipping through schemes to find one doesn't credit the ones passed over —
