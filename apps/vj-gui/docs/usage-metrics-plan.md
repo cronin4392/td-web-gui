@@ -170,6 +170,7 @@ stays manual like the rest. The repo being public is accepted.
 | `POST /api/usage/live`   | `{ on }` — turns Live mode on/off, starting or continuing a Show |
 | `POST /api/usage/report` | `{ layers, activeColorScheme }` — ignored while Live mode is off |
 | `GET /api/usage/scores`  | `?kind=scene\|effect\|scheme` → `{ [name or path]: score }`      |
+| `GET /api/usage/layers`  | `{ [layer]: [{ kind, name, score }] }`, each Layer ranked        |
 
 A second dev server sharing the database starts with Live mode off, so it never
 writes.
@@ -217,6 +218,11 @@ score      = Σ weight over Plays of at least 3 s
 - **A Usage sort mode** in the Scene picker (beside Rank, within the current
   Tag), the Effect picker (beside name order) and the Color picker (within each
   Color group tab). Scores are fetched when a picker opens.
+- **Usage by layer** — a dialog opened from the Tools header: one column per
+  Layer, one row per rank, each cell the Scene or Effect holding that rank on
+  that Layer with its score in decayed minutes. Scored per Layer, so the same
+  Scene can rank first on one Layer and last on another. A Z layer gets a column
+  only once something has played on it.
 
 ## Tests
 

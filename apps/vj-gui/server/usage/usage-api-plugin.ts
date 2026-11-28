@@ -10,7 +10,15 @@ import { checkpointWal, transaction } from '../platform/catalog-db';
 import { optionalEnv } from '../platform/env';
 import { readBody, routePath, sendError, sendJson, sqliteApiPlugin } from '../platform/api-plugin';
 import { createTracker, type ContentRoots, type Tracker } from './tracker';
-import { extendShow, openUsageDb, readScores, spanSink, startShow, usageDbPath } from './usage-db';
+import {
+  extendShow,
+  openUsageDb,
+  readLayerScores,
+  readScores,
+  spanSink,
+  startShow,
+  usageDbPath,
+} from './usage-db';
 
 const ROUTE = '/api/usage';
 
@@ -116,6 +124,11 @@ export function usageApiHandler(
         return;
       }
       respond(() => readScores(getDb(), kind));
+      return;
+    }
+
+    if (path === '/layers' && req.method === 'GET') {
+      respond(() => readLayerScores(getDb()));
       return;
     }
 

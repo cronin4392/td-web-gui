@@ -73,6 +73,30 @@ export function isLiveStatus(x: unknown): x is LiveStatus {
   return typeof s.on === 'boolean' && typeof s.paused === 'boolean';
 }
 
+export interface LayerEntry {
+  kind: ToxKind;
+  name: string;
+  score: number;
+}
+
+/** Each Layer's own entries, highest Usage score first. */
+export type LayerScores = Record<string, LayerEntry[]>;
+
+function isLayerEntry(x: unknown): x is LayerEntry {
+  if (typeof x !== 'object' || x === null) return false;
+  const e = x as Record<string, unknown>;
+  return (
+    (e.kind === 'scene' || e.kind === 'effect') &&
+    typeof e.name === 'string' &&
+    typeof e.score === 'number'
+  );
+}
+
+export function isLayerScores(x: unknown): x is LayerScores {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
+  return Object.values(x).every((v) => Array.isArray(v) && v.every(isLayerEntry));
+}
+
 export function isUsageScores(x: unknown): x is UsageScores {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
   return Object.values(x).every((v) => typeof v === 'number');

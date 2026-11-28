@@ -5,7 +5,14 @@ import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { IDLE_PAUSE_MS, SHOW_CONTINUES_WITHIN_MS } from '../../domain/usage/usage';
-import { openUsageDb, readPlays, readScores, spanSink, startShow } from './usage-db';
+import {
+  openUsageDb,
+  readLayerScores,
+  readPlays,
+  readScores,
+  spanSink,
+  startShow,
+} from './usage-db';
 import type { SpanFields, SpanSink } from './tracker';
 
 const SECOND = 1_000;
@@ -134,6 +141,35 @@ describe('readScores', () => {
     span({ name: 'Y' }, 2 * MINUTE, 2 * MINUTE + SECOND);
 
     expect(readScores(db, 'scene')).toEqual({ X: 1 });
+  });
+});
+
+describe('readLayerScores', () => {
+  it('ranks each Layer’s own Scenes and Effects by time on that Layer', () => {
+    span({}, 0, MINUTE);
+    span({ name: 'Y' }, 2 * MINUTE, 5 * MINUTE);
+    span({ kind: 'effect', name: 'Blur' }, 6 * MINUTE, 8 * MINUTE);
+    span({ layer: 'B' }, 0, 4 * MINUTE);
+    span({ layer: 'B', name: 'Y' }, 5 * MINUTE, 5 * MINUTE + SECOND);
+
+    expect(readLayerScores(db)).toEqual({
+      A: [
+        { kind: 'scene', name: 'Y', score: 3 },
+        { kind: 'effect', name: 'Blur', score: 2 },
+        { kind: 'scene', name: 'X', score: 1 },
+      ],
+      B: [{ kind: 'scene', name: 'X', score: 4 }],
+    });
+  });
+
+  it('keeps a Scene and an Effect of the same name apart', () => {
+    span({}, 0, MINUTE);
+    span({ kind: 'effect' }, 2 * MINUTE, 4 * MINUTE);
+
+    expect(readLayerScores(db).A).toEqual([
+      { kind: 'effect', name: 'X', score: 2 },
+      { kind: 'scene', name: 'X', score: 1 },
+    ]);
   });
 });
 

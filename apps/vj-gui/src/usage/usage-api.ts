@@ -1,6 +1,8 @@
 import {
+  isLayerScores,
   isLiveStatus,
   isUsageScores,
+  type LayerScores,
   type LiveStatus,
   type UsageKind,
   type UsageReport,
@@ -52,6 +54,19 @@ export async function fetchScores(kind: UsageKind): Promise<UsageScores> {
     return body;
   } catch (err) {
     console.warn(`[vj-gui] failed to load ${kind} usage scores`, err);
+    return {};
+  }
+}
+
+export async function fetchLayerScores(): Promise<LayerScores> {
+  try {
+    const res = await fetch(`${ENDPOINT}/layers`);
+    if (!res.ok) throw new Error(`GET layers -> ${res.status}`);
+    const body: unknown = await res.json();
+    if (!isLayerScores(body)) throw new Error('response failed shape validation');
+    return body;
+  } catch (err) {
+    console.warn('[vj-gui] failed to load usage by layer', err);
     return {};
   }
 }

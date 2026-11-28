@@ -138,6 +138,16 @@ describe('usageApiHandler', () => {
     });
   });
 
+  it('answers each Layer’s entries, ranked', async () => {
+    await post('/live', { on: true });
+    await holdOn(0, MINUTE);
+    await post('/report', OFF, MINUTE);
+
+    expect(JSON.parse(callHandler(handler, 'GET', '/layers').body)).toEqual({
+      A: [{ kind: 'scene', name: 'X', score: 1 }],
+    });
+  });
+
   it('refuses scores for an unknown kind', () => {
     expect(callHandler(handler, 'GET', '/scores?kind=layer').status).toBe(400);
     expect(callHandler(handler, 'GET', '/scores').status).toBe(400);

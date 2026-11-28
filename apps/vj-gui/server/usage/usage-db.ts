@@ -9,6 +9,7 @@ import {
 import {
   SHOW_CONTINUES_WITHIN_MS,
   type ToxKind,
+  type LayerScores,
   type UsageKind,
   type UsageScores,
 } from '../../domain/usage/usage';
@@ -168,13 +169,17 @@ const toxPlaysSql = (kind: ToxKind) =>
     key: 'name',
   });
 const SCHEME_USES_SQL = playsSql({ from: 'scheme_spans', partition: 'path', key: 'path' });
+const LAYER_PLAYS_SQL = playsSql({
+  from: 'spans',
+  partition: 'layer, kind, name',
+  key: 'json_array(layer, kind, name)',
+});
 
 export interface PlayQuery {
   gapMs?: number;
 }
 
-export function readPlays(db: DatabaseSync, kind: UsageKind, query: PlayQuery = {}): Play[] {
-  const sql = kind === 'scheme' ? SCHEME_USES_SQL : toxPlaysSql(kind);
+function playsFrom(db: DatabaseSync, sql: string, query: PlayQuery): Play[] {
   const rows = db.prepare(sql).all({ $gap: query.gapMs ?? PLAY_GAP_MS });
   return rows.map((row) => ({
     key: String(row.key),
@@ -183,8 +188,25 @@ export function readPlays(db: DatabaseSync, kind: UsageKind, query: PlayQuery = 
   }));
 }
 
+export function readPlays(db: DatabaseSync, kind: UsageKind, query: PlayQuery = {}): Play[] {
+  return playsFrom(db, kind === 'scheme' ? SCHEME_USES_SQL : toxPlaysSql(kind), query);
+}
+
 export function readScores(db: DatabaseSync, kind: UsageKind): UsageScores {
   return usageScores(readPlays(db, kind), {
     minMs: kind === 'scheme' ? MIN_SCHEME_USE_MS : MIN_PLAY_MS,
   });
+}
+
+export function readLayerScores(db: DatabaseSync): LayerScores {
+  const scores = usageScores(playsFrom(db, LAYER_PLAYS_SQL, {}), { minMs: MIN_PLAY_MS });
+  const layers: LayerScores = {};
+  for (const [key, score] of Object.entries(scores)) {
+    const [layer, kind, name] = JSON.parse(key) as [string, ToxKind, string];
+    (layers[layer] ??= []).push({ kind, name, score });
+  }
+  for (const entries of Object.values(layers)) {
+    entries.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  }
+  return layers;
 }
